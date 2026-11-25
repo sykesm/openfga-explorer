@@ -1,0 +1,12 @@
+[
+  {"user": "user:anne", "relation": "admin", "object": "organization:acme"},
+  {"user": "group:eng#member", "relation": "member", "object": "organization:acme"},
+  {"user": "user:bob", "relation": "member", "object": "group:eng"},
+  {"user": "organization:acme", "relation": "org", "object": "folder:handbooks"},
+  {"user": "folder:handbooks", "relation": "parent", "object": "document:onboarding"},
+  {"user": "user:carol", "relation": "owner", "object": "document:onboarding"},
+  {"user": "user:dana", "relation": "viewer", "object": "document:offsite", "condition": {"name": "business_hours"}},
+  {"user": "group:auditors#member", "relation": "auditor", "object": "audit_policy:sox"},
+  {"user": "user:erin", "relation": "member", "object": "group:auditors"},
+  {"user": "audit_policy:sox", "relation": "policy", "object": "document:onboarding"}
+]

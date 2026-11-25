@@ -1,0 +1,11 @@
+module compliance
+
+type audit_policy
+  relations
+    define auditor: [user, group#member]
+
+extend type document
+  relations
+    define policy: [audit_policy]
+    define can_audit: auditor from policy
+    define can_view: viewer or can_audit

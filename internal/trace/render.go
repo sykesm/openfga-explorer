@@ -1,0 +1,435 @@
+package trace
+
+import (
+	"encoding/json"
+	"fmt"
+	"strings"
+)
+
+// Line is one row of the textual trace.
+type Line struct {
+	Prefix string
+	// Cont is the prefix for continuation lines (details) under this line.
+	Cont    string
+	Outcome Outcome
+	// Link describes how this node was reached from its parent.
+	Link     string
+	Label    string
+	Kind     Kind
+	Detail   string
+	Cond     string
+	Server   *ServerVerdict
+	NodeID   int
+	Repeat   bool // already shown above
+	Blocking bool
+	Probe    bool
+	Object   string
+	Relation string
+}
+
+// Icon returns a glyph for an outcome.
+func Icon(o Outcome) string {
+	switch o {
+	case Allowed:
+		return "✓"
+	case Denied:
+		return "✗"
+	case Unknown:
+		return "?"
+	case Errored:
+		return "!"
+	default:
+		return "·"
+	}
+}
+
+// Lines renders the trace as an indented tree.
+func (t *Trace) Lines() []Line {
+	var out []Line
+	shown := map[int]bool{}
+	var walk func(n *Node, l *Link, prefix, childPrefix string)
+	walk = func(n *Node, l *Link, prefix, childPrefix string) {
+		line := Line{Prefix: prefix, Outcome: n.Outcome, Label: n.Label, Kind: n.Kind, NodeID: n.ID, Server: n.Server, Object: n.Object, Relation: n.Relation}
+		if l != nil {
+			line.Outcome = l.Outcome
+			line.Link = l.Label
+			if l.Role == "subtract" && !strings.HasPrefix(l.Label, "but not") {
+				line.Link = "but not"
+			}
+			if l.Tuple != nil {
+				line.Link += " " + l.Tuple.String()
+				if l.Tuple.Contextual {
+					line.Link += " (contextual)"
+				}
+			}
+			if l.Cond != nil {
+				line.Cond = l.Cond.Summary()
+			}
+			line.Blocking, line.Probe = l.Blocking, l.Probe
+		}
+		switch {
+		case n.Kind == KindSubject:
+			line.Detail = "the user"
+			if strings.HasSuffix(n.Label, ":*") {
+				line.Detail = "public wildcard"
+			}
+		case shown[n.ID] && n.Kind == KindRelation:
+			line.Repeat = true
+			line.Detail = "evaluated above"
+		default:
+			d := []string{}
+			if n.Op != "" || n.Kind == KindRelation {
+				if n.Expr != "" {
+					d = append(d, "= "+n.Expr)
+				}
+			}
+			if n.Reason != "" {
+				d = append(d, n.Reason)
+			}
+			if n.Truncated != nil {
+				d = append(d, n.Truncated.Summary())
+			}
+			if n.Outcome != Denied || (n.Kind != KindDirect && n.Kind != KindRelation) {
+				d = append(d, n.Notes...)
+			}
+			line.Detail = strings.Join(d, " · ")
+		}
+		line.Cont = childPrefix + "   "
+		if !line.Repeat && n.Kind != KindSubject && len(n.Children) > 0 {
+			line.Cont = childPrefix + "│  "
+		}
+		out = append(out, line)
+		if line.Repeat || n.Kind == KindSubject {
+			return
+		}
+		shown[n.ID] = true
+		for i, c := range n.Children {
+			last := i == len(n.Children)-1
+			p, cp := childPrefix+"├─ ", childPrefix+"│  "
+			if last {
+				p, cp = childPrefix+"└─ ", childPrefix+"   "
+			}
+			walk(c.Node, c, p, cp)
+		}
+	}
+	walk(t.Root, nil, "", "")
+	return out
+}
+
+// Text renders the trace as plain text.
+func (t *Trace) Text() string {
+	var b strings.Builder
+	for _, l := range t.Lines() {
+		b.WriteString(l.Prefix)
+		b.WriteString(Icon(l.Outcome))
+		b.WriteString(" ")
+		if l.Link != "" {
+			b.WriteString("[" + l.Link + "] ")
+		}
+		b.WriteString(l.Label)
+		if l.Cond != "" {
+			b.WriteString(" {" + l.Cond + "}")
+		}
+		if l.Detail != "" {
+			b.WriteString("  — " + l.Detail)
+		}
+		if l.Server != nil {
+			switch {
+			case l.Server.Err != "":
+				b.WriteString("  [server error: " + l.Server.Err + "]")
+			case l.Server.Mismatch:
+				b.WriteString(fmt.Sprintf("  [MISMATCH: server says allowed=%v]", l.Server.Allowed))
+			}
+		}
+		b.WriteString("\n")
+	}
+	return b.String()
+}
+
+// Element is a Cytoscape.js element.
+type Element struct {
+	Group   string         `json:"group"`
+	Data    map[string]any `json:"data"`
+	Classes string         `json:"classes,omitempty"`
+}
+
+// GraphStep is an animation step in Cytoscape element IDs.
+type GraphStep struct {
+	Phase   Phase   `json:"phase"`
+	Node    string  `json:"node"`
+	From    string  `json:"from,omitempty"`
+	Outcome Outcome `json:"outcome,omitempty"`
+}
+
+// Graph is the trace in Cytoscape.js form.
+type Graph struct {
+	Elements []Element   `json:"elements"`
+	Steps    []GraphStep `json:"steps"`
+	Root     string      `json:"root"`
+	// Folds group failed sibling branches; the browser applies them unless
+	// the viewer turned folding off.
+	Folds []Fold `json:"folds,omitempty"`
+}
+
+func nid(id int) string { return fmt.Sprintf("n%d", id) }
+
+// Graph converts the trace into Cytoscape.js elements plus an animation timeline.
+func (t *Trace) Graph() *Graph {
+	g := &Graph{Root: nid(t.Root.ID)}
+	seen := map[int]bool{}
+	edgeN := 0
+	var visit func(n *Node)
+	visit = func(n *Node) {
+		if seen[n.ID] {
+			return
+		}
+		seen[n.ID] = true
+		label := n.Label
+		if n.Kind == KindRelation || n.Kind == KindCycle {
+			label = n.Object + "\n#" + n.Relation
+		}
+		if n.Kind == KindDirect {
+			label = "direct tuples"
+		}
+		if n.Op != "" {
+			label += "\n" + map[Kind]string{KindUnion: "∪", KindIntersection: "∩", KindExclusion: "∖"}[n.Op]
+		}
+		data := map[string]any{
+			"id": nid(n.ID), "label": label, "short": shortLabel(n), "kind": string(n.Kind), "outcome": string(n.Outcome),
+			"reason": n.Reason, "expr": firstNonEmpty(n.Expr, strings.TrimPrefix(n.Label, "direct ")), "object": n.Object, "relation": n.Relation,
+			"notes": strings.Join(n.Notes, "\n"),
+		}
+		classes := []string{string(n.Kind), string(n.Outcome)}
+		if n.Hint != "" {
+			data["hint"] = string(n.Hint)
+			classes = append(classes, "hint-"+string(n.Hint))
+		}
+		if len(n.Checked) > 0 {
+			var cs []map[string]any
+			for _, c := range n.Checked {
+				m := map[string]any{"object": c.Object, "relation": c.Relation}
+				if c.Known {
+					m["allowed"] = c.Allowed
+				}
+				cs = append(cs, m)
+			}
+			data["checks"] = cs
+		}
+		if n.Server != nil {
+			data["server"] = n.Server.Allowed
+			if n.Server.Err != "" {
+				data["serverErr"] = n.Server.Err
+			}
+			if n.Server.Mismatch {
+				classes = append(classes, "mismatch")
+			}
+		}
+		if n == t.Root {
+			classes = append(classes, "root")
+		}
+		g.Elements = append(g.Elements, Element{Group: "nodes", Data: data, Classes: strings.Join(classes, " ")})
+		for _, c := range n.Children {
+			edgeN++
+			ed := map[string]any{
+				"id": fmt.Sprintf("e%d", edgeN), "source": nid(n.ID), "target": nid(c.Node.ID),
+				"label": c.Label, "outcome": string(c.Outcome),
+			}
+			if c.Tuple != nil {
+				ed["tuple"] = c.Tuple.String()
+				if c.Tuple.Contextual {
+					ed["contextual"] = true
+				}
+			}
+			if c.Cond != nil {
+				ed["cond"] = c.Cond.Summary()
+				ed["label"] = c.Label + " [" + c.Cond.Name + "]"
+			}
+			cls := []string{string(c.Outcome)}
+			if c.Blocking {
+				cls = append(cls, "blocking")
+			}
+			if c.Probe {
+				cls = append(cls, "probe")
+			}
+			if c.Role != "" {
+				cls = append(cls, c.Role)
+			}
+			g.Elements = append(g.Elements, Element{Group: "edges", Data: ed, Classes: strings.Join(cls, " ")})
+			visit(c.Node)
+		}
+		if tr := n.Truncated; tr != nil {
+			id := nid(n.ID) + "-more"
+			g.Elements = append(g.Elements,
+				Element{Group: "nodes", Data: map[string]any{
+					"id": id, "label": tr.Summary(), "kind": "more",
+					"object": tr.Object, "relation": tr.Relation,
+				}, Classes: "more"},
+				Element{Group: "edges", Data: map[string]any{"id": id + "-e", "source": nid(n.ID), "target": id, "label": "…"}, Classes: "more"},
+			)
+		}
+	}
+	visit(t.Root)
+	for _, s := range t.Steps {
+		gs := GraphStep{Phase: s.Phase, Node: nid(s.Node), Outcome: s.Outcome}
+		if s.Phase == Traverse {
+			gs.From = nid(s.From)
+		}
+		g.Steps = append(g.Steps, gs)
+	}
+	g.markGrantingPath()
+	g.Folds = g.folds(FoldMin)
+	return g
+}
+
+func firstNonEmpty(a, b string) string {
+	if a != "" {
+		return a
+	}
+	return b
+}
+
+// GrantingTuples counts the distinct tuples that end a granting path: tuples
+// that reach the user (or a wildcard) along allowed links from the root,
+// excluding the subtracted side of exclusions.
+func (t *Trace) GrantingTuples() int {
+	seen := map[int]bool{}
+	tuples := map[string]bool{}
+	var walk func(n *Node)
+	walk = func(n *Node) {
+		if seen[n.ID] || n.Outcome != Allowed {
+			return
+		}
+		seen[n.ID] = true
+		for _, l := range n.Children {
+			if l.Outcome != Allowed || l.Role == "subtract" || l.Node == nil {
+				continue
+			}
+			if l.Node.Kind == KindSubject && l.Tuple != nil {
+				tuples[l.Tuple.String()] = true
+			}
+			walk(l.Node)
+		}
+	}
+	walk(t.Root)
+	return len(tuples)
+}
+
+// PathTuples lists the tuples on granting paths (object#relation@user): every
+// tuple traversed along allowed links from the root, excluding the
+// subtracted side of exclusions. Contextual tuples are included.
+func (t *Trace) PathTuples() []string {
+	seen := map[int]bool{}
+	var out []string
+	have := map[string]bool{}
+	var walk func(n *Node)
+	walk = func(n *Node) {
+		if seen[n.ID] || n.Outcome != Allowed {
+			return
+		}
+		seen[n.ID] = true
+		for _, l := range n.Children {
+			if l.Outcome != Allowed || l.Role == "subtract" || l.Node == nil {
+				continue
+			}
+			if l.Tuple != nil {
+				k := l.Tuple.Object + "#" + l.Tuple.Relation + "@" + l.Tuple.User
+				if !have[k] {
+					have[k] = true
+					out = append(out, k)
+				}
+			}
+			walk(l.Node)
+		}
+	}
+	walk(t.Root)
+	return out
+}
+
+// PathTuple is a tuple on a granting path, with the condition parameters
+// the tuple supplied, so the path can be reproduced elsewhere (a scenario).
+type PathTuple struct {
+	User, Relation, Object string
+	Condition              string
+	// Context is the tuple's condition parameters (not the request's).
+	Context    map[string]any
+	Contextual bool
+}
+
+// GrantingPathTuples returns the tuples on granting paths (as PathTuples
+// does), with their conditions.
+func (t *Trace) GrantingPathTuples() []PathTuple {
+	seen := map[int]bool{}
+	have := map[string]bool{}
+	var out []PathTuple
+	var walk func(n *Node)
+	walk = func(n *Node) {
+		if seen[n.ID] || n.Outcome != Allowed {
+			return
+		}
+		seen[n.ID] = true
+		for _, l := range n.Children {
+			if l.Outcome != Allowed || l.Role == "subtract" || l.Node == nil {
+				continue
+			}
+			if tp := l.Tuple; tp != nil {
+				k := tp.Object + "#" + tp.Relation + "@" + tp.User
+				if !have[k] {
+					have[k] = true
+					pt := PathTuple{User: tp.User, Relation: tp.Relation, Object: tp.Object, Condition: tp.Condition, Contextual: tp.Contextual}
+					if l.Cond != nil {
+						for _, p := range l.Cond.Params {
+							if p.Source != "tuple" {
+								continue
+							}
+							if pt.Context == nil {
+								pt.Context = map[string]any{}
+							}
+							pt.Context[p.Name] = paramValue(p.Type, p.Value)
+						}
+					}
+					out = append(out, pt)
+				}
+			}
+			walk(l.Node)
+		}
+	}
+	walk(t.Root)
+	return out
+}
+
+// paramValue turns a displayed condition parameter back into its value:
+// strings are shown as-is, everything else as JSON.
+func paramValue(typ, v string) any {
+	if typ == "string" {
+		return v
+	}
+	var x any
+	if json.Unmarshal([]byte(v), &x) == nil {
+		return x
+	}
+	return v
+}
+
+// shortLabel is the compact label shown when the graph is zoomed out.
+func shortLabel(n *Node) string {
+	switch n.Kind {
+	case KindRelation, KindCycle:
+		if n.Op != "" {
+			return n.Relation + " " + map[Kind]string{KindUnion: "∪", KindIntersection: "∩", KindExclusion: "∖"}[n.Op]
+		}
+		return n.Relation
+	case KindUnion:
+		return "∪"
+	case KindIntersection:
+		return "∩"
+	case KindExclusion:
+		return "∖"
+	case KindDirect:
+		return "direct"
+	case KindSubject:
+		return n.Label
+	case KindMore:
+		return "…"
+	}
+	return n.Label
+}

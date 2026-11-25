@@ -1,0 +1,64 @@
+# fgaexplorer configuration. Secrets are best supplied through the environment:
+#   OPENFGA_API_TOKEN, OPENFGA_CLIENT_SECRET, FGAX_DATASTORE_URI
+# 127.0.0.1:8090 serves this machine only (the default). To reach it from
+# elsewhere, use one interface (192.0.2.10:8090) or all (0.0.0.0:8090), and
+# put it behind an authenticating proxy: it has no authentication of its own.
+listen: "127.0.0.1:8090"
+
+openfga:
+  api_url: http://localhost:8080
+  # default_store: 01ABC...           # open this store directly
+  # client_id / token_url / audience  # OIDC client credentials (client_secret via env)
+
+datastore:
+  # Optional. A read-only connection to OpenFGA's Postgres datastore enables:
+  #   - instance search by ID prefix in the pickers
+  #   - edge search by ID prefix, and exact edge counts, in the explorer
+  # It only uses indexes OpenFGA itself creates. Use a read-only role; the
+  # session is also forced read-only with a 5s statement timeout.
+  # uri: postgres://fga_reader@db.internal:5432/openfga?sslmode=require
+
+tuples:
+  # How edges are read and searched in the explorer:
+  #   auto      - the datastore when configured, else the API (default)
+  #   datastore - require the datastore
+  #   api       - use the OpenFGA Read API (substring filter, no exact counts)
+  # Check explanations always use the API, so they match the server exactly.
+  source: auto
+
+auth:
+  # Trust the identity header set by your SSO proxy (oauth2-proxy, Pomerium, ...).
+  identity_header: X-Forwarded-Email
+  require_identity: false
+  default_role: viewer
+  roles: {}
+    # alice@example.com: admin
+
+# Per-type ID rules: how typed input is normalized to stored IDs, and how
+# stored IDs are displayed.
+types:
+  principal:
+    trim: true
+    case: upper
+    encode: ":#= ,"      # percent-encoded in stored IDs ('%' is always encoded too)
+    display: decoded
+    hint: "CN=Name, service account, or principal ID"
+
+# Admin-only queries over the store's real tuples ("what can this user
+# access?", and the impact of a model change on real people). Each run is
+# started by an admin, one at a time per person, within these bounds.
+# Without authentication (no identity header), nobody is an admin unless the
+# server runs with --dangerously-treat-anonymous-as-admin.
+live_queries:
+  enabled: true
+  max_objects: 20       # objects listed or sampled per query
+  max_checks: 1000      # Check / ListObjects / ListUsers calls per run
+  timeout: 30s
+  runs_per_hour: 10     # per person (per replica)
+
+trace:
+  max_calls: 250        # API calls per walk (verification calls are separate)
+  max_fanout: 25        # edges evaluated per node before switching to probes
+  probe_limit: 25       # ListObjects candidates looked up per probe
+  timeout: 15s
+  max_concurrent: 8     # concurrent walks across all users

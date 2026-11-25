@@ -1,0 +1,47 @@
+model
+  schema 1.1
+
+type user
+
+# Principals are normalized: upper case, with ':' and '#' percent-encoded.
+type principal
+
+type group
+  relations
+    define member: [user, principal, group#member]
+    define manager: [user]
+
+type organization
+  relations
+    define admin: [user]
+    define member: [user, group#member] or admin
+    define blocked: [user]
+
+type folder
+  relations
+    define org: [organization]
+    define parent: [folder]
+    define owner: [user, principal]
+    define editor: [user, group#member] or owner or editor from parent
+    define viewer: [user, user:*, group#member, user with non_expired_grant] or editor or viewer from parent
+
+type document
+  relations
+    define parent: [folder]
+    define org: [organization]
+    define owner: [user, principal]
+    define editor: [user, group#member] or owner or editor from parent
+    define viewer: [user, user:*, group#member, user with non_expired_grant, user with in_office_network] or editor or viewer from parent
+    define restricted: [user]
+    define can_view: (viewer and member from org) but not blocked from org
+    define can_edit: editor and member from org
+    define can_delete: owner or admin from org
+    define can_share: can_edit but not restricted
+
+condition non_expired_grant(current_time: timestamp, grant_time: timestamp, grant_duration: duration) {
+  current_time < grant_time + grant_duration
+}
+
+condition in_office_network(user_ip: ipaddress, cidr: string) {
+  user_ip.in_cidr(cidr)
+}

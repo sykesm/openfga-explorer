@@ -1,0 +1,347 @@
+{{define "head"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Title}} · OpenFGA Explorer</title>
+<link rel="icon" href="{{asset "icon.svg"}}" type="image/svg+xml">
+{{/* The id tells Cytoscape its container rule (in app.css) is present, so it
+     doesn't inject an inline <style>; with htmx's indicator styles off too,
+     the CSP needs no 'unsafe-inline' for styles. */}}
+<link id="__________cytoscape_stylesheet" rel="stylesheet" href="{{asset "app.css"}}">
+{{/* No inline styles from htmx either: no indicator stylesheet, and no
+     settling of style attributes (Cytoscape sets them on its canvases). */}}
+<meta name="htmx-config" content='{"includeIndicatorStyles": false, "attributesToSettle": ["class", "width", "height"]}'>
+<script src="{{asset "vendor/htmx.min.js"}}" defer></script>
+<script src="{{asset "vendor/cytoscape.min.js"}}" defer></script>
+<script src="{{asset "vendor/cytoscape-dagre.js"}}" defer></script>
+<script type="module" src="{{asset "js/main.js"}}"></script>
+</head>
+<body data-base="{{.Base}}" data-page="{{.Active}}"{{with .Model}} data-types="{{range $i, $t := .TypeNames}}{{if $i}},{{end}}{{$t}}{{end}}"{{end}}>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <a class="brand" href="/?all=1" title="All stores"><span class="logo" aria-hidden="true">◇</span> OpenFGA Explorer</a>
+  {{if .StoreID}}
+  <span class="crumb" title="{{.StoreID}}"><span class="k">store</span> {{or .StoreName .StoreID}}</span>
+  <span class="crumb" title="{{.ModelID}}"><span class="k">model</span> <code>{{short .ModelID 10}}</code>{{if eq .ModelParam "latest"}} <span class="tag">latest</span>{{end}}</span>
+  <nav class="tabs" aria-label="Views">
+    <a href="{{.Base}}/explore" {{if eq .Active "explore"}}class="on" aria-current="page"{{end}}>Explore</a>
+    <a href="{{.Base}}/check" {{if eq .Active "check"}}class="on" aria-current="page"{{end}}>Check</a>
+    <a href="{{.Base}}/scenarios" {{if eq .Active "scenarios"}}class="on" aria-current="page"{{end}}>Scenarios</a>
+    <a href="{{.Base}}/changes" {{if eq .Active "changes"}}class="on" aria-current="page"{{end}}>Changes</a>
+    <a href="{{.Base}}/model" {{if eq .Active "model"}}class="on" aria-current="page"{{end}}>Model</a>
+  </nav>
+  {{end}}
+  {{if .StoreID}}
+  <div class="ctx-wrap">
+    <button type="button" class="ghost sm" data-act="context" aria-expanded="false" aria-controls="ctx-pop" title="Request context (condition parameters) shared by Check and Explore">Context <span class="pill ctx-badge" hidden>set</span></button>
+    <div class="ctx-pop" id="ctx-pop" hidden role="group" aria-label="Request context">
+      <label>Request context <span class="muted">JSON, used by checks and “who has it?” lists</span>
+        <textarea class="ctx-text" rows="4" spellcheck="false" placeholder='{"current_time": "2026-11-24T12:00:00Z", "user_ip": "10.1.2.3"}'></textarea></label>
+      <div class="ctx-actions"><button type="button" class="ghost sm" data-act="ctx-now" title="Set current_time to now">current_time = now</button>
+        <button type="button" class="ghost sm" data-act="ctx-clear">Clear</button><span class="ctx-err errc sm"></span></div>
+    </div>
+  </div>
+  <button type="button" class="ghost sm palette-btn" data-act="palette" aria-haspopup="dialog" title="Search pages, types, and relations (Ctrl+K or ⌘K)">Search <kbd>⌘K</kbd></button>
+  <button type="button" class="ghost sm" data-act="help" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts" aria-haspopup="dialog">?</button>
+  {{end}}
+  <span class="who" title="role: {{.User.Role}}">{{.User.Name}} <span class="tag">{{.User.Role}}</span></span>
+</header>
+<div id="page-alert" class="page-alert" role="alert" hidden><span class="pa-text"></span> <button type="button" class="ghost sm" data-act="dismiss">Dismiss</button></div>
+<main id="main" class="page-{{.Active}}" tabindex="-1">
+<h1 class="sr-only">{{.Title}}</h1>
+{{end}}
+
+{{define "foot"}}
+</main>
+<div class="palette-overlay" hidden>
+  <div class="palette" role="dialog" aria-modal="true" aria-label="Search">
+    <input type="search" class="palette-q" role="combobox" aria-expanded="true" aria-controls="palette-list" aria-autocomplete="list"
+      placeholder="Go to a page, a type, or a relation…" autocomplete="off" spellcheck="false" autofocus>
+    <ul class="palette-list" id="palette-list" role="listbox" aria-label="Results"></ul>
+    <p class="palette-hint muted sm">↑↓ move · Enter opens · Esc closes</p>
+  </div>
+</div>
+<div class="help-overlay" hidden>
+  <div class="help-card" role="dialog" aria-modal="true" aria-labelledby="help-title">
+    <h2 id="help-title">Keyboard shortcuts</h2>
+    <dl>
+      <dt><kbd>Ctrl</kbd>/<kbd>⌘</kbd> <kbd>K</kbd></dt><dd>Search pages, types, and relations</dd>
+      <dt><kbd>/</kbd></dt><dd>Search (instance picker, or the check's user)</dd>
+      <dt><kbd>Space</kbd></dt><dd>Play / pause the walk replay</dd>
+      <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Step the replay back / forward</dd>
+      <dt><kbd>F</kbd></dt><dd>Fit the graph</dd>
+      <dt><kbd>T</kbd></dt><dd>Show / hide the side panel</dd>
+      <dt><kbd>E</kbd></dt><dd>Edit the check</dd>
+      <dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd>Enter</kbd></dt><dd>In the text trace: move and show a node's details</dd>
+      <dt><kbd>←</kbd> <kbd>→</kbd> <kbd>Home</kbd> <kbd>End</kbd></dt><dd>On a tab: switch tabs</dd>
+      <dt><kbd>Esc</kbd></dt><dd>Close menus, details, and this help</dd>
+    </dl>
+    <button type="button" class="sm" data-act="help-close" autofocus>Close</button>
+  </div>
+</div>
+</body>
+</html>
+{{end}}
+
+{{define "error-page"}}{{template "head" .}}
+<div class="page-pad"><div class="alert err"><h2>Something went wrong</h2><p>{{.Data}}</p><p><a href="/?all=1">Back to stores</a></p></div></div>
+{{template "foot" .}}{{end}}
+
+{{define "error-fragment"}}<div class="alert err">{{.}}</div>{{end}}
+
+{{define "stores"}}{{template "head" .}}
+<div class="page-pad">
+<h1>Stores</h1>
+{{if not .Data}}<p class="muted">No stores found on this OpenFGA server.</p>{{end}}
+<ul class="store-list">
+{{range .Data}}<li><a href="/s/{{.Id}}/m/latest/explore"><b>{{.Name}}</b> <code>{{.Id}}</code></a></li>{{end}}
+</ul>
+</div>
+{{template "foot" .}}{{end}}
+
+{{define "picker"}}{{$p := .P}}
+<div class="picker" data-field="{{$p.Field}}" data-mode="{{$p.Mode}}">
+  <input type="hidden" name="field" value="{{$p.Field}}">
+  <input type="hidden" name="mode" value="{{$p.Mode}}">
+  {{if $p.Many}}
+  <div class="tcombo">
+    <input type="text" class="tcombo-q" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="tc-{{$p.Field}}"
+      aria-label="{{$p.Field}} type" value="{{$p.SelectedLabel}}" autocomplete="off" spellcheck="false"
+      title="Find a type by name or by one of its relations (“jira proj”, “can_approve”). ↑↓ to move, Enter to choose.">
+    <ul class="tcombo-list" id="tc-{{$p.Field}}" role="listbox" aria-label="{{$p.Field}} types" hidden></ul>
+  </div>
+  {{end}}
+  <select name="{{$p.Field}}_type" class="picker-type" aria-label="{{$p.Field}} type" {{if or (eq (len $p.Types) 1) $p.Many}}hidden{{end}}>
+    {{range $p.Types}}<option value="{{.Value}}" data-hint="{{.Hint}}" data-rels="{{.Rels}}" {{if eq .Value $p.Selected}}selected{{end}}>{{.Label}}</option>{{end}}
+  </select>
+  <input type="text" name="{{$p.Field}}_q" class="picker-q" autocomplete="off" spellcheck="false"
+    value="{{with $p.Value}}{{pickerText .}}{{end}}" placeholder="type an ID or prefix…" aria-label="{{$p.Field}} id"
+    hx-get="{{.Base}}/search" hx-trigger="input changed delay:200ms, focus" hx-target="next .picker-results"
+    hx-include="closest .picker" hx-sync="this:replace">
+  <input type="hidden" name="{{$p.Field}}" value="{{$p.Value}}" class="picker-value">
+  <div class="picker-results" role="listbox"></div>
+</div>
+{{end}}
+
+{{define "search-results"}}{{with .Data}}
+{{if .Err}}<div class="sr-note err">{{.Err}}</div>{{else}}
+{{if not .Continued}}
+<div class="sr-head">
+  {{if .NoSearch}}<b>{{.Type}}</b> · exact IDs only (no datastore configured)
+  {{else if .Browse}}<b>{{.Type}}</b> instances · first by ID · type to narrow
+  {{else}}<b>{{.Type}}</b> IDs starting with <code>{{.Normalized}}</code>{{end}}
+</div>
+{{end}}
+<ul class="sr">
+  {{if and .Typed (not .Continued) .Exists}}{{if and (deref .Exists) (not .InResults)}}
+  <li><button type="button" class="pick" data-value="{{.Type}}:{{.Normalized}}{{.Suffix}}" data-text="{{.Typed}}">
+    <span class="sr-id">{{displayID .Type .Normalized}}{{.Suffix}}</span>{{if ne .Typed .Normalized}} <code class="raw">{{.Normalized}}</code>{{end}}
+  </button></li>
+  {{end}}{{end}}
+  {{range .Recent}}
+  <li><button type="button" class="pick" data-value="{{$.Data.Type}}:{{.}}{{$.Data.Suffix}}" data-text="{{displayID $.Data.Type .}}"><span class="sr-k">recent</span> {{displayID $.Data.Type .}}{{$.Data.Suffix}}</button></li>
+  {{end}}
+  {{range .Results}}{{$d := displayID $.Data.Type .ID}}
+  <li><button type="button" class="pick" data-value="{{$.Data.Type}}:{{.ID}}{{$.Data.Suffix}}" data-text="{{$d}}">
+    <span class="sr-id">{{$d}}{{$.Data.Suffix}}</span>{{if ne $d .ID}} <code class="raw">{{.ID}}</code>{{end}}
+  </button></li>
+  {{end}}
+  {{if and .Typed (not .Continued) .Exists}}{{if not (deref .Exists)}}
+  <li class="sr-missing"><button type="button" class="pick missing" data-value="{{.Type}}:{{.Normalized}}{{.Suffix}}" data-text="{{.Typed}}"
+      title="Nothing in the store references this ID. Checking it will be denied unless contextual tuples grant access.">
+    <span class="warnc">No tuples reference <code>{{.Type}}:{{.Normalized}}</code>{{if ne .Typed .Normalized}} (from “{{.Typed}}”){{end}}</span>
+    <span class="muted">— use it anyway</span>
+  </button></li>
+  {{end}}{{end}}
+</ul>
+{{with .Page}}
+  {{if not .Complete}}
+  <div class="sr-note{{if not $.Data.Browse}} warnc{{end}}">{{if $.Data.Browse}}More instances exist.{{else}}Incomplete — {{.Note}}.{{end}}
+    <button type="button" class="linkish keep-scanning" hx-get="{{$.Base}}/search?{{$.Data.MoreQuery}}" hx-target="closest .picker-results" hx-swap="beforeend">{{if $.Data.Browse}}Show more{{else}}Keep scanning{{end}}</button></div>
+  {{else if .Results}}
+  <div class="sr-note">{{len .Results}} {{if $.Data.Browse}}instance{{if ne (len .Results) 1}}s{{end}} — that's all{{else}}match{{if ne (len .Results) 1}}es{{end}} · complete{{end}} · {{.Scanned}} IDs scanned</div>
+  {{end}}
+{{end}}
+{{if and (not .Continued) (or .NoSearch (and .Page (not .Results)))}}
+<div class="sr-explain">
+  {{if and .Page (not .Results)}}<p><b>No {{.Type}} instances {{if .Browse}}found in this store{{else}}start with <code>{{.Normalized}}</code>{{end}}.</b></p>{{end}}
+  {{if .NoSearch}}<p>Enter an exact {{.Type}} ID and choose <i>exact</i>. Listing and prefix search need a datastore connection (<code>--datastore-uri</code>).</p>{{end}}
+  {{$n := add (len .AsUser) (len (slice .AsObject 0 (min1 (len .AsObject))))}}
+  <details {{if le $n 4}}open{{end}}><summary>Where {{.Type}} IDs appear in tuples ({{$n}})</summary>
+  <ul>
+    {{if .AsObject}}<li>as the object of {{range $i, $r := .AsObject}}{{if $i}}, {{end}}<code>{{$r}}</code>{{end}}</li>{{end}}
+    {{range .AsUser}}<li>as the user of <code>{{.}}</code></li>{{end}}
+    {{if and (not .AsObject) (not .AsUser)}}<li>nowhere: no relation in this model accepts {{.Type}}, so it has no instances</li>{{end}}
+  </ul>
+  </details>
+</div>
+{{end}}
+{{end}}{{end}}{{end}}
+
+{{define "relation-opts"}}{{$o := .}}{{with .Type}}
+{{if $o.None}}<option value="" disabled selected>no {{.Name}} relation is reachable from {{$o.UserType}}</option>{{end}}
+{{range $k, $g := .ByKind}}
+<optgroup label="{{kindLabel $k}}">{{range $g}}{{$ok := $o.Enabled .Name}}<option value="{{.Name}}" {{if not $ok}}disabled title="{{$o.UserType}} can never hold {{.Name}}: no path in the model leads from {{$o.UserType}} to this relation"{{end}} {{if and $ok (eq .Name $o.Selected)}}selected{{end}}>{{.Name}}{{if not $ok}} — no path from {{$o.UserType}}{{end}}</option>{{end}}</optgroup>
+{{end}}{{end}}{{end}}
+
+{{define "relation-options"}}{{template "relation-opts" .Data}}{{end}}
+
+{{define "model"}}{{template "head" .}}
+<div class="page-pad model-page">
+  <section>
+    <h2 class="page-h">Authorization model</h2>
+    {{with .Data}}{{if .Modules}}
+    <p class="muted">Written as {{len .Modules}} modules (schema {{$.Model.Proto.SchemaVersion}}). Each file is rebuilt from the module and source file OpenFGA records for every type, relation, and condition, so combining them again gives this exact model. OpenFGA doesn't store comments or formatting, so these files may differ in layout from the originals in your repository.</p>
+    <table class="modules">
+      <thead><tr><th>Module</th><th>Files</th><th>Defines</th><th>Extends</th><th>Conditions</th></tr></thead>
+      <tbody>{{range .Modules}}
+        <tr id="module-{{.Name}}">
+          <th><span class="modtag">{{.Name}}</span></th>
+          <td>{{range $i, $f := .Files}}{{if $i}}, {{end}}<code>{{$f}}</code>{{end}}</td>
+          <td>{{range $i, $t := .Types}}{{if $i}}, {{end}}<a href="{{$.Base}}/explore?type={{$t}}">{{$t}}</a>{{else}}<span class="muted">—</span>{{end}}</td>
+          <td>{{range $i, $e := .Extends}}{{if $i}}; {{end}}<a href="{{$.Base}}/explore?type={{$e.Type}}">{{$e.Type}}</a> <span class="muted">+ {{join $e.Relations ", "}}</span>{{else}}<span class="muted">—</span>{{end}}</td>
+          <td>{{range $i, $c := .Conditions}}{{if $i}}, {{end}}<code>{{$c}}</code>{{else}}<span class="muted">—</span>{{end}}</td>
+        </tr>{{end}}
+      </tbody>
+    </table>
+    {{with .FilesErr}}<div class="alert warn">The module files could not be rebuilt: {{.}}. The combined model is shown instead.</div>{{end}}
+    <div class="itabs" role="tablist" aria-label="Model files" data-tabs>
+      {{range $i, $f := .Files}}<button type="button" role="tab" id="mtab-{{$i}}" aria-controls="mfile-{{$i}}" aria-selected="{{if eq $i 0}}true{{else}}false{{end}}"{{if $i}} tabindex="-1"{{end}}>{{$f.Name}}</button>{{end}}
+      {{if .Manifest}}<button type="button" role="tab" id="mtab-mod" aria-controls="mfile-mod" aria-selected="false" tabindex="-1">fga.mod</button>{{end}}
+      <button type="button" role="tab" id="mtab-all" aria-controls="mfile-all" aria-selected="{{if .Files}}false{{else}}true{{end}}"{{if .Files}} tabindex="-1"{{end}} title="All modules as one model, each definition annotated with its module and file">Combined</button>
+    </div>
+    {{range $i, $f := .Files}}<section class="mfile" id="mfile-{{$i}}" role="tabpanel" aria-labelledby="mtab-{{$i}}"{{if $i}} hidden{{end}}>
+      <p class="muted sm">module <b>{{$f.Module}}</b> · <code>{{$f.Name}}</code></p>
+      <pre class="dsl">{{dsl $f.DSL}}</pre></section>{{end}}
+    {{if .Manifest}}<section class="mfile" id="mfile-mod" role="tabpanel" aria-labelledby="mtab-mod" hidden><pre class="dsl">{{.Manifest}}</pre></section>{{end}}
+    <section class="mfile" id="mfile-all" role="tabpanel" aria-labelledby="mtab-all"{{if .Files}} hidden{{end}}><pre class="dsl">{{dsl .Combined}}</pre></section>
+    {{else}}
+    <pre class="dsl">{{dsl $.Model.DSL}}</pre>
+    {{end}}{{end}}
+  </section>
+  <aside>
+    <h3>Model checks</h3>
+    {{with .Data.Findings}}
+    <ul class="findings">{{range .}}
+      <li class="lint-item {{.Severity}}"><span class="lint {{.Severity}}" aria-hidden="true">{{if eq .Severity "warning"}}⚠{{else}}ⓘ{{end}}</span>
+        <span class="sr-only">{{.Severity}}:</span>
+        {{if .Type}}<a href="{{$.Base}}/explore?type={{.Type}}">{{.Type}}{{with .Relation}}#{{.}}{{end}}</a>{{else}}<code>{{.Condition}}</code>{{end}}
+        {{with .Source.Module}}<span class="modtag">{{.}}</span>{{end}}
+        <div class="sm">{{.Message}}</div></li>{{end}}
+    </ul>
+    {{else}}<p class="muted">No problems found: every relation can be granted, every “X from Y” parent type has X, and every condition and parameter is used.</p>{{end}}
+    <h3>Versions</h3>
+    <p><a class="btn sm" href="{{$.Base}}/model/diff">What changed in this version?</a></p>
+    <ul class="versions">
+    {{range .Data.Models}}<li {{if eq .Id $.ModelID}}class="on"{{end}}><a href="/s/{{$.StoreID}}/m/{{.Id}}/explore"><code>{{.Id}}</code></a>
+      {{if ne .Id $.ModelID}}<a class="sm" href="{{$.Base}}/model/diff?base={{.Id}}" title="Compare this version with the one you are viewing">compare</a>{{end}}</li>{{end}}
+    </ul>
+    <p class="muted">Pinning a version keeps links stable while the model evolves. <a href="/s/{{.StoreID}}/m/latest/explore">Follow latest</a>.</p>
+  </aside>
+</div>
+{{template "foot" .}}{{end}}
+
+{{define "model-diff"}}{{template "head" .}}{{with .Data}}
+<div class="page-pad diff-page">
+  <h2 class="page-h">Model changes</h2>
+  <form class="diff-pick" method="get">
+    <label>Compare <code>{{short $.ModelID 12}}</code> (viewing) with
+      <select name="base" aria-label="older version">{{range .Models}}{{if ne .Id $.ModelID}}<option value="{{.Id}}" {{if eq .Id $.Data.BaseID}}selected{{end}}>{{.Id}}</option>{{end}}{{end}}</select></label>
+    <button type="submit" class="sm">Compare</button>
+    <a class="sm" href="{{$.Base}}/model">Back to the model</a>
+  </form>
+  {{if .NoOlder}}<p class="empty">This is the store's oldest version: there is nothing earlier to compare with.</p>
+  {{else if .Diff.Empty}}<p class="empty">No differences: the two versions grant the same access with the same rules.</p>
+  {{else}}{{with .Diff}}
+  {{if .Routes}}
+  <section>
+    <h3>Ways each relation can be granted</h3>
+    <p class="muted sm">A lost route cuts access for everyone who had the relation <em>only</em> that way, even if they could also get it another way in principle.
+      Routes include those through other relations, so a change to <code>editor</code> shows on relations granted through it.
+      “direct user on doc#editor” means tuples assigning a <code>user</code> to <code>doc#editor</code>.
+      This compares the models only: use Scenarios to confirm what happens to specific people.</p>
+    <table class="diff">
+      <thead><tr><th>Relation</th><th>No longer granted through</th><th>Newly granted through</th><th>Why</th>{{if $.Data.Live}}<th>Real people</th>{{end}}</tr></thead>
+      <tbody>{{range $ri, $r := .Routes}}{{with $r}}<tr>
+        <th><a href="{{$.Base}}/explore?type={{.Type}}"><code>{{.Type}}#{{.Relation}}</code></a></th>
+        <td class="lost">{{range .Lost}}<div><code>− {{.}}</code></div>{{end}}{{range .ExclusionsAdded}}<div><code>− but not {{.}}</code> <span class="muted sm">new exclusion</span></div>{{end}}{{if not (or .Lost .ExclusionsAdded)}}<span class="muted">—</span>{{end}}</td>
+        <td class="gained">{{range .Gained}}<div><code>+ {{.}}</code></div>{{end}}{{range .ExclusionsRemoved}}<div><code>+ no longer “but not {{.}}”</code></div>{{end}}{{if not (or .Gained .ExclusionsRemoved)}}<span class="muted">—</span>{{end}}</td>
+        <td class="sm">{{if .Direct}}its rule changed{{else}}a relation it depends on changed{{end}}</td>
+        {{if $.Data.Live}}<td><button type="button" class="sm" hx-get="{{$.Base}}/model/impact?{{query "base" $.Data.BaseID "type" .Type "relation" .Relation}}" hx-target="#impact-{{$ri}}" hx-disinherit="*"
+          title="Sample objects of {{.Type}} in the store and compare who holds {{.Relation}} under each version (queries real data; admins; counted and rate-limited)">Check real people</button></td>{{end}}
+      </tr>
+      {{if $.Data.Live}}<tr class="impact-row"><td colspan="5"><div id="impact-{{$ri}}" aria-live="polite"></div></td></tr>{{end}}{{end}}{{end}}</tbody>
+    </table>
+  </section>
+  {{end}}
+  {{if .Access}}
+  <section>
+    <h3>Kinds of user that can hold each relation</h3>
+    <p class="muted sm">Whether <em>any</em> user of a kind (e.g. <code>user</code>, <code>group#member</code>) could hold the relation at all. This only changes when a kind gains or loses every route,
+      so it can stay the same while real people lose access: read “Ways each relation can be granted” above too.</p>
+    <table class="diff">
+      <thead><tr><th>Relation</th><th>Gained</th><th>Lost</th><th>Why</th></tr></thead>
+      <tbody>{{range .Access}}<tr>
+        <th><a href="{{$.Base}}/explore?type={{.Type}}"><code>{{.Type}}#{{.Relation}}</code></a></th>
+        <td class="gained">{{range $i, $u := .Gained}}{{if $i}}, {{end}}<code>+ {{$u}}</code>{{else}}<span class="muted">—</span>{{end}}</td>
+        <td class="lost">{{range $i, $u := .Lost}}{{if $i}}, {{end}}<code>− {{$u}}</code>{{else}}<span class="muted">—</span>{{end}}</td>
+        <td class="sm">{{if .Direct}}its rule changed{{else}}a relation it depends on changed{{end}}</td>
+      </tr>{{end}}</tbody>
+    </table>
+  </section>
+  {{end}}
+  {{if or .TypesAdded .TypesRemoved}}
+  <section>
+    <h3>Types</h3>
+    <ul class="plain">{{range .TypesAdded}}<li class="gained"><code>+ {{.}}</code> added</li>{{end}}{{range .TypesRemoved}}<li class="lost"><code>− {{.}}</code> removed</li>{{end}}</ul>
+  </section>
+  {{end}}
+  {{if .Relations}}
+  <section>
+    <h3>Relations</h3>
+    <table class="diff">
+      <thead><tr><th>Relation</th><th>Change</th><th>Before</th><th>After</th></tr></thead>
+      <tbody>{{range .Relations}}<tr class="{{.Change}}">
+        <th><code>{{.Type}}#{{.Relation}}</code></th>
+        <td>{{.Change}}{{if eq .Change "moved"}} <span class="muted sm">{{.OldSource}} → {{.NewSource}}</span>{{end}}</td>
+        <td>{{with .Old}}<code class="dsl-inline">{{.}}</code>{{else}}<span class="muted">—</span>{{end}}</td>
+        <td>{{with .New}}<code class="dsl-inline">{{.}}</code>{{else}}<span class="muted">—</span>{{end}}{{with .Holders}}<div class="muted sm">holders: {{join . ", "}}</div>{{end}}</td>
+      </tr>{{end}}</tbody>
+    </table>
+  </section>
+  {{end}}
+  {{if .Conditions}}
+  <section>
+    <h3>Conditions</h3>
+    <table class="diff">
+      <thead><tr><th>Condition</th><th>Change</th><th>Before</th><th>After</th></tr></thead>
+      <tbody>{{range .Conditions}}<tr><th><code>{{.Name}}</code></th><td>{{.Change}}</td>
+        <td>{{with .Old}}<code>{{.}}</code>{{else}}<span class="muted">—</span>{{end}}</td><td>{{with .New}}<code>{{.}}</code>{{else}}<span class="muted">—</span>{{end}}</td></tr>{{end}}</tbody>
+    </table>
+  </section>
+  {{end}}
+  {{end}}{{end}}
+</div>
+{{end}}{{template "foot" .}}{{end}}
+
+{{define "impact"}}{{with .Data}}
+<div class="impact">
+  {{if not .Allowed}}<p class="muted">{{.Err}}</p>{{else}}
+  {{with .Err}}<div class="alert warn" role="alert">{{.}}</div>{{end}}
+  {{if .Objects}}
+  <p><b>{{.Lost}}</b> lose{{if eq .Lost 1}}s{{end}} and <b>{{.Gained}}</b> gain{{if eq .Gained 1}}s{{end}} <code>{{.Relation}}</code> on {{len .Objects}} sampled {{.Type}} object{{if ne (len .Objects) 1}}s{{end}}.
+    <span class="muted sm">A sample, not a total: {{.Note}}. {{.Calls}} calls · {{.Elapsed.Round 1000000}}.{{if .Truncated}} Some lists hit the server's limit, so there may be more.{{end}} Up to {{impactShown}} people are listed per object and direction.</span></p>
+  <table class="diff">
+    <thead><tr><th>Object</th><th>Lose access</th><th>Gain access</th></tr></thead>
+    <tbody>{{range .Objects}}{{$o := .Object}}<tr>
+      <th><code>{{.Object}}</code></th>
+      <td class="lost">{{range .Lost}}<div><a href="/s/{{$.StoreID}}/m/{{$.Data.BaseID}}/check?{{query "user" . "relation" $.Data.Relation "object" $o}}" title="Explain why they had it (old version)"><code>− {{.}}</code></a></div>{{else}}<span class="muted">—</span>{{end}}{{with .LostMore}}<div class="muted sm">and {{.}} more (not listed)</div>{{end}}</td>
+      <td class="gained">{{range .Gained}}<div><a href="{{$.Base}}/check?{{query "user" . "relation" $.Data.Relation "object" $o}}" title="Explain why they have it (this version)"><code>+ {{.}}</code></a></div>{{else}}<span class="muted">—</span>{{end}}{{with .GainedMore}}<div class="muted sm">and {{.}} more (not listed)</div>{{end}}
+        {{range .Errors}}<div class="o-error sm">{{.}}</div>{{end}}</td>
+    </tr>{{end}}</tbody>
+  </table>
+  {{else if not .Err}}<p class="muted">No {{.Type}} objects were found in the store's change log to sample.</p>{{end}}
+  {{end}}
+</div>
+{{end}}{{end}}

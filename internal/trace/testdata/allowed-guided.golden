@@ -1,0 +1,51 @@
+decision: allowed (walker allowed)
+Allowed: user:eng-002 has can_view on document:doc-0007 — can_view on document:doc-0007 requires viewer and member from org, and each holds, and the exclusion “but not blocked from org” does not apply.
+  • user:eng-002 has member on group:eng
+  • group:eng#member has viewer on folder:root
+  • folder:engineering's parent is folder:root, so viewer there counts as “viewer from parent” on folder:engineering
+  • folder:platform's parent is folder:engineering, so viewer there counts as “viewer from parent” on folder:platform
+  • folder:design-docs's parent is folder:platform, so viewer there counts as “viewer from parent” on folder:design-docs
+  • document:doc-0007's parent is folder:design-docs, so viewer there counts as “viewer from parent” on document:doc-0007
+  • viewer implies can_view on document:doc-0007
+  • group:eng#member has member on organization:acme
+  • document:doc-0007's org is organization:acme, so member there counts as “member from org” on document:doc-0007
+  • can_view on document:doc-0007 requires viewer and member from org — all hold
+  • the exclusion “but not blocked from org” does not apply
+gaps: []
+guided skips: 8
+groups ruled out: 0
+
+✓ document:doc-0007#can_view  — = (viewer and member from org) but not blocked from org · base is satisfied and the exclusion does not apply
+├─ ✓ [and] ∩ and  — every branch of the intersection is satisfied
+│  ├─ ✓ [computed] document:doc-0007#viewer  — = [user, user:*, group#member, user with non_expired_grant, user with in_office_network] or editor or viewer from parent · granted by viewer from parent
+│  │  ├─ · [not evaluated] [user, user:*, group#member, user with non_expired_grant, user with in_office_network]  — not needed: viewer from parent grants access (the server's Check confirmed which branch grants)
+│  │  ├─ · [not evaluated] editor  — not needed: viewer from parent grants access (the server's Check confirmed which branch grants) · the server's Check says this branch does not hold
+│  │  └─ ✓ [from parent] viewer from parent  — granted through parent
+│  │     └─ ✓ [parent document:doc-0007#parent@folder:design-docs] folder:design-docs#viewer  — = [user, user:*, group#member, user with non_expired_grant] or editor or viewer from parent · granted by viewer from parent
+│  │        ├─ · [not evaluated] [user, user:*, group#member, user with non_expired_grant]  — not needed: viewer from parent grants access (the server's Check confirmed which branch grants)
+│  │        ├─ · [not evaluated] editor  — not needed: viewer from parent grants access (the server's Check confirmed which branch grants) · the server's Check says this branch does not hold
+│  │        └─ ✓ [from parent] viewer from parent  — granted through parent
+│  │           └─ ✓ [parent folder:design-docs#parent@folder:platform] folder:platform#viewer  — = [user, user:*, group#member, user with non_expired_grant] or editor or viewer from parent · granted by viewer from parent
+│  │              ├─ · [not evaluated] [user, user:*, group#member, user with non_expired_grant]  — not needed: viewer from parent grants access (the server's Check confirmed which branch grants)
+│  │              ├─ · [not evaluated] editor  — not needed: viewer from parent grants access (the server's Check confirmed which branch grants) · the server's Check says this branch does not hold
+│  │              └─ ✓ [from parent] viewer from parent  — granted through parent
+│  │                 └─ ✓ [parent folder:platform#parent@folder:engineering] folder:engineering#viewer  — = [user, user:*, group#member, user with non_expired_grant] or editor or viewer from parent · granted by viewer from parent
+│  │                    ├─ · [not evaluated] [user, user:*, group#member, user with non_expired_grant]  — not needed: viewer from parent grants access (the server's Check confirmed which branch grants)
+│  │                    ├─ · [not evaluated] editor  — not needed: viewer from parent grants access (the server's Check confirmed which branch grants) · the server's Check says this branch does not hold
+│  │                    └─ ✓ [from parent] viewer from parent  — granted through parent
+│  │                       └─ ✓ [parent folder:engineering#parent@folder:root] folder:root#viewer  — = [user, user:*, group#member, user with non_expired_grant] or editor or viewer from parent · granted by direct tuples
+│  │                          ├─ ✓ [direct] direct [user, user:*, group#member, user with non_expired_grant]  — a direct tuple grants access · no tuple folder:root#viewer@user:eng-002 · no wildcard tuple user:*
+│  │                          │  └─ ✓ [viewer via #member folder:root#viewer@group:eng#member] group:eng#member  — = [user, principal, group#member] · a direct tuple grants access
+│  │                          │     └─ ✓ [member group:eng#member@user:eng-002] user:eng-002  — the user
+│  │                          ├─ · [not evaluated] editor  — an earlier branch already granted access · the server's Check says this branch does not hold
+│  │                          └─ · [not evaluated] viewer from parent  — an earlier branch already granted access · the server's Check says this branch does not hold
+│  └─ ✓ [from org] member from org  — granted through org
+│     └─ ✓ [org document:doc-0007#org@organization:acme] organization:acme#member  — = [user, group#member] or admin · granted by direct tuples
+│        ├─ ✓ [direct] direct [user, group#member]  — a direct tuple grants access · no tuple organization:acme#member@user:eng-002
+│        │  └─ ✓ [member via #member organization:acme#member@group:eng#member] group:eng#member  — evaluated above
+│        └─ · [not evaluated] admin  — an earlier branch already granted access · the server's Check says this branch does not hold
+└─ ✗ [but not from org] blocked from org  — the user is not blocked of any org of document:doc-0007
+   └─ ✗ [org document:doc-0007#org@organization:acme] organization:acme#blocked  — = [user] · no direct tuple grants access (no tuple organization:acme#blocked@user:eng-002)
+
+granting path: n1@0 e1 n2@1 e2 n3@2 e5 n4@3 e6 n5@4 e9 n6@5 e10 n7@6 e13 n8@7 e14 n9@8 e17 n10@9 e18 n11@10 e19 n12@11 e20 n13@5 e21 n15@6 e24 n26@2 e25 n27@3 e26 n28@4 e27
+elements: 60, steps: 60

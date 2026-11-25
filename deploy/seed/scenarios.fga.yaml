@@ -1,0 +1,93 @@
+# Scenarios for the sample store's model (deploy/seed/model.fga), in the
+# `fga model test` format. There is no `model:` here, so the explorer runs
+# them against the model being viewed; with the CLI:
+#
+#   fga model test --tests deploy/seed/scenarios.fga.yaml --store-id <id>
+#
+# Each test runs with only these tuples (never the store's), in a fresh
+# in-memory OpenFGA, so results don't depend on production data.
+name: Document access
+tuples:
+  - user: user:anne
+    relation: member
+    object: group:eng
+  - user: group:eng#member
+    relation: member
+    object: organization:acme
+  - user: organization:acme
+    relation: org
+    object: document:roadmap
+  - user: folder:eng
+    relation: parent
+    object: document:roadmap
+  - user: group:eng#member
+    relation: viewer
+    object: folder:eng
+tests:
+  - name: members can view through the folder
+    description: Viewer on the folder passes to its documents, for organization members.
+    check:
+      - user: user:anne
+        object: document:roadmap
+        assertions:
+          viewer: true
+          can_view: true
+          can_edit: false
+      - user: user:mallory
+        object: document:roadmap
+        assertions:
+          can_view: false
+  - name: blocked members lose access
+    description: The organization's blocklist overrides every grant.
+    tuples:
+      - user: user:anne
+        relation: blocked
+        object: organization:acme
+    check:
+      - user: user:anne
+        object: document:roadmap
+        assertions:
+          viewer: true
+          can_view: false
+  - name: editors can share unless restricted
+    tuples:
+      - user: user:bob
+        relation: editor
+        object: document:roadmap
+      - user: user:bob
+        relation: member
+        object: organization:acme
+      - user: user:carol
+        relation: editor
+        object: document:roadmap
+      - user: user:carol
+        relation: member
+        object: organization:acme
+      - user: user:carol
+        relation: restricted
+        object: document:roadmap
+    check:
+      - users: [user:bob, user:carol]
+        object: document:roadmap
+        assertions:
+          can_edit: true
+      - user: user:bob
+        object: document:roadmap
+        assertions:
+          can_share: true
+      - user: user:carol
+        object: document:roadmap
+        assertions:
+          can_share: false
+    list_objects:
+      - user: user:bob
+        type: document
+        assertions:
+          can_share: [document:roadmap]
+    list_users:
+      - object: document:roadmap
+        user_filter:
+          - type: user
+        assertions:
+          can_edit:
+            users: [user:bob, user:carol]

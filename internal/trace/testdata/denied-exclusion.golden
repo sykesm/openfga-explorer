@@ -1,0 +1,31 @@
+decision: denied (walker denied)
+Denied: user:mallory does not have can_view on document:doc-0004 — they are excluded by “but not blocked from org” because user:mallory has blocked on organization:acme.
+  • user:mallory has blocked on organization:acme
+  • document:doc-0004's org is organization:acme, so blocked there counts as “blocked from org” on document:doc-0004
+gaps: []
+guided skips: 2
+groups ruled out: 0
+
+✗ document:doc-0004#can_view  — = (viewer and member from org) but not blocked from org · blocked: excluded by "but not blocked from org"
+├─ ✓ [and] ∩ and  — every branch of the intersection is satisfied
+│  ├─ ✓ [computed] document:doc-0004#viewer  — = [user, user:*, group#member, user with non_expired_grant, user with in_office_network] or editor or viewer from parent · granted by viewer from parent
+│  │  ├─ · [not evaluated] [user, user:*, group#member, user with non_expired_grant, user with in_office_network]  — not needed: viewer from parent grants access (the server's Check confirmed which branch grants)
+│  │  ├─ · [not evaluated] editor  — not needed: viewer from parent grants access (the server's Check confirmed which branch grants) · the server's Check says this branch does not hold
+│  │  └─ ✓ [from parent] viewer from parent  — granted through parent
+│  │     └─ ✓ [parent document:doc-0004#parent@folder:root] folder:root#viewer  — = [user, user:*, group#member, user with non_expired_grant] or editor or viewer from parent · granted by direct tuples
+│  │        ├─ ✓ [direct] direct [user, user:*, group#member, user with non_expired_grant]  — a direct tuple grants access · no tuple folder:root#viewer@user:mallory · no wildcard tuple user:*
+│  │        │  └─ ✓ [viewer via #member folder:root#viewer@group:eng#member] group:eng#member  — = [user, principal, group#member] · a direct tuple grants access
+│  │        │     └─ ✓ [member group:eng#member@user:mallory] user:mallory  — the user
+│  │        ├─ · [not evaluated] editor  — an earlier branch already granted access · the server's Check says this branch does not hold
+│  │        └─ · [not evaluated] viewer from parent  — an earlier branch already granted access · the server's Check says this branch does not hold
+│  └─ ✓ [from org] member from org  — granted through org
+│     └─ ✓ [org document:doc-0004#org@organization:acme] organization:acme#member  — = [user, group#member] or admin · granted by direct tuples
+│        ├─ ✓ [direct] direct [user, group#member]  — a direct tuple grants access · no tuple organization:acme#member@user:mallory
+│        │  └─ ✓ [member via #member organization:acme#member@group:eng#member] group:eng#member  — evaluated above
+│        └─ · [not evaluated] admin  — an earlier branch already granted access · the server's Check says this branch does not hold
+└─ ✓ [but not from org] blocked from org  — granted through org
+   └─ ✓ [org document:doc-0004#org@organization:acme] organization:acme#blocked  — = [user] · a direct tuple grants access
+      └─ ✓ [blocked organization:acme#blocked@user:mallory] user:mallory  — the user
+
+granting path: 
+elements: 37, steps: 43

@@ -1,0 +1,50 @@
+{{define "changes"}}{{template "head" .}}{{with .Data}}
+<div class="page-pad changes-page">
+  <h2 class="page-h">Changes</h2>
+  <p class="muted sm">Tuple writes and deletes from OpenFGA's change log, oldest first, {{.PageSize}} per page. The log doesn't record who made a change.</p>
+  <form id="changes-form" class="changes-form" hx-get="{{$.Base}}/changes" hx-target="#changes-result" hx-push-url="true">
+    <input type="hidden" name="tz" value="{{.TZ}}" class="tz-offset">
+    <fieldset class="seg-radio">
+      <legend class="sr-only">Time range</legend>
+      {{range $r := split "live 15m 1h 24h 7d custom" " "}}<label class="{{if eq $r $.Data.Range}}on{{end}}"><input type="radio" name="range" value="{{$r}}" {{if eq $r $.Data.Range}}checked{{end}}>
+        {{if eq $r "live"}}Live{{else if eq $r "custom"}}Between…{{else}}Last {{$r}}{{end}}</label>{{end}}
+    </fieldset>
+    <span class="custom-range" {{if ne .Range "custom"}}hidden{{end}}>
+      <label>from <input type="datetime-local" name="from" value="{{.From}}"></label>
+      <label>to <input type="datetime-local" name="to" value="{{.To}}" title="Leave empty for now"></label>
+    </span>
+    <label>Object type <select name="type"><option value="">all types</option>{{range .Types}}<option {{if eq . $.Data.Type}}selected{{end}}>{{.}}</option>{{end}}</select></label>
+    <button type="submit" class="primary sm">Show</button>
+  </form>
+  <section id="changes-result" aria-live="polite">{{if .Ran}}{{template "changes-body" $}}{{else}}<p class="empty">Choose a time range and press <b>Show</b>.</p>{{end}}</section>
+</div>
+{{end}}{{template "foot" .}}{{end}}
+
+{{define "changes-result"}}{{template "changes-body" .}}{{end}}
+
+{{define "changes-body"}}{{with .Data}}
+{{if .Err}}<div class="alert err" role="alert">{{.Err}}</div>
+{{else}}
+<p class="muted sm">{{if .Live}}Live: since {{.Start.Format "15:04"}} UTC, checking for new changes every 5 seconds.
+  {{else}}{{.Start.UTC.Format "2006-01-02 15:04"}} – {{.End.UTC.Format "2006-01-02 15:04"}} UTC{{with $.Data.Type}} · type {{.}}{{end}}.{{end}}</p>
+<table class="changes">
+  <thead><tr><th>Time</th><th>Change</th><th>User</th><th>Relation</th><th>Object</th></tr></thead>
+  <tbody id="change-rows">{{template "change-rows-body" $}}</tbody>
+</table>
+{{if not .Live}}
+<nav class="pager" aria-label="Pages">
+  {{if .Next}}<a class="btn sm" href="{{$.Base}}/changes?range={{.Range}}&from={{.From}}&to={{.To}}&type={{.Type}}&tz={{.TZ}}&token={{.Next}}" hx-get="{{$.Base}}/changes?range={{.Range}}&from={{.From}}&to={{.To}}&type={{.Type}}&tz={{.TZ}}&token={{.Next}}" hx-target="#changes-result" hx-push-url="true">Next page ›</a>{{end}}
+  {{if .Done}}<span class="muted sm">{{if .Rows}}End of the range.{{end}}</span>{{end}}
+</nav>
+{{end}}
+{{end}}
+{{end}}{{end}}
+
+{{define "change-rows"}}{{template "change-rows-body" .}}{{end}}
+
+{{define "change-rows-body"}}{{with .Data}}
+{{range .Rows}}<tr class="op-{{.Op}}"><td><time>{{.Time}}</time></td><td>{{if eq .Op "write"}}<span class="o-allowed">+ write</span>{{else}}<span class="o-denied">− delete</span>{{end}}</td>
+  <td><code>{{.User}}</code></td><td><code>{{.Relation}}</code></td><td><a href="{{$.Base}}/explore?type={{.ObjectType}}&id={{.ObjectID}}"><code>{{.Object}}</code></a>{{with .Cond}} <span class="condtag">{{.}}</span>{{end}}</td></tr>{{end}}
+{{if and .Ran (not .Rows) (not .Live)}}<tr><td colspan="5" class="muted">No changes in this range.</td></tr>{{end}}
+{{if .Live}}<tr class="poller" hx-get="{{$.Base}}/changes?range=live&type={{.Type}}&tz={{.TZ}}&token={{.Poll}}&rows=1" hx-trigger="{{if .CatchUp}}load{{else}}every 5s [!document.hidden]{{end}}" hx-swap="outerHTML"><td colspan="5" class="muted sm">{{if .CatchUp}}catching up…{{else}}waiting for changes…{{end}}</td></tr>{{end}}
+{{end}}{{end}}

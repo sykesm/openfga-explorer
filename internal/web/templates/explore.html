@@ -1,0 +1,368 @@
+{{define "explore"}}{{template "head" .}}
+<div class="explore-layout" data-large="{{.Data.Large}}"{{with .Data.Modules}} data-modules="{{range $i, $m := .}}{{if $i}},{{end}}{{$m.Name}}{{end}}"{{end}}>
+  <section class="canvas-wrap">
+    <div class="canvas-bar">
+      <div class="seg" role="tablist" aria-label="Graph">
+        <button type="button" data-canvas="schema" class="on" role="tab" id="tab-schema" aria-controls="schema-canvas" aria-selected="true">Type graph</button>
+        <button type="button" data-canvas="instances" role="tab" id="tab-instances" aria-controls="instance-canvas" aria-selected="false" tabindex="-1">Instance graph <span class="pill" id="inst-count">0</span></button>
+      </div>
+      <span class="spacer"></span>
+      {{if .Data.Modules}}<label class="sm color-mod" title="Color each type by the module that defines it"><input type="checkbox" data-act="color-modules"> color by module</label>{{end}}
+      <button type="button" class="ghost hidden" data-act="show-all-types" title="Show every type, not just the selected type's neighborhood">{{if .Data.Large}}Draw all types{{else}}Show all types{{end}}</button>
+      <button type="button" class="ghost" data-act="fit">Fit</button>
+      <button type="button" class="ghost" data-act="relayout">Re-layout</button>
+      <button type="button" class="ghost" data-act="clear" title="Remove all instances from the graph">Clear instances</button>
+      <button type="button" class="ghost" data-act="reset-explore" title="Start over: clear the graph, selection, and saved view">Reset</button>
+      <button type="button" class="ghost" data-act="toggle-side" aria-controls="explore-side" aria-expanded="true" title="Show or hide the side panel: types, the selected type and instance (T)">Panel</button>
+    </div>
+    <div class="canvas-stack">
+      <p id="schema-note" class="canvas-note" role="status" hidden></p>
+      <div id="schema-canvas" class="canvas" role="tabpanel" aria-labelledby="tab-schema"></div>
+      {{if .Data.Large}}
+      <div id="schema-empty" class="canvas-empty" role="status">
+        <h2>{{len .Model.TypeNames}} types are too many to draw at once</h2>
+        <p>Choose a type on the right (search by name or relation, or start from a recent or well-connected type), and the graph shows its neighborhood.</p>
+        <button type="button" class="ghost" data-act="show-all-types">Draw all types anyway</button>
+      </div>
+      {{end}}
+    </div>
+    <button type="button" class="panel-rail" data-act="toggle-side" aria-controls="explore-side" aria-expanded="true" title="Show the side panel (T)">‹ Types &amp; instances</button>
+    <div class="canvas-stack">
+      <div id="instance-canvas" class="canvas hidden" role="tabpanel" aria-labelledby="tab-instances"></div>
+      <div id="instance-empty" class="canvas-empty hidden" role="status">
+        <h2>The instance graph is empty</h2>
+        <p class="ce-msg">It fills in as you open instances: each one adds its edges, and clicking a node walks to it.</p>
+        <button type="button" class="primary" data-act="start-picking">Choose a type</button>
+      </div>
+    </div>
+    <div class="legend" data-for="schema">
+      <span><i class="ln direct"></i>direct type restriction</span>
+      <span><i class="ln userset"></i>userset (type#rel)</span>
+      <span><i class="ln wildcard"></i>wildcard</span>
+      <span><i class="ln ttu"></i>“X from Y” traversal</span>
+      <span class="mod-legend" hidden></span>
+    </div>
+    <div class="legend hidden" data-for="instances">
+      <span>edges point from user → object</span>
+      <span><i class="nd count"></i>high-cardinality relation (click to choose edges)</span>
+      <span>click a node to explore it</span>
+    </div>
+  </section>
+  <div class="side-resizer" role="separator" aria-orientation="vertical" aria-label="resize panel" tabindex="0"></div>
+  <aside class="side" id="explore-side" aria-label="Types and instances">
+    {{if .Data.Many}}
+    {{/* Many types: a search (results appear as you type), the types you used
+         recently, and the most connected types as starting points. */}}
+    <div class="type-find many">
+      <div class="type-filter">
+        <input type="search" class="type-q" role="combobox" aria-expanded="false" aria-controls="type-results" aria-autocomplete="list"
+          placeholder="Find a type or relation among {{len .Model.TypeNames}} types…" aria-label="find a type by name or relation" autocomplete="off" spellcheck="false"
+          title="Words match anywhere in the type name (“jira proj” finds jira_project) or in one of its relations (“can_approve”). ↑↓ move, Enter opens.">
+      </div>
+      <p class="type-count muted sm" aria-live="polite"></p>
+      <ul class="type-results" id="type-results" role="listbox" aria-label="matching types" hidden></ul>
+      <div class="type-start">
+        <section class="type-recent" hidden aria-labelledby="recent-h">
+          <div class="ts-head"><h3 id="recent-h">Recent types</h3>
+            <button type="button" class="linkish sm" data-act="clear-recent-types" title="Forget all recent types">Clear all</button></div>
+          <ul class="ts-list"></ul>
+        </section>
+        {{with .Data.Modules}}
+        <section class="type-modules" aria-labelledby="mods-h">
+          <h3 id="mods-h">Modules</h3>
+          <div class="ts-chips">{{range .}}<button type="button" class="mod-chip" data-module="{{.Name}}" title="List the types module {{.Name}} defines or extends">{{.Name}} <span class="muted">{{len .Types}}{{with .Extends}} + {{len .}}{{end}}</span></button>{{end}}</div>
+        </section>
+        {{end}}
+        <section class="type-hubs" aria-labelledby="hubs-h">
+          <h3 id="hubs-h">Most connected types</h3>
+          <div class="ts-chips">{{range .Data.Hubs}}<button type="button" class="type-chip" data-type="{{.}}">{{.}}</button>{{end}}</div>
+        </section>
+      </div>
+      <script type="application/json" id="type-index">{{json .Data.Index}}</script>
+    </div>
+    {{else if .Data.Modules}}
+    {{/* A small modular model: types grouped by the module that defines them. */}}
+    <div class="type-find by-module">
+      {{range .Data.Modules}}
+      <div class="mod-group">
+        <h3><span class="modtag">{{.Name}}</span> <span class="muted">{{range $i, $f := .Files}}{{if $i}}, {{end}}{{$f}}{{end}}</span></h3>
+        <div class="type-list">
+          {{range .Types}}<button type="button" class="type-chip" data-type="{{.}}">{{.}}</button>{{end}}
+          {{range .Extends}}<button type="button" class="type-chip ext" data-type="{{.Type}}" title="This module adds {{join .Relations ", "}} to {{.Type}} (extend type)">+ {{.Type}}</button>{{end}}
+        </div>
+      </div>
+      {{end}}
+    </div>
+    {{else}}
+    <div class="type-find">
+      <div class="type-list">
+        {{range .Model.TypeNames}}<button type="button" class="type-chip" data-type="{{.}}">{{.}}</button>{{end}}
+      </div>
+    </div>
+    {{end}}
+    <div id="type-panel" data-initial-type="{{.Data.Type}}">
+      <p class="empty">Select a type in the graph or above to see its relations.</p>
+    </div>
+    <div id="instance-panel" data-initial-type="{{.Data.Type}}" data-initial-id="{{.Data.ID}}" data-initial-relation="{{.Data.Relation}}"></div>
+  </aside>
+</div>
+{{template "foot" .}}{{end}}
+
+{{define "type-panel"}}{{$b := .Base}}{{with .Data}}
+<div class="panel" data-selected-type="{{.Type.Name}}">
+  <h2 class="ptitle"><span class="k">type</span> {{.Type.Name}}
+    {{with .Type.Source.Module}}<span class="modtag" title="Defined in {{$.Data.Type.Source.File}}">module {{.}}</span>{{end}}</h2>
+  <div class="pick-instance">
+    <h3>Pick an instance</h3>
+    {{template "picker" (dict "Base" $b "P" .Pick)}}
+    {{with .Hint}}<p class="hint">{{.}}</p>{{end}}
+  </div>
+  <details class="type-details" open>
+  <summary>Relations of {{.Type.Name}} <span class="muted">({{len .Type.RelationNames}})</span></summary>
+  {{range .Groups}}
+  <div class="relgroup kind-{{.Kind}}">
+    <h3><span class="badge {{.Kind}}">{{kindLabel .Kind}}</span> <span class="count">{{len .Relations}}</span></h3>
+    <p class="help">
+      {{- if eq .Kind.String "direct"}}Every edge is a stored tuple.
+      {{- else if eq .Kind.String "derived"}}Computed from other relations; no tuples can be written.
+      {{- else}}Accepts tuples and is also computed from other relations.{{end -}}
+    </p>
+    {{if not .Relations}}<p class="empty sm">none</p>{{end}}
+    <ul class="rels">{{range .Relations}}
+      <li>
+        <span class="rel">{{.Name}}</span>{{template "relmod" .}}{{range .Findings}} <span class="lint {{.Severity}}" role="img" aria-label="{{.Severity}}: {{.Message}}" title="{{.Message}}">{{if eq .Severity "warning"}}⚠{{else}}ⓘ{{end}}</span>{{end}}
+        {{if .DirectTypes}}<span class="refs">{{refs .DirectTypes}}</span>{{end}}
+        {{if ne .Kind.String "direct"}}<div class="expr">= {{.DerivedExpr}}</div>{{end}}
+      </li>{{end}}
+    </ul>
+  </div>
+  {{end}}
+  {{if .Incoming}}
+  <div class="relgroup incoming">
+    <h3>Can be the user of</h3>
+    <ul class="rels">{{range .Incoming}}
+      <li><span class="rel">{{.ObjectType}}#{{.Relation}}</span>
+        {{if .UsersetRelation}}<span class="refs">as {{$.Data.Type.Name}}#{{.UsersetRelation}}</span>{{else if .Wildcard}}<span class="refs">as {{$.Data.Type.Name}}:*</span>{{end}}</li>{{end}}
+    </ul>
+  </div>
+  {{end}}
+  </details>
+</div>
+{{end}}{{end}}
+
+{{define "instance"}}{{$b := .Base}}{{with .Data}}
+<div class="panel instance" data-object="{{.Object}}" data-default-tab="{{if .Out}}edges{{else if .HasIncoming}}incoming{{else}}derived{{end}}">
+  <script type="application/json" class="graph-patch">{{json (graphPatch .)}}</script>
+  <h2 class="ptitle"><span class="k">instance</span> {{display .Object}}</h2>
+  {{if ne (display .Object) .Object}}<div class="rawid">stored as <code>{{.Object}}</code></div>{{end}}
+  <div class="actions">
+    <a class="btn" href="{{$b}}/check?{{query "object" .Object}}">Check access…</a>
+  </div>
+  {{if not .Exists}}<div class="alert warn">No tuples reference <code>{{.Object}}</code>. It may not exist, or its ID may be normalized differently.</div>{{end}}
+
+  <div class="itabs" role="tablist" aria-label="Instance views">
+    <button type="button" role="tab" data-tab="edges" id="itab-edges" aria-controls="ipanel-edges" aria-selected="false" tabindex="-1" title="Tuples with {{display .Object}} as the object">Edges <span class="pill">{{len .Out}}</span></button>
+    <button type="button" role="tab" data-tab="derived" id="itab-derived" aria-controls="ipanel-derived" aria-selected="false" tabindex="-1" title="Relations computed from others">Derived <span class="pill">{{len .Derived}}</span></button>
+    {{if .HasIncoming}}<button type="button" role="tab" data-tab="incoming" id="itab-incoming" aria-controls="ipanel-incoming" aria-selected="false" tabindex="-1" data-src="{{$b}}/explore/incoming?{{query "object" .Object}}" title="Tuples where {{display .Object}} is the user (loaded when opened)">Incoming</button>{{end}}
+    {{if .HasAccess}}<button type="button" role="tab" data-tab="access" id="itab-access" aria-controls="ipanel-access" aria-selected="false" tabindex="-1" data-src="{{$b}}/explore/access?{{query "object" .Object}}" title="What can {{display .Object}} access? Queries the store's real tuples (admins)">Access</button>{{end}}
+  </div>
+
+  <section class="ipanel" data-panel="edges" role="tabpanel" id="ipanel-edges" aria-labelledby="itab-edges">
+  <table class="edges">
+  {{range .Out}}
+    <tr class="relrow" id="rel-{{.Rel.Name}}">
+      <th>
+        <span class="rel">{{.Rel.Name}}</span>{{template "relmod" .Rel}} <span class="badge {{.Rel.Kind}}">{{kindLabel .Rel.Kind}}</span>
+        <div class="refs">{{refs .Rel.DirectTypes}}</div>
+        {{if eq .Rel.Kind.String "hybrid"}}<div class="expr">also = {{.Rel.DerivedExpr}}</div>{{end}}
+        <details class="whohas-d"><summary title="Everyone who ends up with {{.Rel.Name}}, including members of groups and inherited access (ListUsers)">who has it?</summary>
+          {{template "whohas" (dict "Base" $b "Object" $.Data.Object "Relation" .Rel.Name "Holders" .Holders)}}</details>
+      </th>
+      <td>{{template "edgecell" (dict "Base" $b "E" . "Q" (query "dir" "out" "object" $.Data.Object "relation" .Rel.Name) "ID" (printf "out-%s" .Rel.Name))}}</td>
+    </tr>
+  {{else}}<tr><td class="muted">This type has no relations that accept tuples.</td></tr>
+  {{end}}
+  </table>
+  </section>
+
+  <section class="ipanel" data-panel="derived" role="tabpanel" id="ipanel-derived" aria-labelledby="itab-derived" hidden>
+  {{if .Derived}}
+  <ul class="derived">
+  {{range .Derived}}
+    <li id="rel-{{.Rel.Name}}">
+      <div class="dhead"><span class="rel">{{.Rel.Name}}</span>{{template "relmod" .Rel}} <code class="dsl-inline" title="model definition">= {{.Rel.Expr}}</code></div>
+      <div class="explain">
+        <span class="ex-lead">Granted to anyone who has</span>
+        {{template "clause" (dict "C" .Explain "Type" $.Data.Type.Name)}}
+      </div>
+      {{template "whohas" (dict "Base" $b "Object" $.Data.Object "Relation" .Rel.Name "Holders" .Holders)}}
+    </li>
+  {{end}}
+  </ul>
+  {{else}}<p class="muted">{{.Type.Name}} has no derived relations.</p>{{end}}
+  </section>
+
+  {{if .HasIncoming}}<section class="ipanel" data-panel="incoming" role="tabpanel" id="ipanel-incoming" aria-labelledby="itab-incoming" hidden><p class="muted">Loading…</p></section>{{end}}
+  {{if .HasAccess}}<section class="ipanel" data-panel="access" role="tabpanel" id="ipanel-access" aria-labelledby="itab-access" hidden><p class="muted">Loading…</p></section>{{end}}
+</div>
+{{end}}{{end}}
+
+{{define "incoming"}}{{$b := .Base}}{{with .Data}}
+<script type="application/json" class="graph-patch">{{json (graphPatch .)}}</script>
+{{if .In}}
+<p class="muted sm">Tuples where {{display .Object}} is the user.</p>
+<table class="edges">
+{{range .In}}
+  <tr>
+    <th><span class="rel">{{.In.ObjectType}}#{{.In.Relation}}</span>{{with .In.UsersetRelation}} <span class="via">as #{{.}}</span>{{end}}</th>
+    <td>{{template "edgecell" (dict "Base" $b "E" . "Q" (query "dir" "in" "object" $.Data.Object "user" .User "relation" .In.Relation "object_type" .In.ObjectType) "ID" (printf "in-%s#%s" .In.ObjectType .In.Relation))}}</td>
+  </tr>
+{{end}}
+</table>
+{{else}}<p class="muted">{{display .Object}} is not the user of any tuple.</p>{{end}}
+{{end}}{{end}}
+
+{{define "clause"}}{{$c := .C}}{{$t := .Type}}
+{{- if eq $c.Kind "any"}}<span class="cl-op">any of:</span><ul class="cl">{{range $c.Children}}<li>{{template "clause" (dict "C" . "Type" $t)}}</li>{{end}}</ul>
+{{- else if eq $c.Kind "all"}}<span class="cl-op">all of:</span><ul class="cl">{{range $c.Children}}<li>{{template "clause" (dict "C" . "Type" $t)}}</li>{{end}}</ul>
+{{- else if eq $c.Kind "except"}}<ul class="cl"><li>{{template "clause" (dict "C" (index $c.Children 0) "Type" $t)}}</li>
+  <li class="cl-except"><span class="cl-op">except</span> anyone who has {{template "clause" (dict "C" (index $c.Children 1) "Type" $t)}}</li></ul>
+{{- else if eq $c.Kind "relation"}}<span class="cl-leaf{{if $c.Empty}} empty{{end}}"><a href="#rel-{{$c.Relation}}" class="anchor"><b>{{$c.Relation}}</b></a> on this {{$t}}{{with $c.Here}} <span class="here">→ {{.}}</span>{{end}}</span>
+{{- else if eq $c.Kind "via"}}<span class="cl-leaf{{if $c.Empty}} empty{{end}}"><b>{{$c.Relation}}</b> on this {{$t}}'s <a href="#rel-{{$c.Via}}" class="anchor">{{$c.Via}}</a>{{with $c.TargetTypes}} <span class="muted">({{range $i, $x := .}}{{if $i}} or {{end}}{{$x}}{{end}})</span>{{end}}{{with $c.Here}} <span class="here">→ {{.}}</span>{{end}}</span>
+{{- else}}<span class="cl-leaf">a direct tuple for {{range $i, $r := $c.Refs}}{{if $i}}, {{end}}<code>{{$r}}</code>{{end}}</span>
+{{- end}}
+{{end}}
+
+{{define "whohas"}}
+<form class="whohas" hx-get="{{.Base}}/explore/listusers" hx-target="next .lu-out">
+  <input type="hidden" name="object" value="{{.Object}}"><input type="hidden" name="relation" value="{{.Relation}}">
+  {{with .Mode}}<input type="hidden" name="mode" value="{{.}}">{{end}}
+  {{with .Context}}<input type="hidden" name="context" value="{{.}}">{{end}}
+  {{with .Contextual}}<input type="hidden" name="contextual" value="{{.}}">{{end}}
+  {{with .Current}}<input type="hidden" name="current" value="{{.}}">{{end}}
+  {{if .Holders}}
+  <span class="sm">List every</span>
+  <select name="user_type" aria-label="kind of user to list" title="Only user types that can hold {{.Relation}} are offered">{{$sel := .Selected}}{{range .Holders}}<option {{if eq . $sel}}selected{{end}}>{{.}}</option>{{end}}</select>
+  <span class="sm">with <b>{{.Relation}}</b></span>
+  <button type="submit" class="ghost sm">List</button>
+  {{else}}<span class="sm muted">No user type can hold {{.Relation}} under this model.</span>{{end}}
+  {{if ne .Mode "check"}}<a class="sm" href="{{.Base}}/check?{{query "object" .Object "relation" .Relation}}" title="Opens the Check view to explain the decision for one user">Explain for one user →</a>{{end}}
+</form>
+<div class="lu-out"></div>
+{{end}}
+
+{{define "edgecell"}}{{$e := .E}}
+{{if $e.Err}}<span class="errc">{{$e.Err}}</span>
+{{else if $e.Empty}}<span class="muted">none</span>
+{{else if $e.Inline}}
+  <ul class="edgelist">{{range $e.Edges}}{{template "edge" .}}{{end}}</ul>
+{{else}}
+  <div class="cardinality"><span class="card">{{$e.Count}}</span> edges
+    <button type="button" class="ghost sm" data-chooser-btn="{{.ID}}" hx-get="{{.Base}}/explore/edges?{{.Q}}" hx-target="next .chooser">Choose edges…</button></div>
+  <div class="chooser" data-chooser="{{.ID}}"></div>
+{{end}}
+{{end}}
+
+{{define "edge"}}
+<li class="edge" data-edge="{{jsonAttr .GraphData}}">
+  <button type="button" class="add-edge" title="Add this edge to the graph" aria-label="Add this edge to the graph">＋</button>
+  <a href="#" class="peer" data-explore="{{.Peer}}" title="Walk to {{.Peer}}">{{display .Peer}}</a>{{with .Via}}<span class="via">#{{.}}</span>{{end}}
+  {{with .Condition}}<span class="condtag" title="conditional tuple">{{.}}</span>{{end}}
+</li>
+{{end}}
+
+{{define "edges"}}{{with .Data}}
+<div class="chooser-box">
+  {{/* Only .chooser-results is replaced while filtering, so the text field keeps focus. */}}
+  <form class="chooser-filter" hx-get="{{$.Base}}/explore/edges" hx-trigger="submit" hx-target="next .chooser-results" hx-select=".chooser-results" hx-swap="outerHTML" hx-disinherit="*">
+    <input type="hidden" name="object" value="{{.Object}}"><input type="hidden" name="relation" value="{{.Relation}}">
+    <input type="hidden" name="dir" value="{{.Dir}}"><input type="hidden" name="user" value="{{.User}}"><input type="hidden" name="object_type" value="{{.ObjectType}}">
+    <div class="chooser-row">
+      <input type="search" name="filter" value="{{.Filter}}" autocomplete="off" aria-label="filter edges"
+        placeholder="search by ID…"
+        hx-get="{{$.Base}}/explore/edges" hx-trigger="input changed delay:300ms, search" hx-include="closest form"
+        hx-target="next .chooser-results" hx-select=".chooser-results" hx-swap="outerHTML" hx-sync="this:replace">
+
+    </div>
+  </form>
+  <div class="chooser-results">
+    <div class="chooser-meta">
+      {{if .Err}}<span class="errc">{{.Err}}</span>
+      {{else if .Filter}}
+        {{if .Offset}}more {{end}}{{len .Shown}} match{{if ne (len .Shown) 1}}es{{end}} for “{{.Filter}}”{{if .More}} · more below{{end}}{{with .Total}} · {{.}} edges in total{{end}}
+        {{with .Note}}<div class="warnc">{{.}}</div>{{end}}
+      {{else}}edges {{add .Offset 1}}–{{add .Offset (len .Shown)}}{{with .Total}} of {{.}}{{end}}{{if .More}} · more follow{{end}}{{end}}
+    </div>
+    <ul class="edgelist selectable">
+    {{range .Shown}}
+      <li class="edge" data-edge="{{jsonAttr .GraphData}}">
+        <input type="checkbox" class="edge-check" aria-label="show {{.Peer}} on the graph" title="On the graph">
+        <a href="#" class="peer" data-explore="{{.Peer}}">{{display .Peer}}</a>{{with .Via}}<span class="via">#{{.}}</span>{{end}}
+        {{with .Condition}}<span class="condtag">{{.}}</span>{{end}}
+      </li>
+    {{else}}<li class="muted">{{if .Filter}}no matching edges{{else}}no edges{{end}}</li>
+    {{end}}
+    </ul>
+    <div class="chooser-actions">
+      <button type="button" class="sm add-shown" title="Add every edge listed here to the instance graph">Add all shown</button>
+      <button type="button" class="ghost sm remove-shown" title="Remove every edge listed here from the instance graph">Remove all shown</button>
+      <span class="sel-count muted sm"></span>
+      {{if .More}}<button type="button" class="ghost sm" hx-get="{{$.Base}}/explore/edges?{{.NextQuery}}" hx-target="closest .chooser-results" hx-select=".chooser-results" hx-swap="outerHTML">{{if .Filter}}More matches →{{else}}Next 100 →{{end}}</button>{{end}}
+    </div>
+  </div>
+</div>
+{{end}}{{end}}
+
+{{define "listusers"}}{{with .Data}}
+<div class="lu">
+{{if .Err}}<span class="errc">{{.Err}}</span>
+{{else if not .Users}}<span class="muted">No {{.Filter}} has {{.Relation}} on {{display .Object}}.</span>
+{{else}}
+  <div class="muted sm">{{len .Users}} {{.Noun}} {{if eq (len .Users) 1}}has{{else}}have{{end}} {{.Relation}}{{if ge (len .Users) 1000}} (the server caps this list at 1000){{end}}.
+    {{if eq .Mode "check"}}Click one to trace its path.{{else}}<i>why?</i> explains each one.{{end}}</div>
+  <ul class="edgelist">{{range .First}}{{template "lu-row" (dict "U" . "Base" $.Base "Rel" $.Data.Relation "Obj" $.Data.Object "Mode" $.Data.Mode "Current" $.Data.Current)}}{{end}}</ul>
+  {{with .Rest}}<details class="lu-more"><summary>show {{len .}} more</summary>
+    <ul class="edgelist">{{range .}}{{template "lu-row" (dict "U" . "Base" $.Base "Rel" $.Data.Relation "Obj" $.Data.Object "Mode" $.Data.Mode "Current" $.Data.Current)}}{{end}}</ul></details>{{end}}
+{{end}}
+</div>
+{{end}}{{end}}
+
+{{define "lu-row"}}{{if eq .Mode "check"}}
+  <li><button type="button" class="linkish lu-trace{{if eq .U .Current}} current{{end}}" data-user="{{.U}}" data-text="{{pickerText .U}}"
+      title="Trace {{.U}} → {{.Rel}} → {{.Obj}}">{{display .U}}</button>{{if eq .U .Current}} <span class="muted sm">(shown above)</span>{{end}}</li>
+{{else}}<li><a href="#" class="peer" data-explore="{{.U}}">{{display .U}}</a>
+  <a class="sm" href="{{.Base}}/check?{{query "user" .U "relation" .Rel "object" .Obj}}">why?</a></li>{{end}}{{end}}
+
+{{/* relmod tags a relation another module adds to its type (extend type). */}}
+{{define "relmod"}}{{if .Extended}} <span class="modtag ext" title="Added to {{.Type}} by module {{.Source.Module}} in {{.Source.File}} (extend type)">from {{.Source.Module}}</span>{{end}}{{end}}
+
+{{define "access"}}{{with .Data}}
+<div class="access" id="access-{{.Object}}">
+  <p class="muted sm">What can this access? Each relation is one ListObjects call against the store's real tuples. Runs are bounded and counted (admins only).</p>
+  {{if not .Allowed}}<p class="muted">{{.Err}}</p>{{else}}
+  <form class="access-form" hx-get="{{$.Base}}/explore/access" hx-target="closest .ipanel" hx-disinherit="*">
+    <input type="hidden" name="object" value="{{.Object}}">
+    {{if gt (len .Subjects) 1}}<label>As <select name="subject" hx-get="{{$.Base}}/explore/access" hx-include="closest form" hx-target="closest .ipanel" hx-trigger="change">{{range .Subjects}}<option {{if eq . $.Data.Subject}}selected{{end}}>{{.}}</option>{{end}}</select></label>
+    {{else}}<input type="hidden" name="subject" value="{{.Subject}}">{{end}}
+    {{if .Types}}
+    <label>Objects of type <select name="type" hx-get="{{$.Base}}/explore/access" hx-include="closest form" hx-target="closest .ipanel" hx-trigger="change">{{range .Types}}<option {{if eq .Name $.Data.Type}}selected{{end}}>{{.Name}}</option>{{end}}</select></label>
+    <fieldset class="access-rels"><legend class="sm">Relations</legend>
+      {{range .Types}}{{if eq .Name $.Data.Type}}{{range .Rels}}<label class="sm"><input type="checkbox" name="rel" value="{{.}}" {{if or (not $.Data.Rels) (contains $.Data.Rels .)}}checked{{end}}> {{.}}</label>{{end}}{{end}}{{end}}
+    </fieldset>
+    <button type="submit" name="run" value="1" class="primary sm">Find accessible objects</button>
+    {{else}}<p class="muted">{{.Subject}} can't hold any relation in this model.</p>{{end}}
+  </form>
+  {{with .Err}}<div class="alert warn" role="alert">{{.}}</div>{{end}}
+  {{if .Ran}}
+  <p class="muted sm">{{.Calls}} call{{if ne .Calls 1}}s{{end}} · {{.Elapsed.Round 1000000}}</p>
+  {{range .Results}}{{$rel := .Relation}}
+  <details class="access-result" open>
+    <summary><code>{{.Relation}}</code> — {{if .Err}}<span class="o-error">{{.Err}}</span>{{else}}{{len .Objects}}{{if .Truncated}}+{{end}} object{{if ne (len .Objects) 1}}s{{end}}{{end}}</summary>
+    {{if .Truncated}}<p class="sm muted">The server returned its maximum ({{len .Objects}}); there may be more.</p>{{end}}
+    <ul class="access-objects">{{range .Objects}}<li><a href="{{$.Base}}/check?{{query "user" $.Data.Subject "relation" $rel "object" .}}" title="Explain why"><code>{{.}}</code></a></li>{{end}}</ul>
+  </details>
+  {{end}}
+  {{end}}
+  {{end}}
+</div>
+{{end}}{{end}}

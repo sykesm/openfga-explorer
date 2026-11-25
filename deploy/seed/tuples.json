@@ -1,0 +1,9267 @@
+[
+ {
+  "user": "user:carol",
+  "relation": "admin",
+  "object": "organization:acme"
+ },
+ {
+  "user": "group:eng#member",
+  "relation": "member",
+  "object": "organization:acme"
+ },
+ {
+  "user": "group:sales#member",
+  "relation": "member",
+  "object": "organization:acme"
+ },
+ {
+  "user": "user:dave",
+  "relation": "member",
+  "object": "organization:acme"
+ },
+ {
+  "user": "user:mallory",
+  "relation": "blocked",
+  "object": "organization:acme"
+ },
+ {
+  "user": "user:hank",
+  "relation": "admin",
+  "object": "organization:globex"
+ },
+ {
+  "user": "user:eng-001",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-002",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-003",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-004",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-005",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-006",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-007",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-008",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-009",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-010",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-011",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-012",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-013",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-014",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-015",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-016",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-017",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-018",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-019",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-020",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-021",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-022",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-023",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-024",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-025",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-026",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-027",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-028",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-029",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-030",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-031",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-032",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-033",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-034",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-035",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-036",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-037",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-038",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-039",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-040",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-041",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-042",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-043",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-044",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-045",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-046",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-047",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-048",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-049",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-050",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-051",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-052",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-053",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-054",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-055",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-056",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-057",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-058",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-059",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-060",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-061",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-062",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-063",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-064",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-065",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-066",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-067",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-068",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-069",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-070",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-071",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-072",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-073",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-074",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-075",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-076",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-077",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-078",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-079",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-080",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-081",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-082",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-083",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-084",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-085",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-086",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-087",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-088",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-089",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-090",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-091",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-092",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-093",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-094",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-095",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-096",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-097",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-098",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-099",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-100",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-101",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-102",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-103",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-104",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-105",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-106",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-107",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-108",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-109",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-110",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-111",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-112",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-113",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-114",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-115",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-116",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-117",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-118",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-119",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-120",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-121",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-122",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-123",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-124",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-125",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-126",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-127",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-128",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-129",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-130",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-131",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-132",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-133",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-134",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-135",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-136",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-137",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-138",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-139",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-140",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-141",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-142",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-143",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-144",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-145",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-146",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-147",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-148",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-149",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-150",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-151",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-152",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-153",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-154",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-155",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-156",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-157",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-158",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-159",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-160",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-161",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-162",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-163",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-164",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-165",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-166",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-167",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-168",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-169",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-170",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-171",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-172",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-173",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-174",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-175",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-176",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-177",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-178",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-179",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-180",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-181",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-182",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-183",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-184",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-185",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-186",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-187",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-188",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-189",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-190",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-191",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-192",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-193",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-194",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-195",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-196",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-197",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-198",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-199",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-200",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-201",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-202",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-203",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-204",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-205",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-206",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-207",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-208",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-209",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-210",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-211",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-212",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-213",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-214",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-215",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-216",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-217",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-218",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-219",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-220",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-221",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-222",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-223",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-224",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-225",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-226",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-227",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-228",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-229",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-230",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-231",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-232",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-233",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-234",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-235",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-236",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-237",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-238",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-239",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-240",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-241",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-242",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-243",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-244",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-245",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-246",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-247",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-248",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-249",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-250",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-251",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-252",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-253",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-254",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-255",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-256",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-257",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-258",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-259",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-260",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-261",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-262",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-263",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-264",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-265",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-266",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-267",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-268",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-269",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-270",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-271",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-272",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-273",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-274",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-275",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-276",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-277",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-278",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-279",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-280",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-281",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-282",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-283",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-284",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-285",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-286",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-287",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-288",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-289",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-290",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-291",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-292",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-293",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-294",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-295",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-296",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-297",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-298",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-299",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:eng-300",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "group:platform#member",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:mallory",
+  "relation": "member",
+  "object": "group:eng"
+ },
+ {
+  "user": "user:anne",
+  "relation": "member",
+  "object": "group:platform"
+ },
+ {
+  "user": "user:plat-001",
+  "relation": "member",
+  "object": "group:platform"
+ },
+ {
+  "user": "user:plat-002",
+  "relation": "member",
+  "object": "group:platform"
+ },
+ {
+  "user": "user:plat-003",
+  "relation": "member",
+  "object": "group:platform"
+ },
+ {
+  "user": "user:plat-004",
+  "relation": "member",
+  "object": "group:platform"
+ },
+ {
+  "user": "user:plat-005",
+  "relation": "member",
+  "object": "group:platform"
+ },
+ {
+  "user": "user:plat-006",
+  "relation": "member",
+  "object": "group:platform"
+ },
+ {
+  "user": "user:plat-007",
+  "relation": "member",
+  "object": "group:platform"
+ },
+ {
+  "user": "user:plat-008",
+  "relation": "member",
+  "object": "group:platform"
+ },
+ {
+  "user": "user:plat-009",
+  "relation": "member",
+  "object": "group:platform"
+ },
+ {
+  "user": "user:plat-010",
+  "relation": "member",
+  "object": "group:platform"
+ },
+ {
+  "user": "user:plat-011",
+  "relation": "member",
+  "object": "group:platform"
+ },
+ {
+  "user": "user:plat-012",
+  "relation": "member",
+  "object": "group:platform"
+ },
+ {
+  "user": "user:plat-013",
+  "relation": "member",
+  "object": "group:platform"
+ },
+ {
+  "user": "user:plat-014",
+  "relation": "member",
+  "object": "group:platform"
+ },
+ {
+  "user": "user:plat-015",
+  "relation": "member",
+  "object": "group:platform"
+ },
+ {
+  "user": "user:plat-016",
+  "relation": "member",
+  "object": "group:platform"
+ },
+ {
+  "user": "user:plat-017",
+  "relation": "member",
+  "object": "group:platform"
+ },
+ {
+  "user": "user:plat-018",
+  "relation": "member",
+  "object": "group:platform"
+ },
+ {
+  "user": "user:plat-019",
+  "relation": "member",
+  "object": "group:platform"
+ },
+ {
+  "user": "user:plat-020",
+  "relation": "member",
+  "object": "group:platform"
+ },
+ {
+  "user": "principal:SVC%3ABUILD%23CI",
+  "relation": "member",
+  "object": "group:platform"
+ },
+ {
+  "user": "principal:CN%3DALICE%20SMITH",
+  "relation": "member",
+  "object": "group:platform"
+ },
+ {
+  "user": "user:sales-001",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-002",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-003",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-004",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-005",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-006",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-007",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-008",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-009",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-010",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-011",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-012",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-013",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-014",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-015",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-016",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-017",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-018",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-019",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-020",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-021",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-022",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-023",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-024",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-025",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-026",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-027",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-028",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-029",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-030",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-031",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-032",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-033",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-034",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-035",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-036",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-037",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-038",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-039",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-040",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-041",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-042",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-043",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-044",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-045",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-046",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-047",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-048",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-049",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:sales-050",
+  "relation": "member",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:bob",
+  "relation": "manager",
+  "object": "group:sales"
+ },
+ {
+  "user": "user:team001-u1",
+  "relation": "member",
+  "object": "group:team-001"
+ },
+ {
+  "user": "user:team001-u2",
+  "relation": "member",
+  "object": "group:team-001"
+ },
+ {
+  "user": "user:team001-u3",
+  "relation": "member",
+  "object": "group:team-001"
+ },
+ {
+  "user": "group:team-001#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team002-u1",
+  "relation": "member",
+  "object": "group:team-002"
+ },
+ {
+  "user": "user:team002-u2",
+  "relation": "member",
+  "object": "group:team-002"
+ },
+ {
+  "user": "user:team002-u3",
+  "relation": "member",
+  "object": "group:team-002"
+ },
+ {
+  "user": "group:team-002#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team003-u1",
+  "relation": "member",
+  "object": "group:team-003"
+ },
+ {
+  "user": "user:team003-u2",
+  "relation": "member",
+  "object": "group:team-003"
+ },
+ {
+  "user": "user:team003-u3",
+  "relation": "member",
+  "object": "group:team-003"
+ },
+ {
+  "user": "group:team-003#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team004-u1",
+  "relation": "member",
+  "object": "group:team-004"
+ },
+ {
+  "user": "user:team004-u2",
+  "relation": "member",
+  "object": "group:team-004"
+ },
+ {
+  "user": "user:team004-u3",
+  "relation": "member",
+  "object": "group:team-004"
+ },
+ {
+  "user": "group:team-004#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team005-u1",
+  "relation": "member",
+  "object": "group:team-005"
+ },
+ {
+  "user": "user:team005-u2",
+  "relation": "member",
+  "object": "group:team-005"
+ },
+ {
+  "user": "user:team005-u3",
+  "relation": "member",
+  "object": "group:team-005"
+ },
+ {
+  "user": "group:team-005#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team006-u1",
+  "relation": "member",
+  "object": "group:team-006"
+ },
+ {
+  "user": "user:team006-u2",
+  "relation": "member",
+  "object": "group:team-006"
+ },
+ {
+  "user": "user:team006-u3",
+  "relation": "member",
+  "object": "group:team-006"
+ },
+ {
+  "user": "group:team-006#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team007-u1",
+  "relation": "member",
+  "object": "group:team-007"
+ },
+ {
+  "user": "user:team007-u2",
+  "relation": "member",
+  "object": "group:team-007"
+ },
+ {
+  "user": "user:team007-u3",
+  "relation": "member",
+  "object": "group:team-007"
+ },
+ {
+  "user": "group:team-007#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team008-u1",
+  "relation": "member",
+  "object": "group:team-008"
+ },
+ {
+  "user": "user:team008-u2",
+  "relation": "member",
+  "object": "group:team-008"
+ },
+ {
+  "user": "user:team008-u3",
+  "relation": "member",
+  "object": "group:team-008"
+ },
+ {
+  "user": "group:team-008#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team009-u1",
+  "relation": "member",
+  "object": "group:team-009"
+ },
+ {
+  "user": "user:team009-u2",
+  "relation": "member",
+  "object": "group:team-009"
+ },
+ {
+  "user": "user:team009-u3",
+  "relation": "member",
+  "object": "group:team-009"
+ },
+ {
+  "user": "group:team-009#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team010-u1",
+  "relation": "member",
+  "object": "group:team-010"
+ },
+ {
+  "user": "user:team010-u2",
+  "relation": "member",
+  "object": "group:team-010"
+ },
+ {
+  "user": "user:team010-u3",
+  "relation": "member",
+  "object": "group:team-010"
+ },
+ {
+  "user": "group:team-010#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team011-u1",
+  "relation": "member",
+  "object": "group:team-011"
+ },
+ {
+  "user": "user:team011-u2",
+  "relation": "member",
+  "object": "group:team-011"
+ },
+ {
+  "user": "user:team011-u3",
+  "relation": "member",
+  "object": "group:team-011"
+ },
+ {
+  "user": "group:team-011#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team012-u1",
+  "relation": "member",
+  "object": "group:team-012"
+ },
+ {
+  "user": "user:team012-u2",
+  "relation": "member",
+  "object": "group:team-012"
+ },
+ {
+  "user": "user:team012-u3",
+  "relation": "member",
+  "object": "group:team-012"
+ },
+ {
+  "user": "group:team-012#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team013-u1",
+  "relation": "member",
+  "object": "group:team-013"
+ },
+ {
+  "user": "user:team013-u2",
+  "relation": "member",
+  "object": "group:team-013"
+ },
+ {
+  "user": "user:team013-u3",
+  "relation": "member",
+  "object": "group:team-013"
+ },
+ {
+  "user": "group:team-013#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team014-u1",
+  "relation": "member",
+  "object": "group:team-014"
+ },
+ {
+  "user": "user:team014-u2",
+  "relation": "member",
+  "object": "group:team-014"
+ },
+ {
+  "user": "user:team014-u3",
+  "relation": "member",
+  "object": "group:team-014"
+ },
+ {
+  "user": "group:team-014#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team015-u1",
+  "relation": "member",
+  "object": "group:team-015"
+ },
+ {
+  "user": "user:team015-u2",
+  "relation": "member",
+  "object": "group:team-015"
+ },
+ {
+  "user": "user:team015-u3",
+  "relation": "member",
+  "object": "group:team-015"
+ },
+ {
+  "user": "group:team-015#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team016-u1",
+  "relation": "member",
+  "object": "group:team-016"
+ },
+ {
+  "user": "user:team016-u2",
+  "relation": "member",
+  "object": "group:team-016"
+ },
+ {
+  "user": "user:team016-u3",
+  "relation": "member",
+  "object": "group:team-016"
+ },
+ {
+  "user": "group:team-016#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team017-u1",
+  "relation": "member",
+  "object": "group:team-017"
+ },
+ {
+  "user": "user:team017-u2",
+  "relation": "member",
+  "object": "group:team-017"
+ },
+ {
+  "user": "user:team017-u3",
+  "relation": "member",
+  "object": "group:team-017"
+ },
+ {
+  "user": "group:team-017#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team018-u1",
+  "relation": "member",
+  "object": "group:team-018"
+ },
+ {
+  "user": "user:team018-u2",
+  "relation": "member",
+  "object": "group:team-018"
+ },
+ {
+  "user": "user:team018-u3",
+  "relation": "member",
+  "object": "group:team-018"
+ },
+ {
+  "user": "group:team-018#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team019-u1",
+  "relation": "member",
+  "object": "group:team-019"
+ },
+ {
+  "user": "user:team019-u2",
+  "relation": "member",
+  "object": "group:team-019"
+ },
+ {
+  "user": "user:team019-u3",
+  "relation": "member",
+  "object": "group:team-019"
+ },
+ {
+  "user": "group:team-019#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team020-u1",
+  "relation": "member",
+  "object": "group:team-020"
+ },
+ {
+  "user": "user:team020-u2",
+  "relation": "member",
+  "object": "group:team-020"
+ },
+ {
+  "user": "user:team020-u3",
+  "relation": "member",
+  "object": "group:team-020"
+ },
+ {
+  "user": "group:team-020#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team021-u1",
+  "relation": "member",
+  "object": "group:team-021"
+ },
+ {
+  "user": "user:team021-u2",
+  "relation": "member",
+  "object": "group:team-021"
+ },
+ {
+  "user": "user:team021-u3",
+  "relation": "member",
+  "object": "group:team-021"
+ },
+ {
+  "user": "group:team-021#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team022-u1",
+  "relation": "member",
+  "object": "group:team-022"
+ },
+ {
+  "user": "user:team022-u2",
+  "relation": "member",
+  "object": "group:team-022"
+ },
+ {
+  "user": "user:team022-u3",
+  "relation": "member",
+  "object": "group:team-022"
+ },
+ {
+  "user": "group:team-022#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team023-u1",
+  "relation": "member",
+  "object": "group:team-023"
+ },
+ {
+  "user": "user:team023-u2",
+  "relation": "member",
+  "object": "group:team-023"
+ },
+ {
+  "user": "user:team023-u3",
+  "relation": "member",
+  "object": "group:team-023"
+ },
+ {
+  "user": "group:team-023#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team024-u1",
+  "relation": "member",
+  "object": "group:team-024"
+ },
+ {
+  "user": "user:team024-u2",
+  "relation": "member",
+  "object": "group:team-024"
+ },
+ {
+  "user": "user:team024-u3",
+  "relation": "member",
+  "object": "group:team-024"
+ },
+ {
+  "user": "group:team-024#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team025-u1",
+  "relation": "member",
+  "object": "group:team-025"
+ },
+ {
+  "user": "user:team025-u2",
+  "relation": "member",
+  "object": "group:team-025"
+ },
+ {
+  "user": "user:team025-u3",
+  "relation": "member",
+  "object": "group:team-025"
+ },
+ {
+  "user": "group:team-025#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team026-u1",
+  "relation": "member",
+  "object": "group:team-026"
+ },
+ {
+  "user": "user:team026-u2",
+  "relation": "member",
+  "object": "group:team-026"
+ },
+ {
+  "user": "user:team026-u3",
+  "relation": "member",
+  "object": "group:team-026"
+ },
+ {
+  "user": "group:team-026#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team027-u1",
+  "relation": "member",
+  "object": "group:team-027"
+ },
+ {
+  "user": "user:team027-u2",
+  "relation": "member",
+  "object": "group:team-027"
+ },
+ {
+  "user": "user:team027-u3",
+  "relation": "member",
+  "object": "group:team-027"
+ },
+ {
+  "user": "group:team-027#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team028-u1",
+  "relation": "member",
+  "object": "group:team-028"
+ },
+ {
+  "user": "user:team028-u2",
+  "relation": "member",
+  "object": "group:team-028"
+ },
+ {
+  "user": "user:team028-u3",
+  "relation": "member",
+  "object": "group:team-028"
+ },
+ {
+  "user": "group:team-028#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team029-u1",
+  "relation": "member",
+  "object": "group:team-029"
+ },
+ {
+  "user": "user:team029-u2",
+  "relation": "member",
+  "object": "group:team-029"
+ },
+ {
+  "user": "user:team029-u3",
+  "relation": "member",
+  "object": "group:team-029"
+ },
+ {
+  "user": "group:team-029#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team030-u1",
+  "relation": "member",
+  "object": "group:team-030"
+ },
+ {
+  "user": "user:team030-u2",
+  "relation": "member",
+  "object": "group:team-030"
+ },
+ {
+  "user": "user:team030-u3",
+  "relation": "member",
+  "object": "group:team-030"
+ },
+ {
+  "user": "group:team-030#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team031-u1",
+  "relation": "member",
+  "object": "group:team-031"
+ },
+ {
+  "user": "user:team031-u2",
+  "relation": "member",
+  "object": "group:team-031"
+ },
+ {
+  "user": "user:team031-u3",
+  "relation": "member",
+  "object": "group:team-031"
+ },
+ {
+  "user": "group:team-031#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team032-u1",
+  "relation": "member",
+  "object": "group:team-032"
+ },
+ {
+  "user": "user:team032-u2",
+  "relation": "member",
+  "object": "group:team-032"
+ },
+ {
+  "user": "user:team032-u3",
+  "relation": "member",
+  "object": "group:team-032"
+ },
+ {
+  "user": "group:team-032#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team033-u1",
+  "relation": "member",
+  "object": "group:team-033"
+ },
+ {
+  "user": "user:team033-u2",
+  "relation": "member",
+  "object": "group:team-033"
+ },
+ {
+  "user": "user:team033-u3",
+  "relation": "member",
+  "object": "group:team-033"
+ },
+ {
+  "user": "group:team-033#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team034-u1",
+  "relation": "member",
+  "object": "group:team-034"
+ },
+ {
+  "user": "user:team034-u2",
+  "relation": "member",
+  "object": "group:team-034"
+ },
+ {
+  "user": "user:team034-u3",
+  "relation": "member",
+  "object": "group:team-034"
+ },
+ {
+  "user": "group:team-034#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team035-u1",
+  "relation": "member",
+  "object": "group:team-035"
+ },
+ {
+  "user": "user:team035-u2",
+  "relation": "member",
+  "object": "group:team-035"
+ },
+ {
+  "user": "user:team035-u3",
+  "relation": "member",
+  "object": "group:team-035"
+ },
+ {
+  "user": "group:team-035#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team036-u1",
+  "relation": "member",
+  "object": "group:team-036"
+ },
+ {
+  "user": "user:team036-u2",
+  "relation": "member",
+  "object": "group:team-036"
+ },
+ {
+  "user": "user:team036-u3",
+  "relation": "member",
+  "object": "group:team-036"
+ },
+ {
+  "user": "group:team-036#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team037-u1",
+  "relation": "member",
+  "object": "group:team-037"
+ },
+ {
+  "user": "user:team037-u2",
+  "relation": "member",
+  "object": "group:team-037"
+ },
+ {
+  "user": "user:team037-u3",
+  "relation": "member",
+  "object": "group:team-037"
+ },
+ {
+  "user": "group:team-037#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team038-u1",
+  "relation": "member",
+  "object": "group:team-038"
+ },
+ {
+  "user": "user:team038-u2",
+  "relation": "member",
+  "object": "group:team-038"
+ },
+ {
+  "user": "user:team038-u3",
+  "relation": "member",
+  "object": "group:team-038"
+ },
+ {
+  "user": "group:team-038#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team039-u1",
+  "relation": "member",
+  "object": "group:team-039"
+ },
+ {
+  "user": "user:team039-u2",
+  "relation": "member",
+  "object": "group:team-039"
+ },
+ {
+  "user": "user:team039-u3",
+  "relation": "member",
+  "object": "group:team-039"
+ },
+ {
+  "user": "group:team-039#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team040-u1",
+  "relation": "member",
+  "object": "group:team-040"
+ },
+ {
+  "user": "user:team040-u2",
+  "relation": "member",
+  "object": "group:team-040"
+ },
+ {
+  "user": "user:team040-u3",
+  "relation": "member",
+  "object": "group:team-040"
+ },
+ {
+  "user": "group:team-040#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team041-u1",
+  "relation": "member",
+  "object": "group:team-041"
+ },
+ {
+  "user": "user:team041-u2",
+  "relation": "member",
+  "object": "group:team-041"
+ },
+ {
+  "user": "user:team041-u3",
+  "relation": "member",
+  "object": "group:team-041"
+ },
+ {
+  "user": "group:team-041#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team042-u1",
+  "relation": "member",
+  "object": "group:team-042"
+ },
+ {
+  "user": "user:team042-u2",
+  "relation": "member",
+  "object": "group:team-042"
+ },
+ {
+  "user": "user:team042-u3",
+  "relation": "member",
+  "object": "group:team-042"
+ },
+ {
+  "user": "group:team-042#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team043-u1",
+  "relation": "member",
+  "object": "group:team-043"
+ },
+ {
+  "user": "user:team043-u2",
+  "relation": "member",
+  "object": "group:team-043"
+ },
+ {
+  "user": "user:team043-u3",
+  "relation": "member",
+  "object": "group:team-043"
+ },
+ {
+  "user": "group:team-043#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team044-u1",
+  "relation": "member",
+  "object": "group:team-044"
+ },
+ {
+  "user": "user:team044-u2",
+  "relation": "member",
+  "object": "group:team-044"
+ },
+ {
+  "user": "user:team044-u3",
+  "relation": "member",
+  "object": "group:team-044"
+ },
+ {
+  "user": "group:team-044#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team045-u1",
+  "relation": "member",
+  "object": "group:team-045"
+ },
+ {
+  "user": "user:team045-u2",
+  "relation": "member",
+  "object": "group:team-045"
+ },
+ {
+  "user": "user:team045-u3",
+  "relation": "member",
+  "object": "group:team-045"
+ },
+ {
+  "user": "group:team-045#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team046-u1",
+  "relation": "member",
+  "object": "group:team-046"
+ },
+ {
+  "user": "user:team046-u2",
+  "relation": "member",
+  "object": "group:team-046"
+ },
+ {
+  "user": "user:team046-u3",
+  "relation": "member",
+  "object": "group:team-046"
+ },
+ {
+  "user": "group:team-046#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team047-u1",
+  "relation": "member",
+  "object": "group:team-047"
+ },
+ {
+  "user": "user:team047-u2",
+  "relation": "member",
+  "object": "group:team-047"
+ },
+ {
+  "user": "user:team047-u3",
+  "relation": "member",
+  "object": "group:team-047"
+ },
+ {
+  "user": "group:team-047#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team048-u1",
+  "relation": "member",
+  "object": "group:team-048"
+ },
+ {
+  "user": "user:team048-u2",
+  "relation": "member",
+  "object": "group:team-048"
+ },
+ {
+  "user": "user:team048-u3",
+  "relation": "member",
+  "object": "group:team-048"
+ },
+ {
+  "user": "group:team-048#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team049-u1",
+  "relation": "member",
+  "object": "group:team-049"
+ },
+ {
+  "user": "user:team049-u2",
+  "relation": "member",
+  "object": "group:team-049"
+ },
+ {
+  "user": "user:team049-u3",
+  "relation": "member",
+  "object": "group:team-049"
+ },
+ {
+  "user": "group:team-049#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team050-u1",
+  "relation": "member",
+  "object": "group:team-050"
+ },
+ {
+  "user": "user:team050-u2",
+  "relation": "member",
+  "object": "group:team-050"
+ },
+ {
+  "user": "user:team050-u3",
+  "relation": "member",
+  "object": "group:team-050"
+ },
+ {
+  "user": "group:team-050#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team051-u1",
+  "relation": "member",
+  "object": "group:team-051"
+ },
+ {
+  "user": "user:team051-u2",
+  "relation": "member",
+  "object": "group:team-051"
+ },
+ {
+  "user": "user:team051-u3",
+  "relation": "member",
+  "object": "group:team-051"
+ },
+ {
+  "user": "group:team-051#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team052-u1",
+  "relation": "member",
+  "object": "group:team-052"
+ },
+ {
+  "user": "user:team052-u2",
+  "relation": "member",
+  "object": "group:team-052"
+ },
+ {
+  "user": "user:team052-u3",
+  "relation": "member",
+  "object": "group:team-052"
+ },
+ {
+  "user": "group:team-052#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team053-u1",
+  "relation": "member",
+  "object": "group:team-053"
+ },
+ {
+  "user": "user:team053-u2",
+  "relation": "member",
+  "object": "group:team-053"
+ },
+ {
+  "user": "user:team053-u3",
+  "relation": "member",
+  "object": "group:team-053"
+ },
+ {
+  "user": "group:team-053#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team054-u1",
+  "relation": "member",
+  "object": "group:team-054"
+ },
+ {
+  "user": "user:team054-u2",
+  "relation": "member",
+  "object": "group:team-054"
+ },
+ {
+  "user": "user:team054-u3",
+  "relation": "member",
+  "object": "group:team-054"
+ },
+ {
+  "user": "group:team-054#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team055-u1",
+  "relation": "member",
+  "object": "group:team-055"
+ },
+ {
+  "user": "user:team055-u2",
+  "relation": "member",
+  "object": "group:team-055"
+ },
+ {
+  "user": "user:team055-u3",
+  "relation": "member",
+  "object": "group:team-055"
+ },
+ {
+  "user": "group:team-055#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team056-u1",
+  "relation": "member",
+  "object": "group:team-056"
+ },
+ {
+  "user": "user:team056-u2",
+  "relation": "member",
+  "object": "group:team-056"
+ },
+ {
+  "user": "user:team056-u3",
+  "relation": "member",
+  "object": "group:team-056"
+ },
+ {
+  "user": "group:team-056#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team057-u1",
+  "relation": "member",
+  "object": "group:team-057"
+ },
+ {
+  "user": "user:team057-u2",
+  "relation": "member",
+  "object": "group:team-057"
+ },
+ {
+  "user": "user:team057-u3",
+  "relation": "member",
+  "object": "group:team-057"
+ },
+ {
+  "user": "group:team-057#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team058-u1",
+  "relation": "member",
+  "object": "group:team-058"
+ },
+ {
+  "user": "user:team058-u2",
+  "relation": "member",
+  "object": "group:team-058"
+ },
+ {
+  "user": "user:team058-u3",
+  "relation": "member",
+  "object": "group:team-058"
+ },
+ {
+  "user": "group:team-058#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team059-u1",
+  "relation": "member",
+  "object": "group:team-059"
+ },
+ {
+  "user": "user:team059-u2",
+  "relation": "member",
+  "object": "group:team-059"
+ },
+ {
+  "user": "user:team059-u3",
+  "relation": "member",
+  "object": "group:team-059"
+ },
+ {
+  "user": "group:team-059#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team060-u1",
+  "relation": "member",
+  "object": "group:team-060"
+ },
+ {
+  "user": "user:team060-u2",
+  "relation": "member",
+  "object": "group:team-060"
+ },
+ {
+  "user": "user:team060-u3",
+  "relation": "member",
+  "object": "group:team-060"
+ },
+ {
+  "user": "group:team-060#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team061-u1",
+  "relation": "member",
+  "object": "group:team-061"
+ },
+ {
+  "user": "user:team061-u2",
+  "relation": "member",
+  "object": "group:team-061"
+ },
+ {
+  "user": "user:team061-u3",
+  "relation": "member",
+  "object": "group:team-061"
+ },
+ {
+  "user": "group:team-061#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team062-u1",
+  "relation": "member",
+  "object": "group:team-062"
+ },
+ {
+  "user": "user:team062-u2",
+  "relation": "member",
+  "object": "group:team-062"
+ },
+ {
+  "user": "user:team062-u3",
+  "relation": "member",
+  "object": "group:team-062"
+ },
+ {
+  "user": "group:team-062#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team063-u1",
+  "relation": "member",
+  "object": "group:team-063"
+ },
+ {
+  "user": "user:team063-u2",
+  "relation": "member",
+  "object": "group:team-063"
+ },
+ {
+  "user": "user:team063-u3",
+  "relation": "member",
+  "object": "group:team-063"
+ },
+ {
+  "user": "group:team-063#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team064-u1",
+  "relation": "member",
+  "object": "group:team-064"
+ },
+ {
+  "user": "user:team064-u2",
+  "relation": "member",
+  "object": "group:team-064"
+ },
+ {
+  "user": "user:team064-u3",
+  "relation": "member",
+  "object": "group:team-064"
+ },
+ {
+  "user": "group:team-064#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team065-u1",
+  "relation": "member",
+  "object": "group:team-065"
+ },
+ {
+  "user": "user:team065-u2",
+  "relation": "member",
+  "object": "group:team-065"
+ },
+ {
+  "user": "user:team065-u3",
+  "relation": "member",
+  "object": "group:team-065"
+ },
+ {
+  "user": "group:team-065#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team066-u1",
+  "relation": "member",
+  "object": "group:team-066"
+ },
+ {
+  "user": "user:team066-u2",
+  "relation": "member",
+  "object": "group:team-066"
+ },
+ {
+  "user": "user:team066-u3",
+  "relation": "member",
+  "object": "group:team-066"
+ },
+ {
+  "user": "group:team-066#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team067-u1",
+  "relation": "member",
+  "object": "group:team-067"
+ },
+ {
+  "user": "user:team067-u2",
+  "relation": "member",
+  "object": "group:team-067"
+ },
+ {
+  "user": "user:team067-u3",
+  "relation": "member",
+  "object": "group:team-067"
+ },
+ {
+  "user": "group:team-067#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team068-u1",
+  "relation": "member",
+  "object": "group:team-068"
+ },
+ {
+  "user": "user:team068-u2",
+  "relation": "member",
+  "object": "group:team-068"
+ },
+ {
+  "user": "user:team068-u3",
+  "relation": "member",
+  "object": "group:team-068"
+ },
+ {
+  "user": "group:team-068#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team069-u1",
+  "relation": "member",
+  "object": "group:team-069"
+ },
+ {
+  "user": "user:team069-u2",
+  "relation": "member",
+  "object": "group:team-069"
+ },
+ {
+  "user": "user:team069-u3",
+  "relation": "member",
+  "object": "group:team-069"
+ },
+ {
+  "user": "group:team-069#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team070-u1",
+  "relation": "member",
+  "object": "group:team-070"
+ },
+ {
+  "user": "user:team070-u2",
+  "relation": "member",
+  "object": "group:team-070"
+ },
+ {
+  "user": "user:team070-u3",
+  "relation": "member",
+  "object": "group:team-070"
+ },
+ {
+  "user": "group:team-070#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team071-u1",
+  "relation": "member",
+  "object": "group:team-071"
+ },
+ {
+  "user": "user:team071-u2",
+  "relation": "member",
+  "object": "group:team-071"
+ },
+ {
+  "user": "user:team071-u3",
+  "relation": "member",
+  "object": "group:team-071"
+ },
+ {
+  "user": "group:team-071#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team072-u1",
+  "relation": "member",
+  "object": "group:team-072"
+ },
+ {
+  "user": "user:team072-u2",
+  "relation": "member",
+  "object": "group:team-072"
+ },
+ {
+  "user": "user:team072-u3",
+  "relation": "member",
+  "object": "group:team-072"
+ },
+ {
+  "user": "group:team-072#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team073-u1",
+  "relation": "member",
+  "object": "group:team-073"
+ },
+ {
+  "user": "user:team073-u2",
+  "relation": "member",
+  "object": "group:team-073"
+ },
+ {
+  "user": "user:team073-u3",
+  "relation": "member",
+  "object": "group:team-073"
+ },
+ {
+  "user": "group:team-073#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team074-u1",
+  "relation": "member",
+  "object": "group:team-074"
+ },
+ {
+  "user": "user:team074-u2",
+  "relation": "member",
+  "object": "group:team-074"
+ },
+ {
+  "user": "user:team074-u3",
+  "relation": "member",
+  "object": "group:team-074"
+ },
+ {
+  "user": "group:team-074#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team075-u1",
+  "relation": "member",
+  "object": "group:team-075"
+ },
+ {
+  "user": "user:team075-u2",
+  "relation": "member",
+  "object": "group:team-075"
+ },
+ {
+  "user": "user:team075-u3",
+  "relation": "member",
+  "object": "group:team-075"
+ },
+ {
+  "user": "group:team-075#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team076-u1",
+  "relation": "member",
+  "object": "group:team-076"
+ },
+ {
+  "user": "user:team076-u2",
+  "relation": "member",
+  "object": "group:team-076"
+ },
+ {
+  "user": "user:team076-u3",
+  "relation": "member",
+  "object": "group:team-076"
+ },
+ {
+  "user": "group:team-076#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team077-u1",
+  "relation": "member",
+  "object": "group:team-077"
+ },
+ {
+  "user": "user:team077-u2",
+  "relation": "member",
+  "object": "group:team-077"
+ },
+ {
+  "user": "user:team077-u3",
+  "relation": "member",
+  "object": "group:team-077"
+ },
+ {
+  "user": "group:team-077#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team078-u1",
+  "relation": "member",
+  "object": "group:team-078"
+ },
+ {
+  "user": "user:team078-u2",
+  "relation": "member",
+  "object": "group:team-078"
+ },
+ {
+  "user": "user:team078-u3",
+  "relation": "member",
+  "object": "group:team-078"
+ },
+ {
+  "user": "group:team-078#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team079-u1",
+  "relation": "member",
+  "object": "group:team-079"
+ },
+ {
+  "user": "user:team079-u2",
+  "relation": "member",
+  "object": "group:team-079"
+ },
+ {
+  "user": "user:team079-u3",
+  "relation": "member",
+  "object": "group:team-079"
+ },
+ {
+  "user": "group:team-079#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team080-u1",
+  "relation": "member",
+  "object": "group:team-080"
+ },
+ {
+  "user": "user:team080-u2",
+  "relation": "member",
+  "object": "group:team-080"
+ },
+ {
+  "user": "user:team080-u3",
+  "relation": "member",
+  "object": "group:team-080"
+ },
+ {
+  "user": "group:team-080#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team081-u1",
+  "relation": "member",
+  "object": "group:team-081"
+ },
+ {
+  "user": "user:team081-u2",
+  "relation": "member",
+  "object": "group:team-081"
+ },
+ {
+  "user": "user:team081-u3",
+  "relation": "member",
+  "object": "group:team-081"
+ },
+ {
+  "user": "group:team-081#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team082-u1",
+  "relation": "member",
+  "object": "group:team-082"
+ },
+ {
+  "user": "user:team082-u2",
+  "relation": "member",
+  "object": "group:team-082"
+ },
+ {
+  "user": "user:team082-u3",
+  "relation": "member",
+  "object": "group:team-082"
+ },
+ {
+  "user": "group:team-082#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team083-u1",
+  "relation": "member",
+  "object": "group:team-083"
+ },
+ {
+  "user": "user:team083-u2",
+  "relation": "member",
+  "object": "group:team-083"
+ },
+ {
+  "user": "user:team083-u3",
+  "relation": "member",
+  "object": "group:team-083"
+ },
+ {
+  "user": "group:team-083#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team084-u1",
+  "relation": "member",
+  "object": "group:team-084"
+ },
+ {
+  "user": "user:team084-u2",
+  "relation": "member",
+  "object": "group:team-084"
+ },
+ {
+  "user": "user:team084-u3",
+  "relation": "member",
+  "object": "group:team-084"
+ },
+ {
+  "user": "group:team-084#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team085-u1",
+  "relation": "member",
+  "object": "group:team-085"
+ },
+ {
+  "user": "user:team085-u2",
+  "relation": "member",
+  "object": "group:team-085"
+ },
+ {
+  "user": "user:team085-u3",
+  "relation": "member",
+  "object": "group:team-085"
+ },
+ {
+  "user": "group:team-085#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team086-u1",
+  "relation": "member",
+  "object": "group:team-086"
+ },
+ {
+  "user": "user:team086-u2",
+  "relation": "member",
+  "object": "group:team-086"
+ },
+ {
+  "user": "user:team086-u3",
+  "relation": "member",
+  "object": "group:team-086"
+ },
+ {
+  "user": "group:team-086#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team087-u1",
+  "relation": "member",
+  "object": "group:team-087"
+ },
+ {
+  "user": "user:team087-u2",
+  "relation": "member",
+  "object": "group:team-087"
+ },
+ {
+  "user": "user:team087-u3",
+  "relation": "member",
+  "object": "group:team-087"
+ },
+ {
+  "user": "group:team-087#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team088-u1",
+  "relation": "member",
+  "object": "group:team-088"
+ },
+ {
+  "user": "user:team088-u2",
+  "relation": "member",
+  "object": "group:team-088"
+ },
+ {
+  "user": "user:team088-u3",
+  "relation": "member",
+  "object": "group:team-088"
+ },
+ {
+  "user": "group:team-088#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team089-u1",
+  "relation": "member",
+  "object": "group:team-089"
+ },
+ {
+  "user": "user:team089-u2",
+  "relation": "member",
+  "object": "group:team-089"
+ },
+ {
+  "user": "user:team089-u3",
+  "relation": "member",
+  "object": "group:team-089"
+ },
+ {
+  "user": "group:team-089#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team090-u1",
+  "relation": "member",
+  "object": "group:team-090"
+ },
+ {
+  "user": "user:team090-u2",
+  "relation": "member",
+  "object": "group:team-090"
+ },
+ {
+  "user": "user:team090-u3",
+  "relation": "member",
+  "object": "group:team-090"
+ },
+ {
+  "user": "group:team-090#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team091-u1",
+  "relation": "member",
+  "object": "group:team-091"
+ },
+ {
+  "user": "user:team091-u2",
+  "relation": "member",
+  "object": "group:team-091"
+ },
+ {
+  "user": "user:team091-u3",
+  "relation": "member",
+  "object": "group:team-091"
+ },
+ {
+  "user": "group:team-091#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team092-u1",
+  "relation": "member",
+  "object": "group:team-092"
+ },
+ {
+  "user": "user:team092-u2",
+  "relation": "member",
+  "object": "group:team-092"
+ },
+ {
+  "user": "user:team092-u3",
+  "relation": "member",
+  "object": "group:team-092"
+ },
+ {
+  "user": "group:team-092#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team093-u1",
+  "relation": "member",
+  "object": "group:team-093"
+ },
+ {
+  "user": "user:team093-u2",
+  "relation": "member",
+  "object": "group:team-093"
+ },
+ {
+  "user": "user:team093-u3",
+  "relation": "member",
+  "object": "group:team-093"
+ },
+ {
+  "user": "group:team-093#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team094-u1",
+  "relation": "member",
+  "object": "group:team-094"
+ },
+ {
+  "user": "user:team094-u2",
+  "relation": "member",
+  "object": "group:team-094"
+ },
+ {
+  "user": "user:team094-u3",
+  "relation": "member",
+  "object": "group:team-094"
+ },
+ {
+  "user": "group:team-094#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team095-u1",
+  "relation": "member",
+  "object": "group:team-095"
+ },
+ {
+  "user": "user:team095-u2",
+  "relation": "member",
+  "object": "group:team-095"
+ },
+ {
+  "user": "user:team095-u3",
+  "relation": "member",
+  "object": "group:team-095"
+ },
+ {
+  "user": "group:team-095#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team096-u1",
+  "relation": "member",
+  "object": "group:team-096"
+ },
+ {
+  "user": "user:team096-u2",
+  "relation": "member",
+  "object": "group:team-096"
+ },
+ {
+  "user": "user:team096-u3",
+  "relation": "member",
+  "object": "group:team-096"
+ },
+ {
+  "user": "group:team-096#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team097-u1",
+  "relation": "member",
+  "object": "group:team-097"
+ },
+ {
+  "user": "user:team097-u2",
+  "relation": "member",
+  "object": "group:team-097"
+ },
+ {
+  "user": "user:team097-u3",
+  "relation": "member",
+  "object": "group:team-097"
+ },
+ {
+  "user": "group:team-097#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team098-u1",
+  "relation": "member",
+  "object": "group:team-098"
+ },
+ {
+  "user": "user:team098-u2",
+  "relation": "member",
+  "object": "group:team-098"
+ },
+ {
+  "user": "user:team098-u3",
+  "relation": "member",
+  "object": "group:team-098"
+ },
+ {
+  "user": "group:team-098#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team099-u1",
+  "relation": "member",
+  "object": "group:team-099"
+ },
+ {
+  "user": "user:team099-u2",
+  "relation": "member",
+  "object": "group:team-099"
+ },
+ {
+  "user": "user:team099-u3",
+  "relation": "member",
+  "object": "group:team-099"
+ },
+ {
+  "user": "group:team-099#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team100-u1",
+  "relation": "member",
+  "object": "group:team-100"
+ },
+ {
+  "user": "user:team100-u2",
+  "relation": "member",
+  "object": "group:team-100"
+ },
+ {
+  "user": "user:team100-u3",
+  "relation": "member",
+  "object": "group:team-100"
+ },
+ {
+  "user": "group:team-100#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team101-u1",
+  "relation": "member",
+  "object": "group:team-101"
+ },
+ {
+  "user": "user:team101-u2",
+  "relation": "member",
+  "object": "group:team-101"
+ },
+ {
+  "user": "user:team101-u3",
+  "relation": "member",
+  "object": "group:team-101"
+ },
+ {
+  "user": "group:team-101#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team102-u1",
+  "relation": "member",
+  "object": "group:team-102"
+ },
+ {
+  "user": "user:team102-u2",
+  "relation": "member",
+  "object": "group:team-102"
+ },
+ {
+  "user": "user:team102-u3",
+  "relation": "member",
+  "object": "group:team-102"
+ },
+ {
+  "user": "group:team-102#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team103-u1",
+  "relation": "member",
+  "object": "group:team-103"
+ },
+ {
+  "user": "user:team103-u2",
+  "relation": "member",
+  "object": "group:team-103"
+ },
+ {
+  "user": "user:team103-u3",
+  "relation": "member",
+  "object": "group:team-103"
+ },
+ {
+  "user": "group:team-103#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team104-u1",
+  "relation": "member",
+  "object": "group:team-104"
+ },
+ {
+  "user": "user:team104-u2",
+  "relation": "member",
+  "object": "group:team-104"
+ },
+ {
+  "user": "user:team104-u3",
+  "relation": "member",
+  "object": "group:team-104"
+ },
+ {
+  "user": "group:team-104#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team105-u1",
+  "relation": "member",
+  "object": "group:team-105"
+ },
+ {
+  "user": "user:team105-u2",
+  "relation": "member",
+  "object": "group:team-105"
+ },
+ {
+  "user": "user:team105-u3",
+  "relation": "member",
+  "object": "group:team-105"
+ },
+ {
+  "user": "group:team-105#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team106-u1",
+  "relation": "member",
+  "object": "group:team-106"
+ },
+ {
+  "user": "user:team106-u2",
+  "relation": "member",
+  "object": "group:team-106"
+ },
+ {
+  "user": "user:team106-u3",
+  "relation": "member",
+  "object": "group:team-106"
+ },
+ {
+  "user": "group:team-106#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team107-u1",
+  "relation": "member",
+  "object": "group:team-107"
+ },
+ {
+  "user": "user:team107-u2",
+  "relation": "member",
+  "object": "group:team-107"
+ },
+ {
+  "user": "user:team107-u3",
+  "relation": "member",
+  "object": "group:team-107"
+ },
+ {
+  "user": "group:team-107#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team108-u1",
+  "relation": "member",
+  "object": "group:team-108"
+ },
+ {
+  "user": "user:team108-u2",
+  "relation": "member",
+  "object": "group:team-108"
+ },
+ {
+  "user": "user:team108-u3",
+  "relation": "member",
+  "object": "group:team-108"
+ },
+ {
+  "user": "group:team-108#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team109-u1",
+  "relation": "member",
+  "object": "group:team-109"
+ },
+ {
+  "user": "user:team109-u2",
+  "relation": "member",
+  "object": "group:team-109"
+ },
+ {
+  "user": "user:team109-u3",
+  "relation": "member",
+  "object": "group:team-109"
+ },
+ {
+  "user": "group:team-109#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team110-u1",
+  "relation": "member",
+  "object": "group:team-110"
+ },
+ {
+  "user": "user:team110-u2",
+  "relation": "member",
+  "object": "group:team-110"
+ },
+ {
+  "user": "user:team110-u3",
+  "relation": "member",
+  "object": "group:team-110"
+ },
+ {
+  "user": "group:team-110#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team111-u1",
+  "relation": "member",
+  "object": "group:team-111"
+ },
+ {
+  "user": "user:team111-u2",
+  "relation": "member",
+  "object": "group:team-111"
+ },
+ {
+  "user": "user:team111-u3",
+  "relation": "member",
+  "object": "group:team-111"
+ },
+ {
+  "user": "group:team-111#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team112-u1",
+  "relation": "member",
+  "object": "group:team-112"
+ },
+ {
+  "user": "user:team112-u2",
+  "relation": "member",
+  "object": "group:team-112"
+ },
+ {
+  "user": "user:team112-u3",
+  "relation": "member",
+  "object": "group:team-112"
+ },
+ {
+  "user": "group:team-112#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team113-u1",
+  "relation": "member",
+  "object": "group:team-113"
+ },
+ {
+  "user": "user:team113-u2",
+  "relation": "member",
+  "object": "group:team-113"
+ },
+ {
+  "user": "user:team113-u3",
+  "relation": "member",
+  "object": "group:team-113"
+ },
+ {
+  "user": "group:team-113#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team114-u1",
+  "relation": "member",
+  "object": "group:team-114"
+ },
+ {
+  "user": "user:team114-u2",
+  "relation": "member",
+  "object": "group:team-114"
+ },
+ {
+  "user": "user:team114-u3",
+  "relation": "member",
+  "object": "group:team-114"
+ },
+ {
+  "user": "group:team-114#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team115-u1",
+  "relation": "member",
+  "object": "group:team-115"
+ },
+ {
+  "user": "user:team115-u2",
+  "relation": "member",
+  "object": "group:team-115"
+ },
+ {
+  "user": "user:team115-u3",
+  "relation": "member",
+  "object": "group:team-115"
+ },
+ {
+  "user": "group:team-115#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team116-u1",
+  "relation": "member",
+  "object": "group:team-116"
+ },
+ {
+  "user": "user:team116-u2",
+  "relation": "member",
+  "object": "group:team-116"
+ },
+ {
+  "user": "user:team116-u3",
+  "relation": "member",
+  "object": "group:team-116"
+ },
+ {
+  "user": "group:team-116#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team117-u1",
+  "relation": "member",
+  "object": "group:team-117"
+ },
+ {
+  "user": "user:team117-u2",
+  "relation": "member",
+  "object": "group:team-117"
+ },
+ {
+  "user": "user:team117-u3",
+  "relation": "member",
+  "object": "group:team-117"
+ },
+ {
+  "user": "group:team-117#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team118-u1",
+  "relation": "member",
+  "object": "group:team-118"
+ },
+ {
+  "user": "user:team118-u2",
+  "relation": "member",
+  "object": "group:team-118"
+ },
+ {
+  "user": "user:team118-u3",
+  "relation": "member",
+  "object": "group:team-118"
+ },
+ {
+  "user": "group:team-118#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team119-u1",
+  "relation": "member",
+  "object": "group:team-119"
+ },
+ {
+  "user": "user:team119-u2",
+  "relation": "member",
+  "object": "group:team-119"
+ },
+ {
+  "user": "user:team119-u3",
+  "relation": "member",
+  "object": "group:team-119"
+ },
+ {
+  "user": "group:team-119#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team120-u1",
+  "relation": "member",
+  "object": "group:team-120"
+ },
+ {
+  "user": "user:team120-u2",
+  "relation": "member",
+  "object": "group:team-120"
+ },
+ {
+  "user": "user:team120-u3",
+  "relation": "member",
+  "object": "group:team-120"
+ },
+ {
+  "user": "group:team-120#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team121-u1",
+  "relation": "member",
+  "object": "group:team-121"
+ },
+ {
+  "user": "user:team121-u2",
+  "relation": "member",
+  "object": "group:team-121"
+ },
+ {
+  "user": "user:team121-u3",
+  "relation": "member",
+  "object": "group:team-121"
+ },
+ {
+  "user": "group:team-121#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team122-u1",
+  "relation": "member",
+  "object": "group:team-122"
+ },
+ {
+  "user": "user:team122-u2",
+  "relation": "member",
+  "object": "group:team-122"
+ },
+ {
+  "user": "user:team122-u3",
+  "relation": "member",
+  "object": "group:team-122"
+ },
+ {
+  "user": "group:team-122#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team123-u1",
+  "relation": "member",
+  "object": "group:team-123"
+ },
+ {
+  "user": "user:team123-u2",
+  "relation": "member",
+  "object": "group:team-123"
+ },
+ {
+  "user": "user:team123-u3",
+  "relation": "member",
+  "object": "group:team-123"
+ },
+ {
+  "user": "group:team-123#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team124-u1",
+  "relation": "member",
+  "object": "group:team-124"
+ },
+ {
+  "user": "user:team124-u2",
+  "relation": "member",
+  "object": "group:team-124"
+ },
+ {
+  "user": "user:team124-u3",
+  "relation": "member",
+  "object": "group:team-124"
+ },
+ {
+  "user": "group:team-124#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team125-u1",
+  "relation": "member",
+  "object": "group:team-125"
+ },
+ {
+  "user": "user:team125-u2",
+  "relation": "member",
+  "object": "group:team-125"
+ },
+ {
+  "user": "user:team125-u3",
+  "relation": "member",
+  "object": "group:team-125"
+ },
+ {
+  "user": "group:team-125#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team126-u1",
+  "relation": "member",
+  "object": "group:team-126"
+ },
+ {
+  "user": "user:team126-u2",
+  "relation": "member",
+  "object": "group:team-126"
+ },
+ {
+  "user": "user:team126-u3",
+  "relation": "member",
+  "object": "group:team-126"
+ },
+ {
+  "user": "group:team-126#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team127-u1",
+  "relation": "member",
+  "object": "group:team-127"
+ },
+ {
+  "user": "user:team127-u2",
+  "relation": "member",
+  "object": "group:team-127"
+ },
+ {
+  "user": "user:team127-u3",
+  "relation": "member",
+  "object": "group:team-127"
+ },
+ {
+  "user": "group:team-127#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team128-u1",
+  "relation": "member",
+  "object": "group:team-128"
+ },
+ {
+  "user": "user:team128-u2",
+  "relation": "member",
+  "object": "group:team-128"
+ },
+ {
+  "user": "user:team128-u3",
+  "relation": "member",
+  "object": "group:team-128"
+ },
+ {
+  "user": "group:team-128#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team129-u1",
+  "relation": "member",
+  "object": "group:team-129"
+ },
+ {
+  "user": "user:team129-u2",
+  "relation": "member",
+  "object": "group:team-129"
+ },
+ {
+  "user": "user:team129-u3",
+  "relation": "member",
+  "object": "group:team-129"
+ },
+ {
+  "user": "group:team-129#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team130-u1",
+  "relation": "member",
+  "object": "group:team-130"
+ },
+ {
+  "user": "user:team130-u2",
+  "relation": "member",
+  "object": "group:team-130"
+ },
+ {
+  "user": "user:team130-u3",
+  "relation": "member",
+  "object": "group:team-130"
+ },
+ {
+  "user": "group:team-130#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team131-u1",
+  "relation": "member",
+  "object": "group:team-131"
+ },
+ {
+  "user": "user:team131-u2",
+  "relation": "member",
+  "object": "group:team-131"
+ },
+ {
+  "user": "user:team131-u3",
+  "relation": "member",
+  "object": "group:team-131"
+ },
+ {
+  "user": "group:team-131#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team132-u1",
+  "relation": "member",
+  "object": "group:team-132"
+ },
+ {
+  "user": "user:team132-u2",
+  "relation": "member",
+  "object": "group:team-132"
+ },
+ {
+  "user": "user:team132-u3",
+  "relation": "member",
+  "object": "group:team-132"
+ },
+ {
+  "user": "group:team-132#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team133-u1",
+  "relation": "member",
+  "object": "group:team-133"
+ },
+ {
+  "user": "user:team133-u2",
+  "relation": "member",
+  "object": "group:team-133"
+ },
+ {
+  "user": "user:team133-u3",
+  "relation": "member",
+  "object": "group:team-133"
+ },
+ {
+  "user": "group:team-133#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team134-u1",
+  "relation": "member",
+  "object": "group:team-134"
+ },
+ {
+  "user": "user:team134-u2",
+  "relation": "member",
+  "object": "group:team-134"
+ },
+ {
+  "user": "user:team134-u3",
+  "relation": "member",
+  "object": "group:team-134"
+ },
+ {
+  "user": "group:team-134#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team135-u1",
+  "relation": "member",
+  "object": "group:team-135"
+ },
+ {
+  "user": "user:team135-u2",
+  "relation": "member",
+  "object": "group:team-135"
+ },
+ {
+  "user": "user:team135-u3",
+  "relation": "member",
+  "object": "group:team-135"
+ },
+ {
+  "user": "group:team-135#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team136-u1",
+  "relation": "member",
+  "object": "group:team-136"
+ },
+ {
+  "user": "user:team136-u2",
+  "relation": "member",
+  "object": "group:team-136"
+ },
+ {
+  "user": "user:team136-u3",
+  "relation": "member",
+  "object": "group:team-136"
+ },
+ {
+  "user": "group:team-136#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team137-u1",
+  "relation": "member",
+  "object": "group:team-137"
+ },
+ {
+  "user": "user:team137-u2",
+  "relation": "member",
+  "object": "group:team-137"
+ },
+ {
+  "user": "user:team137-u3",
+  "relation": "member",
+  "object": "group:team-137"
+ },
+ {
+  "user": "group:team-137#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team138-u1",
+  "relation": "member",
+  "object": "group:team-138"
+ },
+ {
+  "user": "user:team138-u2",
+  "relation": "member",
+  "object": "group:team-138"
+ },
+ {
+  "user": "user:team138-u3",
+  "relation": "member",
+  "object": "group:team-138"
+ },
+ {
+  "user": "group:team-138#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team139-u1",
+  "relation": "member",
+  "object": "group:team-139"
+ },
+ {
+  "user": "user:team139-u2",
+  "relation": "member",
+  "object": "group:team-139"
+ },
+ {
+  "user": "user:team139-u3",
+  "relation": "member",
+  "object": "group:team-139"
+ },
+ {
+  "user": "group:team-139#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team140-u1",
+  "relation": "member",
+  "object": "group:team-140"
+ },
+ {
+  "user": "user:team140-u2",
+  "relation": "member",
+  "object": "group:team-140"
+ },
+ {
+  "user": "user:team140-u3",
+  "relation": "member",
+  "object": "group:team-140"
+ },
+ {
+  "user": "group:team-140#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team141-u1",
+  "relation": "member",
+  "object": "group:team-141"
+ },
+ {
+  "user": "user:team141-u2",
+  "relation": "member",
+  "object": "group:team-141"
+ },
+ {
+  "user": "user:team141-u3",
+  "relation": "member",
+  "object": "group:team-141"
+ },
+ {
+  "user": "group:team-141#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team142-u1",
+  "relation": "member",
+  "object": "group:team-142"
+ },
+ {
+  "user": "user:team142-u2",
+  "relation": "member",
+  "object": "group:team-142"
+ },
+ {
+  "user": "user:team142-u3",
+  "relation": "member",
+  "object": "group:team-142"
+ },
+ {
+  "user": "group:team-142#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team143-u1",
+  "relation": "member",
+  "object": "group:team-143"
+ },
+ {
+  "user": "user:team143-u2",
+  "relation": "member",
+  "object": "group:team-143"
+ },
+ {
+  "user": "user:team143-u3",
+  "relation": "member",
+  "object": "group:team-143"
+ },
+ {
+  "user": "group:team-143#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team144-u1",
+  "relation": "member",
+  "object": "group:team-144"
+ },
+ {
+  "user": "user:team144-u2",
+  "relation": "member",
+  "object": "group:team-144"
+ },
+ {
+  "user": "user:team144-u3",
+  "relation": "member",
+  "object": "group:team-144"
+ },
+ {
+  "user": "group:team-144#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team145-u1",
+  "relation": "member",
+  "object": "group:team-145"
+ },
+ {
+  "user": "user:team145-u2",
+  "relation": "member",
+  "object": "group:team-145"
+ },
+ {
+  "user": "user:team145-u3",
+  "relation": "member",
+  "object": "group:team-145"
+ },
+ {
+  "user": "group:team-145#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team146-u1",
+  "relation": "member",
+  "object": "group:team-146"
+ },
+ {
+  "user": "user:team146-u2",
+  "relation": "member",
+  "object": "group:team-146"
+ },
+ {
+  "user": "user:team146-u3",
+  "relation": "member",
+  "object": "group:team-146"
+ },
+ {
+  "user": "group:team-146#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team147-u1",
+  "relation": "member",
+  "object": "group:team-147"
+ },
+ {
+  "user": "user:team147-u2",
+  "relation": "member",
+  "object": "group:team-147"
+ },
+ {
+  "user": "user:team147-u3",
+  "relation": "member",
+  "object": "group:team-147"
+ },
+ {
+  "user": "group:team-147#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team148-u1",
+  "relation": "member",
+  "object": "group:team-148"
+ },
+ {
+  "user": "user:team148-u2",
+  "relation": "member",
+  "object": "group:team-148"
+ },
+ {
+  "user": "user:team148-u3",
+  "relation": "member",
+  "object": "group:team-148"
+ },
+ {
+  "user": "group:team-148#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team149-u1",
+  "relation": "member",
+  "object": "group:team-149"
+ },
+ {
+  "user": "user:team149-u2",
+  "relation": "member",
+  "object": "group:team-149"
+ },
+ {
+  "user": "user:team149-u3",
+  "relation": "member",
+  "object": "group:team-149"
+ },
+ {
+  "user": "group:team-149#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "user:team150-u1",
+  "relation": "member",
+  "object": "group:team-150"
+ },
+ {
+  "user": "user:team150-u2",
+  "relation": "member",
+  "object": "group:team-150"
+ },
+ {
+  "user": "user:team150-u3",
+  "relation": "member",
+  "object": "group:team-150"
+ },
+ {
+  "user": "group:team-150#member",
+  "relation": "viewer",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "group:sales#member",
+  "relation": "member",
+  "object": "group:team-150"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:roadmap"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "folder:root"
+ },
+ {
+  "user": "user:carol",
+  "relation": "owner",
+  "object": "folder:root"
+ },
+ {
+  "user": "group:eng#member",
+  "relation": "viewer",
+  "object": "folder:root"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "folder:engineering"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "folder:platform"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "folder:design-docs"
+ },
+ {
+  "user": "group:platform#member",
+  "relation": "editor",
+  "object": "folder:platform"
+ },
+ {
+  "user": "principal:SVC%3ABUILD%23CI",
+  "relation": "owner",
+  "object": "folder:design-docs"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0001"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0001"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0002"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0002"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0003"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0003"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0004"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0004"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0005"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0005"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0006"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0006"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0007"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0007"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0008"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0008"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0009"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0009"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0010"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0010"
+ },
+ {
+  "user": "user:sales-001",
+  "relation": "viewer",
+  "object": "document:doc-0010"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0011"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0011"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0012"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0012"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0013"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0013"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0014"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0014"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0015"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0015"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0016"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0016"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0017"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0017"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0018"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0018"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0019"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0019"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0020"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0020"
+ },
+ {
+  "user": "user:sales-002",
+  "relation": "viewer",
+  "object": "document:doc-0020"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0021"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0021"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0022"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0022"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0023"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0023"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0024"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0024"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0025"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0025"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0026"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0026"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0027"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0027"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0028"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0028"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0029"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0029"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0030"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0030"
+ },
+ {
+  "user": "user:sales-003",
+  "relation": "viewer",
+  "object": "document:doc-0030"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0031"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0031"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0032"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0032"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0033"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0033"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0034"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0034"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0035"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0035"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0036"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0036"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0037"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0037"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0038"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0038"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0039"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0039"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0040"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0040"
+ },
+ {
+  "user": "user:sales-004",
+  "relation": "viewer",
+  "object": "document:doc-0040"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0041"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0041"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0042"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0042"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0043"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0043"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0044"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0044"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0045"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0045"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0046"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0046"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0047"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0047"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0048"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0048"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0049"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0049"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0050"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0050"
+ },
+ {
+  "user": "user:sales-005",
+  "relation": "viewer",
+  "object": "document:doc-0050"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0051"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0051"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0052"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0052"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0053"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0053"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0054"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0054"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0055"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0055"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0056"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0056"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0057"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0057"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0058"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0058"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0059"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0059"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0060"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0060"
+ },
+ {
+  "user": "user:sales-006",
+  "relation": "viewer",
+  "object": "document:doc-0060"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0061"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0061"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0062"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0062"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0063"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0063"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0064"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0064"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0065"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0065"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0066"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0066"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0067"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0067"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0068"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0068"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0069"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0069"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0070"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0070"
+ },
+ {
+  "user": "user:sales-007",
+  "relation": "viewer",
+  "object": "document:doc-0070"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0071"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0071"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0072"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0072"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0073"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0073"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0074"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0074"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0075"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0075"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0076"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0076"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0077"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0077"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0078"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0078"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0079"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0079"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0080"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0080"
+ },
+ {
+  "user": "user:sales-008",
+  "relation": "viewer",
+  "object": "document:doc-0080"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0081"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0081"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0082"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0082"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0083"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0083"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0084"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0084"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0085"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0085"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0086"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0086"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0087"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0087"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0088"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0088"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0089"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0089"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0090"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0090"
+ },
+ {
+  "user": "user:sales-009",
+  "relation": "viewer",
+  "object": "document:doc-0090"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0091"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0091"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0092"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0092"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0093"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0093"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0094"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0094"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0095"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0095"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0096"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0096"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0097"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0097"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0098"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0098"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0099"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0099"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0100"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0100"
+ },
+ {
+  "user": "user:sales-010",
+  "relation": "viewer",
+  "object": "document:doc-0100"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0101"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0101"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0102"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0102"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0103"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0103"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0104"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0104"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0105"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0105"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0106"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0106"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0107"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0107"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0108"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0108"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0109"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0109"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0110"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0110"
+ },
+ {
+  "user": "user:sales-011",
+  "relation": "viewer",
+  "object": "document:doc-0110"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0111"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0111"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0112"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0112"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0113"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0113"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0114"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0114"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0115"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0115"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0116"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0116"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0117"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0117"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0118"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0118"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0119"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0119"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0120"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0120"
+ },
+ {
+  "user": "user:sales-012",
+  "relation": "viewer",
+  "object": "document:doc-0120"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0121"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0121"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0122"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0122"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0123"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0123"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0124"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0124"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0125"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0125"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0126"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0126"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0127"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0127"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0128"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0128"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0129"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0129"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0130"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0130"
+ },
+ {
+  "user": "user:sales-013",
+  "relation": "viewer",
+  "object": "document:doc-0130"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0131"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0131"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0132"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0132"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0133"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0133"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0134"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0134"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0135"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0135"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0136"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0136"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0137"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0137"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0138"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0138"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0139"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0139"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0140"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0140"
+ },
+ {
+  "user": "user:sales-014",
+  "relation": "viewer",
+  "object": "document:doc-0140"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0141"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0141"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0142"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0142"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0143"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0143"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0144"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0144"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0145"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0145"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0146"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0146"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0147"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0147"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0148"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0148"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0149"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0149"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0150"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0150"
+ },
+ {
+  "user": "user:sales-015",
+  "relation": "viewer",
+  "object": "document:doc-0150"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0151"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0151"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0152"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0152"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0153"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0153"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0154"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0154"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0155"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0155"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0156"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0156"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0157"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0157"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0158"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0158"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0159"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0159"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0160"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0160"
+ },
+ {
+  "user": "user:sales-016",
+  "relation": "viewer",
+  "object": "document:doc-0160"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0161"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0161"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0162"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0162"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0163"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0163"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0164"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0164"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0165"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0165"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0166"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0166"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0167"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0167"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0168"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0168"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0169"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0169"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0170"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0170"
+ },
+ {
+  "user": "user:sales-017",
+  "relation": "viewer",
+  "object": "document:doc-0170"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0171"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0171"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0172"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0172"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0173"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0173"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0174"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0174"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0175"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0175"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0176"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0176"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0177"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0177"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0178"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0178"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0179"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0179"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0180"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0180"
+ },
+ {
+  "user": "user:sales-018",
+  "relation": "viewer",
+  "object": "document:doc-0180"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0181"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0181"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0182"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0182"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0183"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0183"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0184"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0184"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0185"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0185"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0186"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0186"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0187"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0187"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0188"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0188"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0189"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0189"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0190"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0190"
+ },
+ {
+  "user": "user:sales-019",
+  "relation": "viewer",
+  "object": "document:doc-0190"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0191"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0191"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0192"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0192"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0193"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0193"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0194"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0194"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0195"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0195"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0196"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0196"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0197"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0197"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0198"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0198"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0199"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0199"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0200"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0200"
+ },
+ {
+  "user": "user:sales-020",
+  "relation": "viewer",
+  "object": "document:doc-0200"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0201"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0201"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0202"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0202"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0203"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0203"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0204"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0204"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0205"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0205"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0206"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0206"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0207"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0207"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0208"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0208"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0209"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0209"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0210"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0210"
+ },
+ {
+  "user": "user:sales-021",
+  "relation": "viewer",
+  "object": "document:doc-0210"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0211"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0211"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0212"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0212"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0213"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0213"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0214"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0214"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0215"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0215"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0216"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0216"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0217"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0217"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0218"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0218"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0219"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0219"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0220"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0220"
+ },
+ {
+  "user": "user:sales-022",
+  "relation": "viewer",
+  "object": "document:doc-0220"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0221"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0221"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0222"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0222"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0223"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0223"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0224"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0224"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0225"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0225"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0226"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0226"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0227"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0227"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0228"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0228"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0229"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0229"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0230"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0230"
+ },
+ {
+  "user": "user:sales-023",
+  "relation": "viewer",
+  "object": "document:doc-0230"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0231"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0231"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0232"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0232"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0233"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0233"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0234"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0234"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0235"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0235"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0236"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0236"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0237"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0237"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0238"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0238"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0239"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0239"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0240"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0240"
+ },
+ {
+  "user": "user:sales-024",
+  "relation": "viewer",
+  "object": "document:doc-0240"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0241"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0241"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0242"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0242"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0243"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0243"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0244"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0244"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0245"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0245"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0246"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0246"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0247"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0247"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0248"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0248"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0249"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0249"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0250"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0250"
+ },
+ {
+  "user": "user:sales-025",
+  "relation": "viewer",
+  "object": "document:doc-0250"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0251"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0251"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0252"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0252"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0253"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0253"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0254"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0254"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0255"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0255"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0256"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0256"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0257"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0257"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0258"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0258"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0259"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0259"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0260"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0260"
+ },
+ {
+  "user": "user:sales-026",
+  "relation": "viewer",
+  "object": "document:doc-0260"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0261"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0261"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0262"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0262"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0263"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0263"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0264"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0264"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0265"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0265"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0266"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0266"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0267"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0267"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0268"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0268"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0269"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0269"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0270"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0270"
+ },
+ {
+  "user": "user:sales-027",
+  "relation": "viewer",
+  "object": "document:doc-0270"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0271"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0271"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0272"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0272"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0273"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0273"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0274"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0274"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0275"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0275"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0276"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0276"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0277"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0277"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0278"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0278"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0279"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0279"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0280"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0280"
+ },
+ {
+  "user": "user:sales-028",
+  "relation": "viewer",
+  "object": "document:doc-0280"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0281"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0281"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0282"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0282"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0283"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0283"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0284"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0284"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0285"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0285"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0286"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0286"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0287"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0287"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0288"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0288"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0289"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0289"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0290"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0290"
+ },
+ {
+  "user": "user:sales-029",
+  "relation": "viewer",
+  "object": "document:doc-0290"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0291"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0291"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0292"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0292"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0293"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0293"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0294"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0294"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0295"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0295"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0296"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0296"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0297"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0297"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0298"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0298"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0299"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0299"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0300"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0300"
+ },
+ {
+  "user": "user:sales-030",
+  "relation": "viewer",
+  "object": "document:doc-0300"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0301"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0301"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0302"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0302"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0303"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0303"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0304"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0304"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0305"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0305"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0306"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0306"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0307"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0307"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0308"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0308"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0309"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0309"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0310"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0310"
+ },
+ {
+  "user": "user:sales-031",
+  "relation": "viewer",
+  "object": "document:doc-0310"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0311"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0311"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0312"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0312"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0313"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0313"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0314"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0314"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0315"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0315"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0316"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0316"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0317"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0317"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0318"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0318"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0319"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0319"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0320"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0320"
+ },
+ {
+  "user": "user:sales-032",
+  "relation": "viewer",
+  "object": "document:doc-0320"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0321"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0321"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0322"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0322"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0323"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0323"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0324"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0324"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0325"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0325"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0326"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0326"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0327"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0327"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0328"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0328"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0329"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0329"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0330"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0330"
+ },
+ {
+  "user": "user:sales-033",
+  "relation": "viewer",
+  "object": "document:doc-0330"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0331"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0331"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0332"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0332"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0333"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0333"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0334"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0334"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0335"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0335"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0336"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0336"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0337"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0337"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0338"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0338"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0339"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0339"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0340"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0340"
+ },
+ {
+  "user": "user:sales-034",
+  "relation": "viewer",
+  "object": "document:doc-0340"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0341"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0341"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0342"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0342"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0343"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0343"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0344"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0344"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0345"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0345"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0346"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0346"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0347"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0347"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0348"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0348"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0349"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0349"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0350"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0350"
+ },
+ {
+  "user": "user:sales-035",
+  "relation": "viewer",
+  "object": "document:doc-0350"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0351"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0351"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0352"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0352"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0353"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0353"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0354"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0354"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0355"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0355"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0356"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0356"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0357"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0357"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0358"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0358"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0359"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0359"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0360"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0360"
+ },
+ {
+  "user": "user:sales-036",
+  "relation": "viewer",
+  "object": "document:doc-0360"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0361"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0361"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0362"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0362"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0363"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0363"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0364"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0364"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0365"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0365"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0366"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0366"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0367"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0367"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0368"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0368"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0369"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0369"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0370"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0370"
+ },
+ {
+  "user": "user:sales-037",
+  "relation": "viewer",
+  "object": "document:doc-0370"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0371"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0371"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0372"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0372"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0373"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0373"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0374"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0374"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0375"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0375"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0376"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0376"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0377"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0377"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0378"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0378"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0379"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0379"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0380"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0380"
+ },
+ {
+  "user": "user:sales-038",
+  "relation": "viewer",
+  "object": "document:doc-0380"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0381"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0381"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0382"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0382"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0383"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0383"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0384"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0384"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0385"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0385"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0386"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0386"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0387"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0387"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0388"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0388"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0389"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0389"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0390"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0390"
+ },
+ {
+  "user": "user:sales-039",
+  "relation": "viewer",
+  "object": "document:doc-0390"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0391"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0391"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0392"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0392"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0393"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0393"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0394"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0394"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0395"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0395"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0396"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0396"
+ },
+ {
+  "user": "folder:engineering",
+  "relation": "parent",
+  "object": "document:doc-0397"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0397"
+ },
+ {
+  "user": "folder:platform",
+  "relation": "parent",
+  "object": "document:doc-0398"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0398"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:doc-0399"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0399"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:doc-0400"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:doc-0400"
+ },
+ {
+  "user": "user:sales-040",
+  "relation": "viewer",
+  "object": "document:doc-0400"
+ },
+ {
+  "user": "user:anne",
+  "relation": "owner",
+  "object": "document:doc-0001"
+ },
+ {
+  "user": "folder:design-docs",
+  "relation": "parent",
+  "object": "document:spec"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:spec"
+ },
+ {
+  "user": "user:plat-001",
+  "relation": "restricted",
+  "object": "document:spec"
+ },
+ {
+  "user": "folder:root",
+  "relation": "parent",
+  "object": "document:handbook"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:handbook"
+ },
+ {
+  "user": "user:*",
+  "relation": "viewer",
+  "object": "document:handbook"
+ },
+ {
+  "user": "organization:acme",
+  "relation": "org",
+  "object": "document:offsite-plan"
+ },
+ {
+  "user": "user:erin",
+  "relation": "viewer",
+  "object": "document:offsite-plan",
+  "condition": {
+   "name": "non_expired_grant",
+   "context": {
+    "grant_time": "2026-11-01T00:00:00Z",
+    "grant_duration": "24h"
+   }
+  }
+ },
+ {
+  "user": "user:frank",
+  "relation": "viewer",
+  "object": "document:offsite-plan",
+  "condition": {
+   "name": "non_expired_grant",
+   "context": {
+    "grant_time": "2026-11-01T00:00:00Z",
+    "grant_duration": "8760h"
+   }
+  }
+ },
+ {
+  "user": "user:gina",
+  "relation": "viewer",
+  "object": "document:offsite-plan",
+  "condition": {
+   "name": "in_office_network",
+   "context": {
+    "cidr": "10.0.0.0/8"
+   }
+  }
+ },
+ {
+  "user": "user:erin",
+  "relation": "member",
+  "object": "organization:acme"
+ },
+ {
+  "user": "user:frank",
+  "relation": "member",
+  "object": "organization:acme"
+ },
+ {
+  "user": "user:gina",
+  "relation": "member",
+  "object": "organization:acme"
+ },
+ {
+  "user": "organization:globex",
+  "relation": "org",
+  "object": "document:globex-secret"
+ },
+ {
+  "user": "user:anne",
+  "relation": "viewer",
+  "object": "document:globex-secret"
+ }
+]

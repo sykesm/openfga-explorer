@@ -1,0 +1,52 @@
+decision: denied (walker denied)
+Denied: user:nobody does not have viewer on document:roadmap — none of the ways to get it applies: there is no direct tuple, and they are not in any of the 25 group(s) that grant it (per the server's Check; those groups were not walked); no editor; not viewer from parent (on folder:root).
+  • 25 group(s) were not walked: the server's Check says user:nobody is not in them (per the server's Check; those groups were not walked — trace one to see why)
+gaps: []
+guided skips: 0
+groups ruled out: 25
+
+✗ document:roadmap#viewer  — = [user, user:*, group#member, user with non_expired_grant, user with in_office_network] or editor or viewer from parent · no branch of the union grants access
+├─ ✗ [direct] direct [user, user:*, group#member, user with non_expired_grant, user with in_office_network]  — no direct tuple grants access (no tuple document:roadmap#viewer@user:nobody; no wildcard tuple user:*; 25 group-style edge(s) not walked: the server's Check says the user is not in them; probe: user is member of 0 group object(s); 0 looked up) · examined 25 of the first 100 userset (group-style) edges read; more were not read
+│  ├─ · [not evaluated document:roadmap#viewer@group:team-001#member] group:team-001#member  — not evaluated: the server's Check says user:nobody is not member of group:team-001
+│  ├─ · [not evaluated document:roadmap#viewer@group:team-002#member] group:team-002#member  — not evaluated: the server's Check says user:nobody is not member of group:team-002
+│  ├─ · [not evaluated document:roadmap#viewer@group:team-003#member] group:team-003#member  — not evaluated: the server's Check says user:nobody is not member of group:team-003
+│  ├─ · [not evaluated document:roadmap#viewer@group:team-004#member] group:team-004#member  — not evaluated: the server's Check says user:nobody is not member of group:team-004
+│  ├─ · [not evaluated document:roadmap#viewer@group:team-005#member] group:team-005#member  — not evaluated: the server's Check says user:nobody is not member of group:team-005
+│  ├─ · [not evaluated document:roadmap#viewer@group:team-006#member] group:team-006#member  — not evaluated: the server's Check says user:nobody is not member of group:team-006
+│  ├─ · [not evaluated document:roadmap#viewer@group:team-007#member] group:team-007#member  — not evaluated: the server's Check says user:nobody is not member of group:team-007
+│  ├─ · [not evaluated document:roadmap#viewer@group:team-008#member] group:team-008#member  — not evaluated: the server's Check says user:nobody is not member of group:team-008
+│  ├─ · [not evaluated document:roadmap#viewer@group:team-009#member] group:team-009#member  — not evaluated: the server's Check says user:nobody is not member of group:team-009
+│  ├─ · [not evaluated document:roadmap#viewer@group:team-010#member] group:team-010#member  — not evaluated: the server's Check says user:nobody is not member of group:team-010
+│  ├─ · [not evaluated document:roadmap#viewer@group:team-011#member] group:team-011#member  — not evaluated: the server's Check says user:nobody is not member of group:team-011
+│  ├─ · [not evaluated document:roadmap#viewer@group:team-012#member] group:team-012#member  — not evaluated: the server's Check says user:nobody is not member of group:team-012
+│  ├─ · [not evaluated document:roadmap#viewer@group:team-013#member] group:team-013#member  — not evaluated: the server's Check says user:nobody is not member of group:team-013
+│  ├─ · [not evaluated document:roadmap#viewer@group:team-014#member] group:team-014#member  — not evaluated: the server's Check says user:nobody is not member of group:team-014
+│  ├─ · [not evaluated document:roadmap#viewer@group:team-015#member] group:team-015#member  — not evaluated: the server's Check says user:nobody is not member of group:team-015
+│  ├─ · [not evaluated document:roadmap#viewer@group:team-016#member] group:team-016#member  — not evaluated: the server's Check says user:nobody is not member of group:team-016
+│  ├─ · [not evaluated document:roadmap#viewer@group:team-017#member] group:team-017#member  — not evaluated: the server's Check says user:nobody is not member of group:team-017
+│  ├─ · [not evaluated document:roadmap#viewer@group:team-018#member] group:team-018#member  — not evaluated: the server's Check says user:nobody is not member of group:team-018
+│  ├─ · [not evaluated document:roadmap#viewer@group:team-019#member] group:team-019#member  — not evaluated: the server's Check says user:nobody is not member of group:team-019
+│  ├─ · [not evaluated document:roadmap#viewer@group:team-020#member] group:team-020#member  — not evaluated: the server's Check says user:nobody is not member of group:team-020
+│  ├─ · [not evaluated document:roadmap#viewer@group:team-021#member] group:team-021#member  — not evaluated: the server's Check says user:nobody is not member of group:team-021
+│  ├─ · [not evaluated document:roadmap#viewer@group:team-022#member] group:team-022#member  — not evaluated: the server's Check says user:nobody is not member of group:team-022
+│  ├─ · [not evaluated document:roadmap#viewer@group:team-023#member] group:team-023#member  — not evaluated: the server's Check says user:nobody is not member of group:team-023
+│  ├─ · [not evaluated document:roadmap#viewer@group:team-024#member] group:team-024#member  — not evaluated: the server's Check says user:nobody is not member of group:team-024
+│  └─ · [not evaluated document:roadmap#viewer@group:team-025#member] group:team-025#member  — not evaluated: the server's Check says user:nobody is not member of group:team-025
+├─ ✗ [computed] document:roadmap#editor  — = [user, group#member] or owner or editor from parent · no branch of the union grants access
+│  ├─ ✗ [direct] direct [user, group#member]  — no direct tuple grants access (no tuple document:roadmap#editor@user:nobody; no userset tuples)
+│  ├─ ✗ [computed] document:roadmap#owner  — = [user, principal] · no direct tuple grants access (no tuple document:roadmap#owner@user:nobody)
+│  └─ ✗ [from parent] editor from parent  — the user is not editor of any parent of document:roadmap
+│     └─ ✗ [parent document:roadmap#parent@folder:root] folder:root#editor  — = [user, group#member] or owner or editor from parent · no branch of the union grants access
+│        ├─ ✗ [direct] direct [user, group#member]  — no direct tuple grants access (no tuple folder:root#editor@user:nobody; no userset tuples)
+│        ├─ ✗ [computed] folder:root#owner  — = [user, principal] · no direct tuple grants access (no tuple folder:root#owner@user:nobody)
+│        └─ ✗ [from parent] editor from parent  — no parent tuples on folder:root
+└─ ✗ [from parent] viewer from parent  — the user is not viewer of any parent of document:roadmap
+   └─ ✗ [parent document:roadmap#parent@folder:root] folder:root#viewer  — = [user, user:*, group#member, user with non_expired_grant] or editor or viewer from parent · no branch of the union grants access
+      ├─ ✗ [direct] direct [user, user:*, group#member, user with non_expired_grant]  — no direct tuple grants access (no tuple folder:root#viewer@user:nobody; no wildcard tuple user:*)
+      │  └─ ✗ [viewer via #member folder:root#viewer@group:eng#member] group:eng#member  — = [user, principal, group#member] · no direct tuple grants access (no tuple group:eng#member@user:nobody; probe: user is member of 0 group object(s); 0 looked up) · no userset (group-style) edges among the first 100 tuples read; the rest were not read
+      ├─ ✗ [computed] folder:root#editor  — evaluated above
+      └─ ✗ [from parent] viewer from parent  — no parent tuples on folder:root
+
+granting path: 
+fold fold-n2 under n2 hides 50: 25 other branches checked — none grant access (click to expand)
+elements: 84, steps: 52

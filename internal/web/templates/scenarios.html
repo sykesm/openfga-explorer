@@ -1,0 +1,86 @@
+{{define "scenarios"}}{{template "head" .}}{{with .Data}}
+<div class="scenarios-layout">
+  <section class="scn-editor" aria-labelledby="scn-h">
+    <h2 class="page-h" id="scn-h">Scenarios</h2>
+    <p class="muted sm">Tuples, and what should and shouldn't be allowed, in the <code>fga model test</code> format (<code>.fga.yaml</code>; JSON works too).
+      Each test runs in a fresh, in-memory OpenFGA with only its tuples — never the store's data — against the document's <code>model</code>, or the model you're viewing if it has none.
+      Nothing is saved on the server: your draft stays in this browser.</p>
+    <form id="scenario-form" hx-post="{{$.Base}}/scenarios/run" hx-target="#scenario-result" hx-indicator="#scn-spinner">
+      <label for="scn-doc" class="sr-only">Scenario document</label>
+      <textarea id="scn-doc" name="doc" class="scn-doc" spellcheck="false" rows="24" data-template="{{.Template}}">{{.Template}}</textarea>
+      <div class="scn-actions">
+        <button type="submit" class="primary">Run</button>
+        <label class="btn ghost" title="Load a .fga.yaml, .yaml, or .json file">Load file…
+          <input type="file" class="sr-only" accept=".yaml,.yml,.json" data-act="scn-load"></label>
+        <button type="button" class="ghost" data-act="scn-download" title="Save the document as a .fga.yaml file">Download</button>
+        <button type="button" class="ghost" data-act="scn-template" title="Replace the document with a starter for this model">Start over</button>
+        <span id="scn-spinner" class="htmx-indicator muted sm">running…</span>
+      </div>
+    </form>
+  </section>
+  <section id="scenario-result" class="scn-result" aria-live="polite">
+    <p class="empty">Run the document to see each expectation, why it holds or not, and which tuples granted it.</p>
+  </section>
+</div>
+{{end}}{{template "foot" .}}{{end}}
+
+{{define "scenario-result"}}{{with .Data}}
+{{if .Err}}<div class="alert err" role="alert"><b>The scenario can't run.</b><pre class="scn-err">{{.Err}}</pre></div>
+{{else}}{{with .Report}}
+<div class="scn-summary {{if .Failed}}v-denied{{else}}v-allowed{{end}}">
+  <h2 class="big">{{if .Failed}}✗ {{.Failed}} failed{{else}}✓ All {{.Passed}} passed{{end}}</h2>
+  <p class="muted sm">{{with .Name}}{{.}} · {{end}}{{.Passed}} passed, {{.Failed}} failed · ran against {{.ModelFrom}} · {{.Duration.Round 1000000}}</p>
+  {{if .Failed}}<p class="sm">Failing: {{range $ti, $t := .Tests}}{{if or $t.Failed $t.Err}}<a href="#scn-t{{$ti}}">{{$t.Name}}</a> {{end}}{{end}}</p>{{end}}
+</div>
+{{range $ti, $t := .Tests}}
+<article class="scn-test" aria-labelledby="scn-t{{$ti}}">
+  <h3 id="scn-t{{$ti}}">{{if or $t.Failed $t.Err}}<span class="o-denied">✗</span>{{else}}<span class="o-allowed">✓</span>{{end}} {{$t.Name}}</h3>
+  {{with $t.Description}}<p class="muted sm">{{.}}</p>{{end}}
+  {{if $t.Err}}<div class="alert err">This test could not run: {{$t.Err}}</div>{{end}}
+  <div class="scn-cols">
+    <div class="scn-tuples">
+      <h4>Tuples <span class="muted">({{len $t.Tuples}})</span></h4>
+      <ol class="tuple-list">{{range $i, $tp := $t.Tuples}}
+        <li data-tuple="{{$i}}" class="{{if not $tp.UsedBy}}unused{{end}}">
+          <code>{{$tp.User}} <b>{{$tp.Relation}}</b> {{$tp.Object}}</code>{{with $tp.Condition}} <span class="condtag">{{.Name}}</span>{{end}}
+          <span class="muted sm">{{if $tp.Shared}}shared · {{end}}{{if $tp.UsedBy}}grants {{len $tp.UsedBy}} check{{if ne (len $tp.UsedBy) 1}}s{{end}}{{else}}grants no check{{end}}</span>
+        </li>{{else}}<li class="muted">none</li>{{end}}
+      </ol>
+    </div>
+    <div class="scn-checks">
+      {{if $t.Checks}}<h4>Checks</h4>
+      <table class="scn-table">
+        <thead><tr><th></th><th>User</th><th>Relation</th><th>Object</th><th>Expected</th><th>Got</th></tr></thead>
+        <tbody>{{range $ci, $c := $t.Checks}}
+          <tr class="{{if $c.Pass}}pass{{else}}fail{{end}}" data-grants="{{range $c.GrantedBy}}{{.}} {{end}}" tabindex="0">
+            <td>{{if $c.Pass}}<span class="o-allowed" aria-label="passed">✓</span>{{else}}<span class="o-denied" aria-label="failed">✗</span>{{end}}</td>
+            <td><code>{{$c.User}}</code></td><td><code>{{$c.Relation}}</code></td><td><code>{{$c.Object}}</code></td>
+            <td>{{if $c.Expected}}allowed{{else}}denied{{end}}</td>
+            <td>{{if $c.Err}}<span class="o-error">error</span>{{else if $c.Got}}allowed{{else}}denied{{end}}</td>
+          </tr>
+          <tr class="because {{if $c.Pass}}pass{{else}}fail{{end}}"><td></td><td colspan="5" class="sm">{{if $c.Err}}{{$c.Err}}{{else}}{{trimVerdict $c.Because}}{{end}}</td></tr>{{end}}
+        </tbody>
+      </table>{{end}}
+      {{if $t.ListObjects}}<h4>List objects</h4>{{template "scn-sets" $t.ListObjects}}{{end}}
+      {{if $t.ListUsers}}<h4>List users</h4>{{template "scn-sets" $t.ListUsers}}{{end}}
+    </div>
+  </div>
+</article>
+{{end}}
+{{end}}{{end}}
+{{end}}{{end}}
+
+{{define "scn-sets"}}
+<table class="scn-table">
+  <thead><tr><th></th><th>For</th><th>Relation</th><th>Result</th></tr></thead>
+  <tbody>{{range .}}
+    <tr class="{{if .Pass}}pass{{else}}fail{{end}}">
+      <td>{{if .Pass}}<span class="o-allowed" aria-label="passed">✓</span>{{else}}<span class="o-denied" aria-label="failed">✗</span>{{end}}</td>
+      <td><code>{{.Subject}}</code></td><td><code>{{.Relation}}</code></td>
+      <td class="sm">{{if .Err}}<span class="o-error">{{.Err}}</span>
+        {{else if .Pass}}{{range $i, $x := .Got}}{{if $i}}, {{end}}<code>{{$x}}</code>{{else}}<span class="muted">none, as expected</span>{{end}}
+        {{else}}{{with .Missing}}missing {{range $i, $x := .}}{{if $i}}, {{end}}<code>{{$x}}</code>{{end}}{{end}}{{if and .Missing .Extra}}; {{end}}{{with .Extra}}unexpected {{range $i, $x := .}}{{if $i}}, {{end}}<code>{{$x}}</code>{{end}}{{end}}{{end}}</td>
+    </tr>{{end}}
+  </tbody>
+</table>
+{{end}}

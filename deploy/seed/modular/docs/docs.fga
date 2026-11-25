@@ -1,0 +1,24 @@
+module docs
+
+extend type organization
+  relations
+    define can_create_folder: admin
+
+type folder
+  relations
+    define org: [organization]
+    define parent: [folder]
+    define owner: [user]
+    define editor: [user, group#member] or owner or editor from parent
+    define viewer: [user, group#member] or editor or viewer from parent or member from org
+
+type document
+  relations
+    define parent: [folder]
+    define owner: [user]
+    define editor: [user, group#member] or owner or editor from parent
+    define viewer: [user, group#member, user with business_hours] or editor or viewer from parent
+
+condition business_hours(current_time: timestamp) {
+  current_time.getHours() >= 8 && current_time.getHours() < 18
+}

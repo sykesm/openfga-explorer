@@ -1,0 +1,656 @@
+// The check trace view: the evaluation graph, its replay, the highlighted
+// granting path, folding of failed branches, the text trace, and exports.
+// The server computes what to show (granting path, folds, node details);
+// this module draws it and handles interaction.
+import { $, $$, baseOpts, color, dagre, esc, fitCapped, labelHeight, labelWidth, mix, pal, reducedMotion, scrollBehavior, store } from './core.js';
+import { onEscape, onKey } from './shortcuts.js';
+import { initResizer, selectTab } from './ui.js';
+
+/**
+ * @typedef {{ id: string, parent: string, label: string, hidden: string[] }} Fold
+ * @typedef {{ phase: string, node: string, from?: string }} Step
+ * @typedef {{ elements: any[], steps: Step[], root: string, folds?: Fold[] }} GraphData
+ */
+
+// Node labels carry an outcome mark (✓ ✗ ? ·) so outcomes never depend on color.
+/** @type {Record<string, string>} */
+const MARK = { allowed: '✓', denied: '✗', unknown: '?', error: '!', skipped: '·' };
+// Skipped branches with a server verdict show it, marked as not walked.
+/** @type {Record<string, string>} */
+const HINT = { allowed: '(✓)', denied: '(✗)' };
+
+/** @param {any} e @param {boolean} [short] */
+function markedLabel(e, short = false) {
+  const d = e.data();
+  const text = short ? (d.short || d.label) : d.label;
+  if (d.kind === 'subject' || d.kind === 'more' || d.kind === 'fold' || !MARK[d.outcome]) return text;
+  if (d.kind === 'skipped' && HINT[d.hint]) return `${HINT[d.hint]} ${text}`;
+  return `${MARK[d.outcome]} ${text}`;
+}
+
+/** @param {ReturnType<typeof pal>} p */
+function traceStyle(p) {
+  /** @type {Record<string, string>} */
+  const oc = { allowed: p.allowed, denied: p.denied, unknown: p.unknown, error: p.error, skipped: p.skipped };
+  const s = [
+    { selector: 'node', style: {
+      shape: 'round-rectangle', label: (/** @type {any} */ e) => markedLabel(e), 'text-wrap': 'wrap', 'font-size': 11, color: p.fg, 'text-valign': 'center',
+      'background-color': p.panel, 'border-width': 2, 'border-color': p.line,
+      width: (/** @type {any} */ e) => labelWidth(e.data('label')), height: (/** @type {any} */ e) => labelHeight(e.data('label')),
+      'transition-property': 'opacity, background-color, border-color', 'transition-duration': reducedMotion() ? '0ms' : '180ms',
+    } },
+    { selector: 'node.union, node.intersection, node.exclusion', style: { shape: 'ellipse', 'font-size': 12, width: 64, height: 34 } },
+    { selector: 'node.direct', style: { shape: 'tag', 'font-size': 10 } },
+    { selector: 'node.ttu', style: { shape: 'cut-rectangle', 'font-size': 10 } },
+    { selector: 'node.subject', style: { shape: 'round-diamond', 'background-color': p.accent, color: '#fff', 'font-weight': 700, height: 44, width: (/** @type {any} */ e) => labelWidth(e.data('label')) + 30 } },
+    { selector: 'node.blocked', style: { shape: 'octagon' } },
+    { selector: 'node.cycle', style: { 'border-style': 'double', 'border-width': 4 } },
+    { selector: 'node.more', style: { 'border-style': 'dashed', color: p.muted, 'font-style': 'italic', 'font-size': 10 } },
+    // De-emphasis never uses opacity on labels: faded text drops below
+    // readable contrast (and multiplies with .dim). Skipped nodes are dashed,
+    // italic, on the page background, in solid muted colors.
+    { selector: 'node.skipped', style: { 'border-style': 'dashed', 'background-color': p.bg, color: p.muted, 'font-style': 'italic' } },
+    { selector: 'node.root', style: { 'border-width': 4, 'font-weight': 700 } },
+    { selector: 'edge', style: {
+      'curve-style': 'bezier', 'target-arrow-shape': 'triangle', width: 1.6, 'line-color': p.line, 'target-arrow-color': p.line,
+      label: 'data(label)', 'font-size': 9, color: p.muted, 'text-background-color': p.bg, 'text-background-opacity': 0.9,
+      'text-background-padding': 2, 'text-wrap': 'ellipsis', 'text-max-width': 200,
+      'transition-property': 'opacity, line-color', 'transition-duration': reducedMotion() ? '0ms' : '180ms',
+    } },
+    { selector: 'edge.skipped', style: { 'line-style': 'dashed', width: 1.2 } },
+    // Failed edges are dashed so allowed/denied never relies on color alone.
+    { selector: 'edge.denied, edge.error', style: { 'line-style': 'dashed', 'line-dash-pattern': [6, 4] } },
+    { selector: 'node.fold', style: {
+      shape: 'round-rectangle', 'border-style': 'dashed', 'border-color': p.denied, color: p.muted, 'font-style': 'italic',
+      'background-color': p.panel, 'font-size': 10.5, cursor: 'pointer',
+    } },
+    { selector: 'edge.fold', style: { 'line-style': 'dashed', 'line-color': p.denied, 'target-arrow-color': p.denied, opacity: 0.7 } },
+    // Zoomed out: short labels that stay legible.
+    { selector: 'node.far', style: { label: (/** @type {any} */ e) => markedLabel(e, true), 'font-size': 18, 'font-weight': 700 } },
+    { selector: 'edge.far', style: { label: '' } },
+    { selector: 'edge.blocking', style: { width: 3.5, 'line-style': 'dashed' } },
+    { selector: 'edge.probe', style: { 'line-style': 'dotted', width: 2.5 } },
+    { selector: 'edge.more', style: { 'line-style': 'dotted', 'target-arrow-shape': 'none' } },
+  ];
+  for (const [k, c] of Object.entries(oc)) {
+    s.push({ selector: `node.${k}`, style: { 'border-color': c } });
+    s.push({ selector: `edge.${k}`, style: { 'line-color': c, 'target-arrow-color': c } });
+  }
+  s.push(
+    { selector: 'edge.blocking', style: { 'line-color': p.denied, 'target-arrow-color': p.denied, color: p.denied } },
+    // Cytoscape accepts neither :not() nor color-mix(): tint with a data selector and a precomputed blend.
+    { selector: 'node.allowed[kind != "subject"]', style: { 'background-color': mix(p.allowed, p.panel, 0.14) } },
+    { selector: 'node.denied[kind != "subject"]', style: { 'background-color': mix(p.denied, p.panel, 0.12) } },
+    { selector: 'node.mismatch', style: { 'border-color': p.mismatch, 'border-width': 5 } },
+    { selector: '.pending', style: { opacity: 0.1 } },
+    // Off the granting path while it is highlighted: shapes recede, labels stay legible.
+    { selector: 'node.dim', style: { 'border-opacity': 0.45, 'background-opacity': 0.5, color: p.muted } },
+    { selector: 'edge.dim', style: { 'line-color': p.skipped, 'target-arrow-color': p.skipped, width: 1.2, color: p.muted } },
+    // Skipped nodes are already de-emphasized (dashed, italic): don't fade them twice.
+    { selector: 'node.skipped.dim', style: { 'border-opacity': 1, 'background-opacity': 1 } },
+    { selector: 'edge.flow', style: {
+      'line-style': 'dashed', 'line-dash-pattern': [10, 6], width: 3.6, 'line-color': p.allowed, 'target-arrow-color': p.allowed,
+      'arrow-scale': 1.25, color: p.allowed, 'z-index': 20, opacity: 1,
+    } },
+    { selector: 'node.flow', style: {
+      'border-width': 3, 'border-color': p.allowed, 'z-index': 20, opacity: 1,
+      'underlay-color': p.allowed, 'underlay-padding': 8, 'underlay-opacity': 0, 'underlay-shape': 'round-rectangle',
+    } },
+    { selector: 'node.visiting', style: { 'overlay-color': p.accent, 'overlay-opacity': 0.25, 'overlay-padding': 8, opacity: 1 } },
+    { selector: 'node:selected', style: { 'overlay-color': p.accent, 'overlay-opacity': 0.18, 'overlay-padding': 6 } },
+    { selector: '.hl', style: { 'overlay-color': p.accent, 'overlay-opacity': 0.22, 'overlay-padding': 6 } },
+  );
+  return s;
+}
+
+// ---- folds (computed by the server, see trace.Fold) ----
+
+/** @param {any} cy @param {Fold[]} folds */
+function applyFolds(cy, folds) {
+  cy.batch(() => {
+    for (const f of folds) {
+      cy.add([
+        { group: 'nodes', data: { id: f.id, kind: 'fold', label: f.label, hidden: f.hidden }, classes: 'fold' },
+        { group: 'edges', data: { id: `${f.id}-e`, source: f.parent, target: f.id, label: '' }, classes: 'fold' },
+      ]);
+    }
+    for (const f of folds) for (const id of f.hidden) cy.getElementById(id).style('display', 'none');
+  });
+}
+
+/** @param {any} cy @param {any} fold */
+function expandFold(cy, fold) {
+  cy.batch(() => {
+    for (const id of fold.data('hidden') || []) cy.getElementById(id).style('display', 'element');
+    fold.remove();
+  });
+}
+
+/** Expands whatever folds hide the element (outermost first). @param {any} cy @param {string} id */
+function reveal(cy, id) {
+  const fold = cy.nodes('.fold').filter((/** @type {any} */ f) => (f.data('hidden') || []).includes(id))[0];
+  if (!fold) return false;
+  if (fold.style('display') === 'none') reveal(cy, fold.id());
+  expandFold(cy, fold);
+  return true;
+}
+
+/** The general layout: granting-path edges weigh heavily so dagre keeps the path short. @param {any} cy */
+const dagreLayout = (cy) => cy.elements(':visible').layout(dagre('TB', {
+  nodeSep: 18, rankSep: 44, fit: false,
+  edgeWeight: (/** @type {any} */ e) => (e.hasClass('flowpath') ? 20 : 1),
+})).run();
+
+/**
+ * The spine of the granting path: the longest chain of granting edges from
+ * the root, or null when nothing was granted. Other granting branches (e.g.
+ * the second side of an "and") are laid out beside it.
+ * @param {any} cy
+ */
+function grantingChain(cy) {
+  const root = cy.nodes('.root.flowpath:visible');
+  if (!root.length) return null;
+  /** @type {Map<string, number>} */
+  const longest = new Map();
+  /** @param {any} n @param {Set<string>} seen */
+  const depth = (n, seen) => {
+    if (longest.has(n.id())) return longest.get(n.id()) || 0;
+    if (seen.has(n.id())) return 0;
+    seen.add(n.id());
+    let best = 0;
+    n.outgoers('edge.flowpath').targets(':visible').forEach((/** @type {any} */ c) => { best = Math.max(best, depth(c, seen)); });
+    longest.set(n.id(), best + 1);
+    return best + 1;
+  };
+  depth(root[0], new Set());
+  const chain = [root[0]];
+  for (let n = root[0]; ;) {
+    let next = null;
+    n.outgoers('edge.flowpath').targets(':visible').forEach((/** @type {any} */ c) => {
+      if (!chain.includes(c) && (!next || (longest.get(c.id()) || 0) > (longest.get(next.id()) || 0))) next = c;
+    });
+    if (!next) break;
+    chain.push(next);
+    n = next;
+  }
+  return chain.length > 1 ? chain : null;
+}
+
+/**
+ * Lays the trace out with the granting path as a straight vertical spine
+ * (object at the top, user at the bottom); each spine node's other branches
+ * (including other granting routes) are laid out beside it, alternating
+ * sides. Falls back to dagre when nothing was granted.
+ * @param {any} cy
+ */
+function traceLayout(cy) {
+  const chain = grantingChain(cy);
+  if (!chain) { dagreLayout(cy); return; }
+  const onChain = new Set(chain.map((n) => n.id()));
+  const placed = new Set(onChain);
+  const gap = 44, side = 70;
+  let y = 0;
+  let right = true;
+  cy.batch(() => {
+    for (const p of chain) {
+      // The branches hanging off this path node (not yet placed elsewhere).
+      let block = cy.collection();
+      const queue = [p];
+      while (queue.length) {
+        const n = queue.shift();
+        n.outgoers('node:visible').forEach((/** @type {any} */ c) => {
+          if (placed.has(c.id())) return;
+          placed.add(c.id());
+          block = block.union(c);
+          queue.push(c);
+        });
+      }
+      const h = p.outerHeight();
+      p.position({ x: 0, y: y + h / 2 });
+      let slot = h;
+      if (block.length) {
+        const sub = block.union(block.edgesWith(block));
+        sub.layout(dagre('TB', { nodeSep: 14, rankSep: 36, fit: false })).run();
+        const bb = block.boundingBox();
+        const dx = right ? side + p.outerWidth() / 2 - bb.x1 : -side - p.outerWidth() / 2 - bb.x2;
+        const dy = y - bb.y1;
+        block.forEach((/** @type {any} */ n) => { const pos = n.position(); n.position({ x: pos.x + dx, y: pos.y + dy }); });
+        slot = Math.max(h, bb.h);
+        right = !right;
+      }
+      y += slot + gap;
+    }
+    // Anything not reached from the path goes underneath.
+    const rest = cy.nodes(':visible').filter((/** @type {any} */ n) => !placed.has(n.id()));
+    if (rest.length) {
+      rest.union(rest.edgesWith(rest)).layout(dagre('TB', { nodeSep: 18, rankSep: 44, fit: false })).run();
+      const bb = rest.boundingBox();
+      rest.forEach((/** @type {any} */ n) => { const pos = n.position(); n.position({ x: pos.x - bb.x1 - bb.w / 2, y: pos.y - bb.y1 + y + gap }); });
+    }
+  });
+}
+
+/**
+ * PathFlow keeps the focus on how access was granted: once the replay ends
+ * with an allowed decision, the granting path (elements the server marked
+ * "flowpath") gets dashes flowing in the direction of the arrows and a glow
+ * travelling from the object down to the user. The rest is only dimmed.
+ */
+class PathFlow {
+  /** @param {any} cy @param {Element} tree */
+  constructor(cy, tree) {
+    this.cy = cy;
+    this.tree = tree;
+    this.raf = 0;
+    this.focus = true;
+    this.started = false;
+    this.edges = cy.edges('.flowpath');
+    this.nodes = cy.nodes('.flowpath');
+  }
+  get active() { return this.edges.length > 0; }
+  start() {
+    this.stop();
+    if (!this.active) return;
+    this.started = true;
+    this.cy.batch(() => {
+      this.edges.addClass('flow');
+      this.nodes.addClass('flow');
+      this.cy.elements().not(this.edges).not(this.nodes).addClass('dim');
+    });
+    this.frame();
+    this.nodes.forEach((/** @type {any} */ n) => {
+      for (const l of $$(`.tl[data-node="${CSS.escape(n.id())}"]`, this.tree)) l.classList.add('onpath');
+    });
+    if (reducedMotion()) { this.nodes.style('underlay-opacity', 0.22); return; }
+    const t0 = performance.now();
+    const maxDepth = Math.max(1, ...this.nodes.map((/** @type {any} */ n) => n.data('depth') || 0));
+    /** @param {number} now */
+    const tick = (now) => {
+      if (this.cy.destroyed() || !this.cy.container()?.isConnected) { this.raf = 0; return; }
+      const t = (now - t0) / 1000;
+      this.cy.batch(() => {
+        this.edges.style('line-dash-offset', -t * 22);
+        // A glow wave that travels root → user, then repeats.
+        const wave = (t * 1.6) % (maxDepth + 2.5);
+        this.nodes.forEach((/** @type {any} */ n) => {
+          const dist = Math.abs(wave - (n.data('depth') || 0));
+          n.style('underlay-opacity', 0.05 + 0.32 * Math.max(0, 1 - dist));
+        });
+      });
+      this.raf = requestAnimationFrame(tick);
+    };
+    this.raf = requestAnimationFrame(tick);
+  }
+  /** Zooms to the granting path so it stays the focus even in wide graphs. */
+  frame() {
+    const eles = this.nodes.union(this.edges);
+    this.cy.stop();
+    this.cy.animate({ fit: { eles, padding: 60 }, duration: reducedMotion() ? 0 : 450, easing: 'ease-in-out-cubic',
+      complete: () => { if (this.cy.zoom() > 1.4) { this.cy.zoom(1.4); this.cy.center(eles); } } });
+  }
+  stop() {
+    cancelAnimationFrame(this.raf);
+    this.raf = 0;
+    this.started = false;
+    if (this.cy.destroyed()) return;
+    this.cy.batch(() => {
+      this.edges.removeStyle('line-dash-offset').removeClass('flow');
+      this.nodes.removeStyle('underlay-opacity').removeClass('flow');
+      this.cy.elements().removeClass('dim');
+    });
+    $$('.tl.onpath', this.tree).forEach((l) => l.classList.remove('onpath'));
+  }
+}
+
+/** Replays the walk's steps on the graph and the text trace. */
+class Player {
+  /** @param {any} cy @param {Step[]} steps @param {Element} tree @param {PathFlow} flow */
+  constructor(cy, steps, tree, flow) {
+    this.cy = cy;
+    this.steps = steps || [];
+    this.tree = tree;
+    this.flow = flow;
+    this.i = 0;
+    /** @type {number | null} */
+    this.timer = null;
+    this.speed = 6;
+    this.current = '';
+    /** @type {Map<string, Element[]>} */
+    this.lines = new Map();
+    for (const l of $$('.tl', tree)) {
+      const k = l.dataset.node;
+      if (!this.lines.has(k)) this.lines.set(k, []);
+      this.lines.get(k)?.push(l);
+    }
+  }
+  reset() {
+    this.pause();
+    this.flow.stop();
+    this.cy.elements().addClass('pending').removeClass('visiting');
+    this.tree.classList.add('animating');
+    $$('.tl', this.tree).forEach((l) => l.classList.remove('seen', 'cur'));
+    this.i = 0;
+    this.update();
+  }
+  /** @param {string} node @param {string} [cls] */
+  mark(node, cls) {
+    if (cls === 'cur') $$('.tl.cur', this.tree).forEach((l) => l.classList.remove('cur'));
+    for (const l of this.lines.get(node) || []) { l.classList.add('seen'); if (cls) l.classList.add(cls); }
+  }
+  /** @param {Step} s */
+  apply(s) {
+    const n = this.cy.getElementById(s.node);
+    switch (s.phase) {
+      case 'enter':
+        this.cy.nodes('.visiting').removeClass('visiting');
+        n.removeClass('pending').addClass('visiting');
+        this.mark(s.node, 'cur');
+        this.current = String(n.data('label') || '').replace(/\n[∪∩∖]$/, '').replace(/\n/g, '');
+        break;
+      case 'exit':
+        n.removeClass('pending visiting');
+        break;
+      case 'link':
+        this.cy.edges().filter((/** @type {any} */ e) => e.data('source') === s.from && e.data('target') === s.node).removeClass('pending');
+        n.removeClass('pending');
+        this.mark(s.node);
+        break;
+      case 'revisit':
+        n.removeClass('pending').addClass('visiting');
+        setTimeout(() => n.removeClass('visiting'), 300);
+        break;
+      default:
+    }
+  }
+  step() {
+    if (this.i === 0 && !this.tree.classList.contains('animating')) this.reset();
+    if (this.i >= this.steps.length) { this.final(); return false; }
+    this.apply(this.steps[this.i++]);
+    this.update();
+    return true;
+  }
+  /** The replay takes a fixed total time (about 8s at the default speed), however many steps. */
+  delay() {
+    const total = 15000 - this.speed * 1100;
+    return Math.max(12, Math.min(600, total / Math.max(1, this.steps.length)));
+  }
+  play() {
+    if (this.timer) { this.pause(); return; }
+    if (this.i === 0 || this.i >= this.steps.length) this.reset();
+    const tick = () => { this.timer = this.step() ? window.setTimeout(tick, this.delay()) : null; this.update(); };
+    this.timer = window.setTimeout(tick, 120);
+    this.update();
+  }
+  pause() { if (this.timer) clearTimeout(this.timer); this.timer = null; this.update(); }
+  /** Replays silently up to the previous step. */
+  back() {
+    const target = Math.max(0, Math.min(this.i, this.steps.length) - 1);
+    this.reset();
+    for (let k = 0; k < target; k++) this.apply(this.steps[k]);
+    this.i = target;
+    this.update();
+  }
+  final() {
+    this.pause();
+    this.cy.elements().removeClass('pending visiting');
+    this.tree.classList.remove('animating');
+    $$('.tl.cur', this.tree).forEach((l) => l.classList.remove('cur'));
+    this.i = this.steps.length;
+    if (this.flow.focus) this.flow.start();
+    this.update();
+  }
+  update() {
+    const n = this.steps.length;
+    const done = this.i >= n;
+    const playing = !!this.timer;
+    const count = $('.player .step-count');
+    if (count) count.textContent = `step ${this.i} / ${n}`;
+    const play = $('.player [data-act="play"]');
+    if (play) play.textContent = playing ? '❚❚ Pause' : (this.i > 0 && !done ? '▶ Resume' : '▶ Replay walk');
+    const status = $('.player-status');
+    if (!status) return;
+    if (playing) status.textContent = `Replaying the walk: step ${this.i} of ${n}${this.current ? ` — evaluating ${this.current}` : ''}`;
+    else if (!done && this.i > 0) status.textContent = `Paused at step ${this.i} of ${n}. “Step ›” advances one step; “Resume” continues; “Skip to end” shows the result.`;
+    else if (done) status.textContent = this.doneText();
+  }
+  /** The server phrases the closing status; this picks the variant for the highlight state. */
+  doneText() {
+    const d = $('.verdict')?.dataset || {};
+    if (this.flow.active && this.flow.started) return d.donePath || '';
+    if (this.flow.active) return d.doneNofocus || '';
+    return d.doneOther || '';
+  }
+}
+
+/** Shows the server-computed detail for a node. @param {any} node */
+function showDetail(node) {
+  const box = $('#node-detail');
+  const d = node.data('detail');
+  if (!box || !d) return;
+  /** @param {any} l */
+  const link = (l) => (l.act
+    ? `<button type="button" class="btn sm" data-act="${esc(l.act)}" data-order="${esc(l.order)}">${esc(l.text)}</button>`
+    : l.href ? `<a class="btn sm${l.ghost ? ' ghost' : ''}" href="${esc(l.href)}">${esc(l.text)}</a>` : `<span class="muted">${esc(l.text)}</span>`);
+  const rows = (d.rows || []).map((/** @type {any} */ r) => `<dt>${esc(r.key)}</dt><dd>${r.items
+    ? `<ul class="checks">${r.items.map((/** @type {any} */ i) => `<li>${i.href ? `<a href="${esc(i.href)}">${esc(i.text)}</a>` : esc(i.text)}${i.note ? ` <span class="muted">${esc(i.note)}</span>` : ''}</li>`).join('')}</ul>`
+    : esc(r.value)}</dd>`).join('');
+  box.innerHTML = `<button type="button" class="close" aria-label="Clear the selection">×</button>
+    <h3 id="node-detail-title">${esc(d.title)}</h3><dl>${rows}</dl><div class="links">${(d.links || []).map(link).join(' ')}</div>`;
+  // Selecting a node is a request to see its details: open the panel.
+  togglePanel(false);
+}
+
+const EMPTY_DETAIL = '<p class="nd-empty muted sm">Select a node in the graph or a line of the text trace to see what it means and where to go next.</p>';
+
+/** Clears the selection and its details. */
+function clearDetail() {
+  const box = $('#node-detail');
+  if (box && !$('.nd-empty', box)) box.innerHTML = EMPTY_DETAIL;
+  view?.cy.elements().unselect();
+  $$('.tl.sel').forEach((l) => l.classList.remove('sel'));
+}
+
+/** @param {HTMLButtonElement} btn */
+function copyMarkdown(btn) {
+  const v = $('.verdict');
+  const facts = $$('.facts li', v).map((li) => li.textContent.trim());
+  const md = [
+    `**${$('.big', v).textContent.trim()}**: ${$('.headline', v)?.textContent.trim() || ''}`,
+    ...(facts.length ? ['', 'Why:', ...facts.map((f, i) => `${i + 1}. ${f}`)] : []),
+    '', '```text', $('#trace-plain')?.textContent.trim() || '', '```',
+    '', `Permalink: ${new URL($('.permalink', v).getAttribute('href'), location.href)}`,
+  ].join('\n');
+  navigator.clipboard?.writeText(md).then(() => {
+    const old = btn.textContent;
+    btn.textContent = 'Copied';
+    setTimeout(() => { btn.textContent = old; }, 1200);
+  });
+}
+
+/** @param {any} cy */
+function savePNG(cy) {
+  const blob = cy.png({ output: 'blob', full: true, scale: 2, bg: color('--panel') });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `trace-${($('.verdict')?.dataset.user || 'user').replace(/[^\w.-]+/g, '_')}.png`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+/** @type {{ cy: any, player: Player } | null} */
+let view = null;
+
+const fitTrace = () => { if (view) fitCapped(view.cy, undefined, 24, 1.3); };
+
+/**
+ * Collapses or opens the side panel (details, text trace, who else).
+ * @param {boolean} [collapse] collapse (true) or open (false); toggles when omitted
+ */
+function togglePanel(collapse) {
+  const tv = $('.trace-views');
+  if (!tv) return;
+  const was = tv.classList.contains('panel-collapsed');
+  const now = collapse ?? !was;
+  tv.classList.toggle('panel-collapsed', now);
+  for (const b of $$('[data-act="toggle-panel"]')) b.setAttribute('aria-expanded', String(!now));
+  store.set('panelCollapsed', now);
+  if (view && now !== was) { view.cy.resize(); fitTrace(); }
+}
+
+/** Shows one of the side panel's tabs (text trace, who else). @param {string} name */
+function showResultTab(name) {
+  const tab = $(`.rtabs [data-rtab="${name}"]`);
+  if (!tab) return;
+  selectTab(tab);
+  for (const p of $$('.inspector .rpanel')) p.hidden = p.id !== `rpanel-${name}`;
+  store.set('resultTab', name);
+}
+
+/** Selects a node from the text trace or the graph. @param {any} cy @param {any} n @param {{ zoom?: boolean }} [opts] */
+function selectNode(cy, n, { zoom = false } = {}) {
+  if (n.style('display') === 'none' && reveal(cy, n.id())) traceLayout(cy);
+  cy.elements().unselect();
+  n.select();
+  cy.animate({ center: { eles: n }, ...(zoom ? { zoom: Math.max(cy.zoom(), 0.9) } : {}), duration: reducedMotion() ? 0 : 220 });
+  showDetail(n);
+}
+
+/** Text trace as a tree: ↑/↓/Home/End move, Enter shows details. @param {Element} tree @param {any} cy */
+function initTreeKeys(tree, cy) {
+  const lines = $$('.tl', tree);
+  if (!lines.length) return;
+  lines[0].tabIndex = 0;
+  tree.addEventListener('keydown', (/** @type {any} */ e) => {
+    const cur = e.target.closest('.tl');
+    if (!cur) return;
+    const i = lines.indexOf(cur);
+    /** @type {Record<string, number>} */
+    const moves = { ArrowDown: Math.min(lines.length - 1, i + 1), ArrowUp: Math.max(0, i - 1), Home: 0, End: lines.length - 1 };
+    const next = lines[moves[e.key] ?? -1];
+    if (next) {
+      e.preventDefault();
+      cur.tabIndex = -1; next.tabIndex = 0; next.focus();
+      cy.elements('.hl').removeClass('hl');
+      cy.getElementById(next.dataset.node).addClass('hl');
+    }
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      const n = cy.getElementById(cur.dataset.node);
+      if (n.length) selectNode(cy, n);
+    }
+  });
+}
+
+/**
+ * Renders the trace in #check-result.
+ * @param {{ replay?: boolean }} [opts] replay: animate the walk if the viewer allows it
+ */
+export function renderTrace({ replay = true } = {}) {
+  const dataEl = $('#trace-data');
+  const container = $('#trace-canvas');
+  if (!dataEl || !container) return;
+  /** @type {GraphData} */
+  const data = JSON.parse(dataEl.textContent);
+  view?.player.flow.stop();
+  const cy = cytoscape({ container, elements: data.elements, style: traceStyle(pal()), layout: { name: 'null' }, ...baseOpts });
+  applyFolds(cy, data.folds || []);
+  traceLayout(cy);
+  fitCapped(cy, undefined, 24, 1.3);
+  // Semantic zoom: short, larger labels when zoomed out.
+  const farZoom = () => cy.elements().toggleClass('far', cy.zoom() < 0.55);
+  cy.on('zoom', farZoom);
+  farZoom();
+  const tree = $('#rpanel-trace .tree');
+  const flow = new PathFlow(cy, tree);
+  const player = new Player(cy, data.steps, tree, flow);
+  view = { cy, player };
+
+  const focus = $('.player [data-act="focus"]');
+  if (focus) {
+    focus.checked = store.get('focusPath', true);
+    flow.focus = focus.checked;
+    focus.closest('label').classList.toggle('hidden', !flow.active);
+    focus.addEventListener('change', () => {
+      store.set('focusPath', focus.checked);
+      flow.focus = focus.checked;
+      if (player.i >= player.steps.length) {
+        if (focus.checked) flow.start(); else { flow.stop(); fitTrace(); }
+      }
+      player.update();
+    });
+  }
+  const speed = $('.player [data-act="speed"]');
+  const auto = $('.player [data-act="autoplay"]');
+  // Replaying is motion: off by default when the viewer asks for less.
+  auto.checked = store.get('autoplay', !reducedMotion());
+  speed.value = store.get('speed', 6);
+  player.speed = +speed.value;
+  if (replay && auto.checked) player.play(); else player.final();
+  speed.addEventListener('input', () => { player.speed = +speed.value; store.set('speed', player.speed); });
+  auto.addEventListener('change', () => store.set('autoplay', auto.checked));
+
+  $('.player').addEventListener('click', (/** @type {any} */ e) => {
+    switch (e.target.closest('[data-act]')?.dataset.act) {
+      case 'play': player.play(); break;
+      case 'step': player.pause(); player.step(); break;
+      case 'final': player.final(); break;
+      case 'fit': fitTrace(); break;
+      case 'copy-md': copyMarkdown(e.target.closest('button')); break;
+      case 'png': savePNG(cy); break;
+      case 'toggle-panel': togglePanel(); break;
+      default:
+    }
+  });
+
+  cy.on('tap', 'node.fold', (/** @type {any} */ e) => { expandFold(cy, e.target); traceLayout(cy); });
+  cy.on('tap', 'node', (/** @type {any} */ e) => {
+    if (e.target.hasClass('fold')) return;
+    showDetail(e.target);
+    $$('.tl.sel', tree).forEach((l) => l.classList.remove('sel'));
+    const lines = $$(`.tl[data-node="${CSS.escape(e.target.id())}"]`, tree);
+    lines.forEach((l) => l.classList.add('sel'));
+    lines[0]?.scrollIntoView({ block: 'nearest', behavior: scrollBehavior() });
+  });
+  cy.on('tap', (/** @type {any} */ e) => { if (e.target === cy) clearDetail(); });
+  tree.addEventListener('mouseover', (/** @type {any} */ e) => {
+    const l = e.target.closest('.tl');
+    cy.elements('.hl').removeClass('hl');
+    if (l) cy.getElementById(l.dataset.node).addClass('hl');
+  });
+  tree.addEventListener('mouseleave', () => cy.elements('.hl').removeClass('hl'));
+  tree.addEventListener('click', (/** @type {any} */ e) => {
+    const l = e.target.closest('.tl');
+    const n = l && cy.getElementById(l.dataset.node);
+    if (n?.length) selectNode(cy, n, { zoom: true });
+  });
+  $('#node-detail')?.addEventListener('click', (/** @type {any} */ e) => { if (e.target.closest('.close')) clearDetail(); });
+  $('.inspector')?.addEventListener('click', (/** @type {any} */ e) => {
+    const t = e.target.closest('[data-rtab]');
+    if (t) showResultTab(t.dataset.rtab);
+    if (e.target.closest('.insp-head [data-act="toggle-panel"]')) togglePanel();
+  });
+  $('.panel-rail')?.addEventListener('click', () => togglePanel(false));
+  showResultTab(store.get('resultTab', 'trace'));
+  initTreeKeys(tree, cy);
+  // On phones the panel is a bottom sheet: closed until asked for (or a node is selected).
+  togglePanel(store.get('panelCollapsed', matchMedia('(max-width: 700px)').matches));
+  const setTextW = (/** @type {number} */ w) => { $('.trace-views')?.style.setProperty('--text-w', `${Math.round(Math.max(w, 260))}px`); return w; };
+  initResizer($('.trace-views .splitter'), (x) => {
+    const r = $('.trace-views').getBoundingClientRect();
+    return setTextW(Math.min(r.right - x, r.width * 0.7));
+  }, setTextW, 'textWidth', () => cy.resize());
+}
+
+/** Registers the trace's keyboard shortcuts (they act on the trace shown). */
+export function initTraceKeys() {
+  const player = () => ($('#trace-canvas') && view ? view.player : null);
+  onKey('play', () => { const p = player(); if (!p) return false; p.play(); return true; });
+  onKey('step', () => { const p = player(); if (!p) return false; p.pause(); p.step(); return true; });
+  onKey('back', () => { const p = player(); if (!p) return false; p.pause(); p.back(); return true; });
+  // Only on the check page: Explore registers its own panel and fit keys.
+  if ($('#check-form')) {
+    onKey('toggleText', () => { if (!$('.trace-views')) return false; togglePanel(); return true; });
+    onKey('fit', () => { fitTrace(); });
+  }
+  onEscape(clearDetail);
+}

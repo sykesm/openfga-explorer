@@ -1,0 +1,71 @@
+decision: allowed (walker allowed)
+Allowed: user:eng-002 has can_view on document:doc-0007 — can_view on document:doc-0007 requires viewer and member from org, and each holds, and the exclusion “but not blocked from org” does not apply.
+  • user:eng-002 has member on group:eng
+  • group:eng#member has viewer on folder:root
+  • folder:engineering's parent is folder:root, so viewer there counts as “viewer from parent” on folder:engineering
+  • folder:platform's parent is folder:engineering, so viewer there counts as “viewer from parent” on folder:platform
+  • folder:design-docs's parent is folder:platform, so viewer there counts as “viewer from parent” on folder:design-docs
+  • document:doc-0007's parent is folder:design-docs, so viewer there counts as “viewer from parent” on document:doc-0007
+  • viewer implies can_view on document:doc-0007
+  • group:eng#member has member on organization:acme
+  • document:doc-0007's org is organization:acme, so member there counts as “member from org” on document:doc-0007
+  • can_view on document:doc-0007 requires viewer and member from org — all hold
+  • the exclusion “but not blocked from org” does not apply
+gaps: []
+guided skips: 0
+groups ruled out: 0
+
+✓ document:doc-0007#can_view  — = (viewer and member from org) but not blocked from org · base is satisfied and the exclusion does not apply
+├─ ✓ [and] ∩ and  — every branch of the intersection is satisfied
+│  ├─ ✓ [computed] document:doc-0007#viewer  — = [user, user:*, group#member, user with non_expired_grant, user with in_office_network] or editor or viewer from parent · granted by viewer from parent
+│  │  ├─ ✗ [direct] direct [user, user:*, group#member, user with non_expired_grant, user with in_office_network]  — no direct tuple grants access (no tuple document:doc-0007#viewer@user:eng-002; no wildcard tuple user:*; no userset tuples)
+│  │  ├─ ✗ [computed] document:doc-0007#editor  — = [user, group#member] or owner or editor from parent · no branch of the union grants access
+│  │  │  ├─ ✗ [direct] direct [user, group#member]  — no direct tuple grants access (no tuple document:doc-0007#editor@user:eng-002; no userset tuples)
+│  │  │  ├─ ✗ [computed] document:doc-0007#owner  — = [user, principal] · no direct tuple grants access (no tuple document:doc-0007#owner@user:eng-002)
+│  │  │  └─ ✗ [from parent] editor from parent  — the user is not editor of any parent of document:doc-0007
+│  │  │     └─ ✗ [parent document:doc-0007#parent@folder:design-docs] folder:design-docs#editor  — = [user, group#member] or owner or editor from parent · no branch of the union grants access
+│  │  │        ├─ ✗ [direct] direct [user, group#member]  — no direct tuple grants access (no tuple folder:design-docs#editor@user:eng-002; no userset tuples)
+│  │  │        ├─ ✗ [computed] folder:design-docs#owner  — = [user, principal] · no direct tuple grants access (no tuple folder:design-docs#owner@user:eng-002)
+│  │  │        └─ ✗ [from parent] editor from parent  — the user is not editor of any parent of folder:design-docs
+│  │  │           └─ ✗ [parent folder:design-docs#parent@folder:platform] folder:platform#editor  — = [user, group#member] or owner or editor from parent · no branch of the union grants access
+│  │  │              ├─ ✗ [direct] direct [user, group#member]  — no direct tuple grants access (no tuple folder:platform#editor@user:eng-002)
+│  │  │              │  └─ ✗ [editor via #member folder:platform#editor@group:platform#member] group:platform#member  — = [user, principal, group#member] · no direct tuple grants access (no tuple group:platform#member@user:eng-002; probe: user is member of 1 group object(s); 1 looked up) · no userset (group-style) edges among the first 100 tuples read; the rest were not read
+│  │  │              ├─ ✗ [computed] folder:platform#owner  — = [user, principal] · no direct tuple grants access (no tuple folder:platform#owner@user:eng-002)
+│  │  │              └─ ✗ [from parent] editor from parent  — the user is not editor of any parent of folder:platform
+│  │  │                 └─ ✗ [parent folder:platform#parent@folder:engineering] folder:engineering#editor  — = [user, group#member] or owner or editor from parent · no branch of the union grants access
+│  │  │                    ├─ ✗ [direct] direct [user, group#member]  — no direct tuple grants access (no tuple folder:engineering#editor@user:eng-002; no userset tuples)
+│  │  │                    ├─ ✗ [computed] folder:engineering#owner  — = [user, principal] · no direct tuple grants access (no tuple folder:engineering#owner@user:eng-002)
+│  │  │                    └─ ✗ [from parent] editor from parent  — the user is not editor of any parent of folder:engineering
+│  │  │                       └─ ✗ [parent folder:engineering#parent@folder:root] folder:root#editor  — = [user, group#member] or owner or editor from parent · no branch of the union grants access
+│  │  │                          ├─ ✗ [direct] direct [user, group#member]  — no direct tuple grants access (no tuple folder:root#editor@user:eng-002; no userset tuples)
+│  │  │                          ├─ ✗ [computed] folder:root#owner  — = [user, principal] · no direct tuple grants access (no tuple folder:root#owner@user:eng-002)
+│  │  │                          └─ ✗ [from parent] editor from parent  — no parent tuples on folder:root
+│  │  └─ ✓ [from parent] viewer from parent  — granted through parent
+│  │     └─ ✓ [parent document:doc-0007#parent@folder:design-docs] folder:design-docs#viewer  — = [user, user:*, group#member, user with non_expired_grant] or editor or viewer from parent · granted by viewer from parent
+│  │        ├─ ✗ [direct] direct [user, user:*, group#member, user with non_expired_grant]  — no direct tuple grants access (no tuple folder:design-docs#viewer@user:eng-002; no wildcard tuple user:*; no userset tuples)
+│  │        ├─ ✗ [computed] folder:design-docs#editor  — evaluated above
+│  │        └─ ✓ [from parent] viewer from parent  — granted through parent
+│  │           └─ ✓ [parent folder:design-docs#parent@folder:platform] folder:platform#viewer  — = [user, user:*, group#member, user with non_expired_grant] or editor or viewer from parent · granted by viewer from parent
+│  │              ├─ ✗ [direct] direct [user, user:*, group#member, user with non_expired_grant]  — no direct tuple grants access (no tuple folder:platform#viewer@user:eng-002; no wildcard tuple user:*; no userset tuples)
+│  │              ├─ ✗ [computed] folder:platform#editor  — evaluated above
+│  │              └─ ✓ [from parent] viewer from parent  — granted through parent
+│  │                 └─ ✓ [parent folder:platform#parent@folder:engineering] folder:engineering#viewer  — = [user, user:*, group#member, user with non_expired_grant] or editor or viewer from parent · granted by viewer from parent
+│  │                    ├─ ✗ [direct] direct [user, user:*, group#member, user with non_expired_grant]  — no direct tuple grants access (no tuple folder:engineering#viewer@user:eng-002; no wildcard tuple user:*; no userset tuples)
+│  │                    ├─ ✗ [computed] folder:engineering#editor  — evaluated above
+│  │                    └─ ✓ [from parent] viewer from parent  — granted through parent
+│  │                       └─ ✓ [parent folder:engineering#parent@folder:root] folder:root#viewer  — = [user, user:*, group#member, user with non_expired_grant] or editor or viewer from parent · granted by direct tuples
+│  │                          ├─ ✓ [direct] direct [user, user:*, group#member, user with non_expired_grant]  — a direct tuple grants access · no tuple folder:root#viewer@user:eng-002 · no wildcard tuple user:*
+│  │                          │  └─ ✓ [viewer via #member folder:root#viewer@group:eng#member] group:eng#member  — = [user, principal, group#member] · a direct tuple grants access
+│  │                          │     └─ ✓ [member group:eng#member@user:eng-002] user:eng-002  — the user
+│  │                          ├─ · [not evaluated] editor  — an earlier branch already granted access
+│  │                          └─ · [not evaluated] viewer from parent  — an earlier branch already granted access
+│  └─ ✓ [from org] member from org  — granted through org
+│     └─ ✓ [org document:doc-0007#org@organization:acme] organization:acme#member  — = [user, group#member] or admin · granted by direct tuples
+│        ├─ ✓ [direct] direct [user, group#member]  — a direct tuple grants access · no tuple organization:acme#member@user:eng-002
+│        │  └─ ✓ [member via #member organization:acme#member@group:eng#member] group:eng#member  — evaluated above
+│        └─ · [not evaluated] admin  — an earlier branch already granted access
+└─ ✗ [but not from org] blocked from org  — the user is not blocked of any org of document:doc-0007
+   └─ ✗ [org document:doc-0007#org@organization:acme] organization:acme#blocked  — = [user] · no direct tuple grants access (no tuple organization:acme#blocked@user:eng-002)
+
+granting path: n1@0 e1 n2@1 e2 n3@2 e25 n32@3 e26 n33@4 e29 n35@5 e30 n36@6 e33 n38@7 e34 n39@8 e37 n41@9 e38 n42@10 e39 n43@11 e40 n44@5 e41 n46@6 e44 n49@2 e45 n50@3 e46 n51@4 e47
+elements: 99, steps: 153

@@ -1,0 +1,22 @@
+decision: denied (walker denied)
+Denied: user:erin does not have can_view on document:offsite-plan — can_view requires viewer and member from org, and viewer does not hold.
+  • viewer: the viewer tuple's condition non_expired_grant is false; no editor; no parent tuples on document:offsite-plan
+gaps: []
+guided skips: 1
+groups ruled out: 0
+
+✗ document:offsite-plan#can_view  — = (viewer and member from org) but not blocked from org · blocked: base viewer and member from org is not satisfied
+├─ ✗ [and] ∩ and  — blocked: intersection requires viewer
+│  ├─ ✗ [computed] document:offsite-plan#viewer  — = [user, user:*, group#member, user with non_expired_grant, user with in_office_network] or editor or viewer from parent · no branch of the union grants access
+│  │  ├─ ✗ [direct] direct [user, user:*, group#member, user with non_expired_grant, user with in_office_network]  — no direct tuple grants access (no wildcard tuple user:*; no userset tuples)
+│  │  │  └─ ✗ [viewer document:offsite-plan#viewer@user:erin [non_expired_grant]] user:erin {non_expired_grant ✗ (false)}  — condition non_expired_grant ✗ (false)
+│  │  ├─ ✗ [computed] document:offsite-plan#editor  — = [user, group#member] or owner or editor from parent · no branch of the union grants access
+│  │  │  ├─ ✗ [direct] direct [user, group#member]  — no direct tuple grants access (no tuple document:offsite-plan#editor@user:erin; no userset tuples)
+│  │  │  ├─ ✗ [computed] document:offsite-plan#owner  — = [user, principal] · no direct tuple grants access (no tuple document:offsite-plan#owner@user:erin)
+│  │  │  └─ ✗ [from parent] editor from parent  — no parent tuples on document:offsite-plan
+│  │  └─ ✗ [from parent] viewer from parent  — no parent tuples on document:offsite-plan
+│  └─ · [not evaluated] member from org  — not needed: viewer does not hold, so the intersection cannot (the server's Check confirmed it) · the server's Check says this branch would also grant access
+└─ · [but not] blocked from org  — the base of the exclusion is not satisfied
+
+granting path: 
+elements: 23, steps: 29
