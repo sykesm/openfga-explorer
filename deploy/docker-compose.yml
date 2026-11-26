@@ -52,7 +52,57 @@ services:
       # Optional: read-only datastore access for search and exact counts.
       FGAX_DATASTORE_URI: postgres://openfga:openfga@postgres:5432/openfga?sslmode=disable
     ports: ["${EXPLORER_PUBLISH:-127.0.0.1:8090}:8090"]
+    # The explorer's settings, written inline (below) over the file the image
+    # carries (explorer.example.yaml). Edit them there and run
+    # `docker compose ... up -d` again; no rebuild needed.
+    configs:
+      - source: explorer
+        target: /etc/fgaexplorer/explorer.yaml
     depends_on:
       openfga: { condition: service_started }
+configs:
+  # The explorer's YAML configuration (see explorer.example.yaml for every
+  # setting). The OpenFGA URL and the datastore come from the environment
+  # above. Settings left out keep their defaults.
+  explorer:
+    content: |
+      auth:
+        identity_header: X-Forwarded-Email
+        default_role: viewer
+      # How the sample data's principal IDs are typed, stored, and shown.
+      types:
+        principal:
+          trim: true
+          case: upper
+          encode: ":#= ,"
+          display: decoded
+          hint: "CN=Name, service account, or principal ID"
+      # Admin-only queries over real data (the Access tab, "check real people").
+      live_queries:
+        enabled: true
+        max_objects: 20
+        max_checks: 1000
+        timeout: 30s
+        runs_per_hour: 10
+      # Expanding the instance graph in place (Shift+click, +1 hop). Everyone
+      # gets the first limits; admins (including anonymous requests with
+      # --dangerously-treat-anonymous-as-admin) get those under admin.
+      graph_expansion:
+        enabled: true
+        max_instances: 10     # instances per expansion
+        max_reads: 200        # tuple-store reads per expansion
+        timeout: 10s
+        per_minute: 20        # expansions per person
+        admin:
+          max_instances: 20
+          max_reads: 1000
+          timeout: 30s
+          per_minute: 60
+      trace:
+        max_calls: 250
+        max_fanout: 25
+        probe_limit: 25
+        timeout: 15s
+        max_concurrent: 8
 volumes:
   pgdata:
