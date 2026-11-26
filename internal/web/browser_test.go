@@ -1147,3 +1147,47 @@ func TestBrowserCheckOptionHelp(t *testing.T) {
 	}
 	b.checkClean("check option help")
 }
+
+// TestBrowserExploreRelationLinks: a link from a computed relation to another
+// relation switches tabs if needed, brings the target into view, marks it
+// (one at a time), and moves focus to it.
+func TestBrowserExploreRelationLinks(t *testing.T) {
+	x := newTestExplorer(t)
+	b := newBrowser(t, x)
+	b.open("~/explore?type=document&id=doc-0007")
+	b.waitFor("instance panel", `document.querySelector('#instance-panel .instance[data-object="document:doc-0007"]')`)
+	b.settled()
+	b.run(chromedp.Click(`#itab-derived`, chromedp.ByQuery))
+	b.waitFor("derived tab", `!document.querySelector('#ipanel-derived').hidden`)
+	// Links from computed relations to relations shown on the Edges tab.
+	links := eval[[]string](b, `[...new Set([...document.querySelectorAll('#ipanel-derived a.anchor[href^="#rel-"]')].map((a) => a.getAttribute('href'))
+		.filter((h) => document.querySelector(h)?.closest('#ipanel-edges')))]`)
+	if len(links) < 2 {
+		t.Fatalf("need two links into the Edges tab, found %v", links)
+	}
+	visible := func(id string) string {
+		return `(() => { const el = document.getElementById('` + id + `'); const r = el.getBoundingClientRect();
+			const hit = document.elementFromPoint(r.left + Math.min(r.width / 2, 40), r.top + Math.min(r.height / 2, 10));
+			return !!hit && el.contains(hit); })()`
+	}
+	for i, href := range links[:2] {
+		id := strings.TrimPrefix(href, "#")
+		if i > 0 {
+			b.run(chromedp.Click(`#itab-derived`, chromedp.ByQuery))
+			b.waitFor("derived tab", `!document.querySelector('#ipanel-derived').hidden`)
+		}
+		b.run(chromedp.Click(`#ipanel-derived a.anchor[href="`+href+`"]`, chromedp.ByQuery))
+		b.waitFor(id+" marked", `document.getElementById('`+id+`').classList.contains('rel-target')`)
+		if eval[bool](b, `document.querySelector('#ipanel-edges').hidden`) {
+			t.Errorf("%s: the Edges tab was not shown", id)
+		}
+		if n := eval[int](b, `document.querySelectorAll('.rel-target').length`); n != 1 {
+			t.Errorf("%s: %d relations marked, want 1", id, n)
+		}
+		if !eval[bool](b, `document.activeElement?.id === '`+id+`'`) {
+			t.Errorf("%s: focus is not on the relation", id)
+		}
+		b.waitFor(id+" in view", visible(id))
+	}
+	b.checkClean("relation links")
+}

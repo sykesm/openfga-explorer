@@ -435,6 +435,26 @@ function restoreExplore() {
 
 // ---- wiring ----
 
+/**
+ * Goes to a relation in the instance panel: switches to its tab if needed,
+ * scrolls it into view only when it is out of view, marks it (until another
+ * is chosen) and moves focus to it, so it can be found in the list.
+ * @param {HTMLElement} target
+ */
+function goToRelation(target) {
+  const sec = target.closest('.ipanel');
+  const shown = sec instanceof HTMLElement && sec.hidden ? showTab(sec.closest('.instance'), sec.dataset.panel || '') : Promise.resolve();
+  shown.then(() => {
+    $$('.rel-target').forEach((el) => el.classList.remove('rel-target', 'rel-arrive'));
+    target.classList.add('rel-target');
+    void target.offsetWidth; // restart the arrival pulse
+    target.classList.add('rel-arrive');
+    if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+    target.focus({ preventScroll: true });
+    target.scrollIntoView({ block: 'nearest', behavior: scrollBehavior() });
+  });
+}
+
 /** @param {MouseEvent} e */
 function onClick(e) {
   const t = /** @type {Element} */ (e.target);
@@ -446,15 +466,11 @@ function onClick(e) {
   if (canvasTab instanceof HTMLElement) { showCanvas(/** @type {any} */ (canvasTab.dataset.canvas)); saveExplore(); return; }
   const tab = t.closest('.itabs [data-tab]');
   if (tab instanceof HTMLElement) { showTab(tab.closest('.instance'), tab.dataset.tab || ''); return; }
-  // Links to a relation row may point into another tab: switch first.
+  // Links to a relation row (possibly in another tab): show and mark it.
   const anchor = t.closest('a.anchor[href^="#rel-"]');
   if (anchor) {
     const target = document.getElementById((anchor.getAttribute('href') || '').slice(1));
-    const sec = target?.closest('.ipanel');
-    if (target && sec instanceof HTMLElement && sec.hidden) {
-      e.preventDefault();
-      showTab(sec.closest('.instance'), sec.dataset.panel || '').then(() => target.scrollIntoView({ block: 'center', behavior: scrollBehavior() }));
-    }
+    if (target) { e.preventDefault(); goToRelation(target); }
     return;
   }
   if (t.closest('#schema-empty [data-act="show-all-types"]')) { showAllTypes(); return; }
@@ -545,7 +561,8 @@ export function initExplore() {
     if (ip.dataset.initialType && ip.dataset.initialId) {
       loadInstance(`${ip.dataset.initialType}:${ip.dataset.initialId}`).then(() => {
         const rel = ip.dataset.initialRelation;
-        if (rel) document.getElementById(`rel-${rel}`)?.scrollIntoView({ block: 'center' });
+        const target = rel && document.getElementById(`rel-${rel}`);
+        if (target) goToRelation(target);
       });
     } else if (tp.dataset.initialType) {
       selectType(tp.dataset.initialType, { focus: false });

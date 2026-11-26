@@ -611,3 +611,11 @@ table.changes time { font-family: var(--mono); font-size: 12px; white-space: now
 .opt-q:hover, .opt-q[aria-expanded="true"] { color: var(--accent); border-color: var(--accent); }
 .opt-helps { margin-top: 6px; }
 .opt-help { margin: 0; padding: 8px 12px; max-width: 80ch; font-size: 12.5px; line-height: 1.5; background: var(--soft); border-left: 3px solid var(--accent); border-radius: 4px; }
+
+/* The relation a link went to: marked until another is chosen, with a short
+   pulse on arrival (reduced motion turns animations off globally). */
+.rel-target, .rel-target:focus { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent); }
+tr.rel-target > th, tr.rel-target > td { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.rel-arrive { animation: rel-arrive 1.2s ease-out; }
+@keyframes rel-arrive { from { outline-color: var(--accent); background: color-mix(in srgb, var(--accent) 35%, transparent); outline-offset: 6px; } }
