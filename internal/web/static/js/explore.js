@@ -9,11 +9,6 @@ import { initResizer, selectTab } from './ui.js';
 
 /** @type {any} */ let schemaCy = null;
 /** @type {any} */ let instCy = null;
-// Whether the next type-panel load should open the instance picker: only when
-// the person is choosing a type in order to pick an instance (type chips).
-// Browsing types (the type graph, the type finder, a type link) and opening
-// an instance must not pop the list over the panel's details.
-let focusPicker = true;
 // Whether the type graph shows a neighborhood laid out on its own.
 let subLayout = false;
 // Large models start with an empty type graph (see exploreData.Large).
@@ -143,6 +138,10 @@ function showCanvas(which) {
   if (tab) selectTab(tab);
   $('#schema-canvas')?.classList.toggle('hidden', which !== 'schema');
   $('#instance-canvas')?.classList.toggle('hidden', which !== 'instances');
+  // The side panel follows the canvas: types on the type graph, the open
+  // instance (kept, not discarded) on the instance graph.
+  $('#explore-side')?.classList.toggle('on-schema', which === 'schema');
+  setInstanceFocus(which === 'instances' && !!$('#instance-panel .instance'));
   $$('.canvas-wrap .legend').forEach((l) => l.classList.toggle('hidden', l.dataset.for !== which));
   const cy = which === 'schema' ? schemaCy : instCy;
   if (cy) { cy.resize(); fitCapped(cy); }
@@ -214,16 +213,15 @@ function showAllTypes() {
 
 /**
  * @param {string} t
- * @param {{ loadPanel?: boolean, focus?: boolean, browse?: boolean }} [opts] browse: the person
+ * @param {{ loadPanel?: boolean, browse?: boolean }} [opts] browse: the person
  *   is choosing a type (not opening an instance), so the type section shows
  */
-function selectType(t, { loadPanel = true, focus = true, browse = true } = {}) {
+function selectType(t, { loadPanel = true, browse = true } = {}) {
   if (browse) setInstanceFocus(false);
   rememberType(t);
   if (schemaCy) focusType(t);
   const panel = $('#type-panel');
   if (loadPanel && panel && panel.querySelector('[data-selected-type]')?.dataset.selectedType !== t) {
-    focusPicker = focus;
     return htmx.ajax('GET', `${base()}/explore/type?type=${encodeURIComponent(t)}`, { target: '#type-panel', swap: 'innerHTML' });
   }
   return Promise.resolve();
@@ -250,7 +248,7 @@ function loadInstance(obj) {
   const hash = id.lastIndexOf('#');
   if (hash >= 0) { obj = obj.slice(0, i + 1 + hash); id = id.slice(0, hash); }
   const type = obj.slice(0, i);
-  selectType(type, { focus: false, browse: false });
+  selectType(type, { browse: false });
   const url = new URL(location.href);
   url.searchParams.set('type', type); url.searchParams.set('id', id); url.searchParams.delete('relation');
   history.replaceState(null, '', url);
@@ -444,7 +442,7 @@ function restoreExplore() {
   if (saved.elements?.length) { instCy.add(saved.elements); updateCount(); }
   const done = () => { showCanvas(saved.canvas || 'schema'); saveExplore(); };
   if (saved.object) loadInstance(saved.object).then(done);
-  else { if (saved.type) selectType(saved.type, { focus: false }); done(); }
+  else { if (saved.type) selectType(saved.type); done(); }
   return true;
 }
 
@@ -541,7 +539,7 @@ function onClick(e) {
 export function initExplore() {
   const sc = $('#schema-canvas');
   if (!sc) return;
-  initTypeFinder((t) => { selectType(t, { focus: false }); showCanvas('schema'); });
+  initTypeFinder((t) => { selectType(t); showCanvas('schema'); });
   toggleSide(store.get('sideCollapsed', false));
   $('.canvas-wrap > .panel-rail')?.addEventListener('click', () => toggleSide(false));
   const setSideW = (/** @type {number} */ w) => { document.documentElement.style.setProperty('--side-w', `${Math.round(Math.min(Math.max(w, 320), window.innerWidth * 0.7))}px`); return w; };
@@ -572,9 +570,9 @@ export function initExplore() {
       schemaPrompt(true);
     } else fitCapped(schemaCy);
     if (byModule) colorByModule(true);
-    // Browsing the type graph shows the type's details; it doesn't open the
-    // instance picker over them (the type chips, "Pick … instance" and "/" do).
-    schemaCy.on('tap', 'node', (/** @type {any} */ e) => { toggleSide(false); selectType(e.target.id(), { focus: false }); });
+    // Choosing a type shows its details; it never opens the instance picker
+    // over them (only "Pick … instance" and "/" do).
+    schemaCy.on('tap', 'node', (/** @type {any} */ e) => { toggleSide(false); selectType(e.target.id()); });
     // Tapping the background shows every type again, except in large models
     // (it would bring back the unreadable whole).
     schemaCy.on('tap', (/** @type {any} */ e) => { if (e.target === schemaCy && !large) { schemaCy.elements().removeClass('faded sel'); showAllTypes(); } });
@@ -588,7 +586,7 @@ export function initExplore() {
         if (target) goToRelation(target);
       });
     } else if (tp.dataset.initialType) {
-      selectType(tp.dataset.initialType, { focus: false });
+      selectType(tp.dataset.initialType);
     }
   });
 
@@ -630,14 +628,10 @@ export function exploreSwapped(t) {
 }
 
 /**
- * After htmx has processed new content. The instance picker is focused only
- * now: focusing earlier fires before its hx-trigger listeners exist, so its
- * list would never open.
+ * After htmx has processed new content.
  * @param {Element} t
  */
 export function exploreSettled(t) {
   if (t.id !== 'type-panel') return;
   updateEmpty();
-  const q = $('.picker-q', t);
-  if (q && focusPicker) openPicker(q);
 }

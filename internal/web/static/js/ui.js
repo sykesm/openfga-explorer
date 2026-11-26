@@ -147,3 +147,22 @@ export function initRequestErrors() {
     }
   });
 }
+
+/**
+ * "show N more" under a list of users: reveals the rest of the same list (so
+ * it scrolls as one) and toggles back to the first few.
+ */
+export function initShowMore() {
+  document.addEventListener('click', (e) => {
+    const btn = e.target instanceof Element ? e.target.closest('[data-act="lu-more"]') : null;
+    const list = btn?.previousElementSibling;
+    if (!btn || !list) return;
+    const open = btn.getAttribute('aria-expanded') !== 'true';
+    const extra = $$('.lu-extra', list);
+    extra.forEach((li) => { /** @type {HTMLElement} */ (li).hidden = !open; });
+    list.classList.toggle('lu-open', open);
+    btn.setAttribute('aria-expanded', String(open));
+    btn.textContent = open ? 'show fewer' : /** @type {HTMLElement} */ (btn).dataset.more || 'show more';
+    if (!open) list.scrollTop = 0;
+  });
+}

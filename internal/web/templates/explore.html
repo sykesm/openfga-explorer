@@ -322,17 +322,18 @@
 {{else}}
   <div class="muted sm">{{len .Users}} {{.Noun}} {{if eq (len .Users) 1}}has{{else}}have{{end}} {{.Relation}}{{if ge (len .Users) 1000}} (the server caps this list at 1000){{end}}.
     {{if eq .Mode "check"}}Click one to trace its path.{{else}}<i>why?</i> explains each one.{{end}}</div>
-  <ul class="edgelist">{{range .First}}{{template "lu-row" (dict "U" . "Base" $.Base "Rel" $.Data.Relation "Obj" $.Data.Object "Mode" $.Data.Mode "Current" $.Data.Current)}}{{end}}</ul>
-  {{with .Rest}}<details class="lu-more"><summary>show {{len .}} more</summary>
-    <ul class="edgelist">{{range .}}{{template "lu-row" (dict "U" . "Base" $.Base "Rel" $.Data.Relation "Obj" $.Data.Object "Mode" $.Data.Mode "Current" $.Data.Current)}}{{end}}</ul></details>{{end}}
+  {{/* One list: "show more" reveals the rest in place, and the whole list scrolls. */}}
+  <ul class="edgelist lu-list">{{range .First}}{{template "lu-row" (dict "U" . "Base" $.Base "Rel" $.Data.Relation "Obj" $.Data.Object "Mode" $.Data.Mode "Current" $.Data.Current)}}{{end}}
+    {{- range .Rest}}{{template "lu-row" (dict "U" . "Base" $.Base "Rel" $.Data.Relation "Obj" $.Data.Object "Mode" $.Data.Mode "Current" $.Data.Current "Extra" true)}}{{end}}</ul>
+  {{with .Rest}}<button type="button" class="linkish sm lu-more" data-act="lu-more" aria-expanded="false" data-more="show {{len .}} more">show {{len .}} more</button>{{end}}
 {{end}}
 </div>
 {{end}}{{end}}
 
 {{define "lu-row"}}{{if eq .Mode "check"}}
-  <li><button type="button" class="linkish lu-trace{{if eq .U .Current}} current{{end}}" data-user="{{.U}}" data-text="{{pickerText .U}}"
+  <li{{if .Extra}} class="lu-extra" hidden{{end}}><button type="button" class="linkish lu-trace{{if eq .U .Current}} current{{end}}" data-user="{{.U}}" data-text="{{pickerText .U}}"
       title="Trace {{.U}} → {{.Rel}} → {{.Obj}}">{{display .U}}</button>{{if eq .U .Current}} <span class="muted sm">(shown above)</span>{{end}}</li>
-{{else}}<li><a href="#" class="peer" data-explore="{{.U}}">{{display .U}}</a>
+{{else}}<li{{if .Extra}} class="lu-extra" hidden{{end}}><a href="#" class="peer" data-explore="{{.U}}">{{display .U}}</a>
   <a class="sm" href="{{.Base}}/check?{{query "user" .U "relation" .Rel "object" .Obj}}">why?</a></li>{{end}}{{end}}
 
 {{/* relmod tags a relation another module adds to its type (extend type). */}}

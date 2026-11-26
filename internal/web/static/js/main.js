@@ -12,7 +12,7 @@ import { initChanges } from './changes.js';
 import { initPalette } from './palette.js';
 import { initShortcuts } from './shortcuts.js';
 import { initTraceKeys, renderTrace } from './trace.js';
-import { initPlainTabs, initRequestErrors, initTabKeys } from './ui.js';
+import { initPlainTabs, initRequestErrors, initShowMore, initTabKeys } from './ui.js';
 
 if (window.cytoscape && window.cytoscapeDagre) {
   try { cytoscape.use(cytoscapeDagre); } catch { /* already registered */ }
@@ -22,6 +22,7 @@ function init() {
   initShortcuts();
   initTabKeys();
   initPlainTabs();
+  initShowMore();
   initRequestErrors();
   initPickers();
   initContext();

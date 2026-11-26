@@ -163,10 +163,11 @@ func TestBrowserExplore(t *testing.T) {
 	b.open("~/explore")
 	b.waitFor("type graph", `document.querySelector('#schema-canvas')._cyreg?.cy?.nodes().length > 0`)
 
-	// Choosing a type loads its panel and opens the instance picker.
+	// Choosing a type loads its panel; the instance picker is one click away.
 	b.run(chromedp.Click(`.type-chip[data-type="group"]`, chromedp.ByQuery))
 	b.waitFor("type panel", `document.querySelector('#type-panel [data-selected-type="group"]')`)
-	b.waitFor("picker focus", `document.activeElement?.matches('#type-panel .picker-q')`)
+	b.settled()
+	b.run(chromedp.Click(`#type-panel .picker-q`, chromedp.ByQuery))
 
 	// An exact ID opens the instance panel and adds its edges to the graph.
 	b.key(`#type-panel .picker-q`, "platform")
@@ -1042,7 +1043,7 @@ func TestBrowserGrantingTuples(t *testing.T) {
 }
 
 // TestBrowserExploreTypeGraphKeepsDetails: selecting a type in the type graph
-// (or with the type finder) shows its details without opening the instance
+// (or with a type chip) shows its details without opening the instance
 // picker over them; "/" still opens it.
 func TestBrowserExploreTypeGraphKeepsDetails(t *testing.T) {
 	x := newTestExplorer(t)
@@ -1058,6 +1059,14 @@ func TestBrowserExploreTypeGraphKeepsDetails(t *testing.T) {
 		if eval[bool](b, pickerOpen) {
 			t.Errorf("tapping %s in the type graph opened the instance picker", typ)
 		}
+	}
+	// Nor does a type chip.
+	b.run(chromedp.Click(`.type-chip[data-type="group"]`, chromedp.ByQuery))
+	b.waitFor("group panel", `document.querySelector('#type-panel [data-selected-type="group"]')`)
+	b.settled()
+	b.run(chromedp.Sleep(300 * time.Millisecond))
+	if eval[bool](b, pickerOpen) {
+		t.Error("clicking a type chip opened the instance picker")
 	}
 	// The picker is still one key away.
 	b.run(chromedp.Evaluate(`document.activeElement.blur()`, nil), chromedp.KeyEvent("/"))
@@ -1330,4 +1339,71 @@ func TestBrowserCheckWhyKinds(t *testing.T) {
 		t.Errorf("tuple and rule text share a style: %q", weights)
 	}
 	b.checkClean("why kinds")
+}
+
+// "show N more" under a who-has list extends the same list, which then
+// scrolls as one, and can be folded back.
+func TestBrowserWhoHasShowMore(t *testing.T) {
+	x := newTestExplorer(t)
+	b := newBrowser(t, x)
+	b.open("~/explore?type=group&id=eng")
+	b.waitFor("instance panel", `document.querySelector('#instance-panel .instance[data-object="group:eng"]')`)
+	b.run(chromedp.Click(`#rel-member .whohas-d > summary`, chromedp.ByQuery))
+	b.run(chromedp.Click(`#rel-member form.whohas button[type="submit"]`, chromedp.ByQuery))
+	b.waitFor("holders", `document.querySelector('#rel-member .lu-list li')`)
+	const lists = `document.querySelectorAll('#rel-member .lu ul').length`
+	if n := eval[int](b, lists); n != 1 {
+		t.Fatalf("who-has renders %d lists, want 1", n)
+	}
+	visible := `[...document.querySelectorAll('#rel-member .lu-list > li')].filter((li) => !li.hidden).length`
+	total := eval[int](b, `document.querySelectorAll('#rel-member .lu-list > li').length`)
+	if v := eval[int](b, visible); v != 20 || total <= v {
+		t.Fatalf("before: %d of %d shown, want the first 20 of more", v, total)
+	}
+	b.run(chromedp.Click(`#rel-member [data-act="lu-more"]`, chromedp.ByQuery))
+	if v := eval[int](b, visible); v != total {
+		t.Errorf("after show more: %d of %d shown", v, total)
+	}
+	scroll := eval[string](b, `(() => { const l = document.querySelector('#rel-member .lu-list');
+		return getComputedStyle(l).overflowY + ' ' + (l.scrollHeight > l.clientHeight); })()`)
+	if scroll != "auto true" {
+		t.Errorf("the extended list does not scroll as one: %q", scroll)
+	}
+	if s := eval[string](b, `document.querySelector('#rel-member [data-act="lu-more"]').getAttribute('aria-expanded')`); s != "true" {
+		t.Errorf("aria-expanded = %q after show more", s)
+	}
+	b.run(chromedp.Click(`#rel-member [data-act="lu-more"]`, chromedp.ByQuery))
+	if v := eval[int](b, visible); v != 20 {
+		t.Errorf("after show fewer: %d shown", v)
+	}
+	b.checkClean("who has")
+}
+
+// The side panel follows the canvas tab: back on the type graph it shows the
+// types, not the instance that was open; the instance graph brings it back.
+func TestBrowserExploreSideFollowsCanvas(t *testing.T) {
+	x := newTestExplorer(t)
+	b := newBrowser(t, x)
+	b.open("~/explore?type=group&id=eng")
+	b.waitFor("instance panel", `document.querySelector('#instance-panel .instance[data-object="group:eng"]')`)
+	b.settled()
+	const visible = `((s) => { const el = document.querySelector(s); return !!el && el.offsetParent !== null; })`
+	state := func() string {
+		return eval[string](b, `['#instance-panel .instance', '#explore-types'].map((s) => `+visible+`(s) ? 'shown' : 'hidden').join(' ')`)
+	}
+	if got := state(); got != "shown hidden" {
+		t.Fatalf("with an instance open: instance, types = %q", got)
+	}
+	b.run(chromedp.Click(`#tab-schema`, chromedp.ByQuery))
+	if got := state(); got != "hidden shown" {
+		t.Errorf("on the type graph: instance, types = %q", got)
+	}
+	// Choosing a type there still shows its details.
+	b.run(chromedp.Evaluate(`void document.querySelector('#schema-canvas')._cyreg.cy.getElementById('folder').emit('tap')`, nil))
+	b.waitFor("folder panel", `document.querySelector('#type-panel [data-selected-type="folder"]')`)
+	b.run(chromedp.Click(`#tab-instances`, chromedp.ByQuery))
+	if got := state(); got != "shown hidden" {
+		t.Errorf("back on the instance graph: instance, types = %q", got)
+	}
+	b.checkClean("side follows canvas")
 }
