@@ -214,9 +214,11 @@ function showAllTypes() {
 
 /**
  * @param {string} t
- * @param {{ loadPanel?: boolean, focus?: boolean }} [opts]
+ * @param {{ loadPanel?: boolean, focus?: boolean, browse?: boolean }} [opts] browse: the person
+ *   is choosing a type (not opening an instance), so the type section shows
  */
-function selectType(t, { loadPanel = true, focus = true } = {}) {
+function selectType(t, { loadPanel = true, focus = true, browse = true } = {}) {
+  if (browse) setInstanceFocus(false);
   rememberType(t);
   if (schemaCy) focusType(t);
   const panel = $('#type-panel');
@@ -227,6 +229,19 @@ function selectType(t, { loadPanel = true, focus = true } = {}) {
   return Promise.resolve();
 }
 
+/**
+ * With an instance open, the side panel shows just the instance: the type
+ * section (type list, type panel and its picker) is hidden until asked for
+ * ("Type …", "Pick another…") or a type is chosen.
+ * @param {boolean} on
+ */
+function setInstanceFocus(on) {
+  const side = $('#explore-side');
+  if (!side) return;
+  side.classList.toggle('focus-instance', on);
+  for (const b of $$('[data-act="show-type"]', side)) b.setAttribute('aria-expanded', String(!on));
+}
+
 /** Opens an instance (or a userset's object) in the side panel. @param {string} obj */
 function loadInstance(obj) {
   const i = obj.indexOf(':');
@@ -235,7 +250,7 @@ function loadInstance(obj) {
   const hash = id.lastIndexOf('#');
   if (hash >= 0) { obj = obj.slice(0, i + 1 + hash); id = id.slice(0, hash); }
   const type = obj.slice(0, i);
-  selectType(type, { focus: false });
+  selectType(type, { focus: false, browse: false });
   const url = new URL(location.href);
   url.searchParams.set('type', type); url.searchParams.set('id', id); url.searchParams.delete('relation');
   history.replaceState(null, '', url);
@@ -466,6 +481,14 @@ function onClick(e) {
   if (canvasTab instanceof HTMLElement) { showCanvas(/** @type {any} */ (canvasTab.dataset.canvas)); saveExplore(); return; }
   const tab = t.closest('.itabs [data-tab]');
   if (tab instanceof HTMLElement) { showTab(tab.closest('.instance'), tab.dataset.tab || ''); return; }
+  // The instance header: show the type section, or pick another instance.
+  if (t.closest('[data-act="show-type"]')) { setInstanceFocus(!$('#explore-side')?.classList.contains('focus-instance')); return; }
+  if (t.closest('[data-act="change-instance"]')) {
+    setInstanceFocus(false);
+    const q = $('#type-panel .picker-q');
+    if (q) { q.scrollIntoView({ block: 'nearest', behavior: scrollBehavior() }); openPicker(q); }
+    return;
+  }
   // Links to a relation row (possibly in another tab): show and mark it.
   const anchor = t.closest('a.anchor[href^="#rel-"]');
   if (anchor) {
@@ -597,6 +620,7 @@ export function exploreSwapped(t) {
   }
   if (t.id === 'instance-panel') {
     initInstanceTabs($('.instance', t));
+    if ($('.instance', t)) setInstanceFocus(true);
     const det = $('#type-panel .type-details');
     if (det) det.open = false;
     t.scrollIntoView({ block: 'start', behavior: scrollBehavior() });

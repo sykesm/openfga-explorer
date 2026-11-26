@@ -1221,3 +1221,58 @@ func TestBrowserCheckTuplesRead(t *testing.T) {
 	}
 	b.checkClean("tuples read")
 }
+
+// TestBrowserExploreInstanceFocus: with an instance open, the side panel
+// shows just the instance; "Type …" toggles the type section, "Pick
+// another…" shows it with the picker open, and choosing a type in the graph
+// brings it back. "who has it?" is a row action that keyboard focus reveals.
+func TestBrowserExploreInstanceFocus(t *testing.T) {
+	x := newTestExplorer(t)
+	b := newBrowser(t, x)
+	b.open("~/explore?type=document&id=doc-0007")
+	b.waitFor("instance panel", `document.querySelector('#instance-panel .instance[data-object="document:doc-0007"]')`)
+	b.settled()
+	typesShown := `getComputedStyle(document.querySelector('#explore-types')).display !== 'none'`
+	expanded := `document.querySelector('[data-act="show-type"]').getAttribute('aria-expanded')`
+	if eval[bool](b, typesShown) || eval[string](b, expanded) != "false" {
+		t.Error("with an instance open the type section should be hidden")
+	}
+	b.run(chromedp.Click(`[data-act="show-type"]`, chromedp.ByQuery))
+	if !eval[bool](b, typesShown) || eval[string](b, expanded) != "true" {
+		t.Error(`"Type document" did not show the type section`)
+	}
+	b.run(chromedp.Click(`[data-act="show-type"]`, chromedp.ByQuery))
+	if eval[bool](b, typesShown) {
+		t.Error(`"Type document" did not hide the type section again`)
+	}
+	b.run(chromedp.Click(`[data-act="change-instance"]`, chromedp.ByQuery))
+	b.waitFor("picker", `document.activeElement?.matches('#type-panel .picker-q')`)
+	if !eval[bool](b, typesShown) {
+		t.Error(`"Pick another…" did not show the type section`)
+	}
+
+	// Opening an instance hides it again; choosing a type in the graph shows it.
+	b.run(chromedp.Evaluate(`document.activeElement.blur()`, nil))
+	b.open("~/explore?type=document&id=doc-0007")
+	b.waitFor("instance panel", `document.querySelector('#instance-panel .instance[data-object="document:doc-0007"]')`)
+	b.settled()
+	if eval[bool](b, typesShown) {
+		t.Error("opening an instance should hide the type section")
+	}
+	b.run(chromedp.Evaluate(`void document.querySelector('#schema-canvas')._cyreg.cy.getElementById('folder').emit('tap')`, nil))
+	b.waitFor("type section on type choice", typesShown)
+
+	// "who has it?" is on every relation, in both tabs; keyboard focus shows it.
+	if n := eval[int](b, `document.querySelectorAll('#ipanel-edges .relrow > .whohas-d, #ipanel-derived .derived > li > .whohas-d').length`); n != 10 {
+		t.Errorf("%d relations have a who-has-it action, want 10", n)
+	}
+	const sum = `#ipanel-edges .relrow > .whohas-d > summary`
+	if eval[bool](b, `matchMedia('(hover: hover)').matches`) && eval[string](b, `getComputedStyle(document.querySelector('`+sum+`')).opacity`) != "0" {
+		t.Error("the row action should stay out of sight until hover or focus")
+	}
+	b.run(chromedp.Focus(sum, chromedp.ByQuery), chromedp.Sleep(200*time.Millisecond))
+	if got := eval[string](b, `getComputedStyle(document.querySelector('`+sum+`')).opacity`); got != "1" {
+		t.Errorf("a focused row action has opacity %s", got)
+	}
+	b.checkClean("instance focus")
+}

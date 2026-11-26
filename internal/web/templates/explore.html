@@ -50,6 +50,7 @@
   </section>
   <div class="side-resizer" role="separator" aria-orientation="vertical" aria-label="resize panel" tabindex="0"></div>
   <aside class="side" id="explore-side" aria-label="Types and instances">
+    <div id="explore-types" class="explore-types">
     {{if .Data.Many}}
     {{/* Many types: a search (results appear as you type), the types you used
          recently, and the most connected types as starting points. */}}
@@ -103,6 +104,7 @@
     <div id="type-panel" data-initial-type="{{.Data.Type}}">
       <p class="empty">Select a type in the graph or above to see its relations.</p>
     </div>
+    </div>
     <div id="instance-panel" data-initial-type="{{.Data.Type}}" data-initial-id="{{.Data.ID}}" data-initial-relation="{{.Data.Relation}}"></div>
   </aside>
 </div>
@@ -155,8 +157,10 @@
   <script type="application/json" class="graph-patch">{{json (graphPatch .)}}</script>
   <h2 class="ptitle"><span class="k">instance</span> {{display .Object}}</h2>
   {{if ne (display .Object) .Object}}<div class="rawid">stored as <code>{{.Object}}</code></div>{{end}}
-  <div class="actions">
-    <a class="btn" href="{{$b}}/check?{{query "object" .Object}}">Check access…</a>
+  <div class="actions inst-nav">
+    <button type="button" class="ghost sm" data-act="show-type" aria-controls="explore-types" aria-expanded="false" title="Show the type section: its relations, the type list and the instance picker">Type {{.Type.Name}}</button>
+    <button type="button" class="ghost sm" data-act="change-instance" title="Pick another instance">Pick another…</button>
+    <a class="btn sm" href="{{$b}}/check?{{query "object" .Object}}">Check access…</a>
   </div>
   {{if not .Exists}}<div class="alert warn">No tuples reference <code>{{.Object}}</code>. It may not exist, or its ID may be normalized differently.</div>{{end}}
 
@@ -168,21 +172,18 @@
   </div>
 
   <section class="ipanel" data-panel="edges" role="tabpanel" id="ipanel-edges" aria-labelledby="itab-edges">
-  <table class="edges">
+  <ul class="relrows">
   {{range .Out}}
-    <tr class="relrow" id="rel-{{.Rel.Name}}">
-      <th>
-        <span class="rel">{{.Rel.Name}}</span>{{template "relmod" .Rel}} <span class="badge {{.Rel.Kind}}">{{kindLabel .Rel.Kind}}</span>
-        <div class="refs">{{refs .Rel.DirectTypes}}</div>
-        {{if eq .Rel.Kind.String "hybrid"}}<div class="expr">also = {{.Rel.DerivedExpr}}</div>{{end}}
-        <details class="whohas-d"><summary title="Everyone who ends up with {{.Rel.Name}}, including members of groups and inherited access (ListUsers)">who has it?</summary>
-          {{template "whohas" (dict "Base" $b "Object" $.Data.Object "Relation" .Rel.Name "Holders" .Holders)}}</details>
-      </th>
-      <td>{{template "edgecell" (dict "Base" $b "E" . "Q" (query "dir" "out" "object" $.Data.Object "relation" .Rel.Name) "ID" (printf "out-%s" .Rel.Name))}}</td>
-    </tr>
-  {{else}}<tr><td class="muted">This type has no relations that accept tuples.</td></tr>
+    <li class="relrow" id="rel-{{.Rel.Name}}">
+      <div class="rr-head"><span class="rel">{{.Rel.Name}}</span>{{template "relmod" .Rel}} <span class="badge {{.Rel.Kind}}">{{kindLabel .Rel.Kind}}</span></div>
+      <div class="rr-val">{{template "edgecell" (dict "Base" $b "E" . "Q" (query "dir" "out" "object" $.Data.Object "relation" .Rel.Name) "ID" (printf "out-%s" .Rel.Name))}}</div>
+      <div class="rr-syntax"><span class="refs">{{refs .Rel.DirectTypes}}</span>{{if eq .Rel.Kind.String "hybrid"}} <span class="expr">also = {{.Rel.DerivedExpr}}</span>{{end}}</div>
+      <details class="whohas-d"><summary title="Everyone who ends up with {{.Rel.Name}}, including members of groups and inherited access (ListUsers)">who has it?</summary>
+        {{template "whohas" (dict "Base" $b "Object" $.Data.Object "Relation" .Rel.Name "Holders" .Holders)}}</details>
+    </li>
+  {{else}}<li class="muted">This type has no relations that accept tuples.</li>
   {{end}}
-  </table>
+  </ul>
   </section>
 
   <section class="ipanel" data-panel="derived" role="tabpanel" id="ipanel-derived" aria-labelledby="itab-derived" hidden>
@@ -195,7 +196,8 @@
         <span class="ex-lead">Granted to anyone who has</span>
         {{template "clause" (dict "C" .Explain "Type" $.Data.Type.Name)}}
       </div>
-      {{template "whohas" (dict "Base" $b "Object" $.Data.Object "Relation" .Rel.Name "Holders" .Holders)}}
+      <details class="whohas-d"><summary title="Everyone who ends up with {{.Rel.Name}}, including members of groups and inherited access (ListUsers)">who has it?</summary>
+        {{template "whohas" (dict "Base" $b "Object" $.Data.Object "Relation" .Rel.Name "Holders" .Holders)}}</details>
     </li>
   {{end}}
   </ul>

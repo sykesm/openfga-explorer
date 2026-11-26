@@ -200,12 +200,15 @@ main { flex: 1; min-height: 0; }
 .rels li { padding: 4px 0; border-bottom: 1px dashed var(--soft); }
 .rel { font-family: var(--mono); font-weight: 650; }
 .refs { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-left: 4px; }
-.expr { font-family: var(--mono); font-size: 12px; color: var(--derived); margin-left: 14px; }
+.expr { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-left: 14px; }
 td .refs, th .refs, th .expr { margin-left: 0; }
-.badge { font-size: 10.5px; border-radius: 4px; padding: 1px 6px; font-weight: 650; text-transform: none; letter-spacing: 0; color: #fff; }
-.badge.direct { background: var(--direct); }
-.badge.derived { background: var(--derived); }
-.badge.hybrid { background: var(--hybrid); }
+/* Relation kinds: quiet outlined labels; a colored dot tells the kinds apart. */
+.badge { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; line-height: 16px; border-radius: 999px; padding: 0 7px 0 6px;
+  font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--muted); background: transparent; border: 1px solid var(--line); vertical-align: 1px; }
+.badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.badge.direct::before { background: var(--direct); }
+.badge.derived::before { background: var(--derived); }
+.badge.hybrid::before { background: var(--hybrid); }
 
 table.edges { width: 100%; border-collapse: collapse; }
 table.edges th, table.edges td { text-align: left; vertical-align: top; padding: 6px 4px; border-bottom: 1px solid var(--soft); font-weight: 400; }
@@ -408,6 +411,34 @@ h2.sect { margin-top: 2px; font-size: 12px; text-transform: uppercase; letter-sp
 .lu-trace.current { color: var(--fg); text-decoration: none; font-weight: 700; }
 .whohas-d { margin-top: 3px; }
 .whohas-d > summary { cursor: pointer; font-size: 11.5px; color: var(--accent); font-weight: 400; }
+
+/* Instance relations, stacked: name and kind; the values; the model syntax
+   (muted). "who has it?" is a row action in the top-right corner, shown on
+   hover or keyboard focus where there is hover (always on touch screens). */
+.relrows { list-style: none; margin: 0; padding: 0; }
+.relrow, .derived > li { position: relative; padding: 8px 4px; border-bottom: 1px solid var(--soft); }
+.rr-head, .derived .dhead { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding-right: 100px; }
+.rr-val { margin: 4px 0 3px; }
+.rr-syntax { font-size: 12px; line-height: 1.45; }
+.rr-syntax .refs, .rr-syntax .expr { margin-left: 0; }
+.rr-syntax .expr { display: block; }
+.relrow > .whohas-d, .derived > li > .whohas-d { margin: 0; }
+.relrow > .whohas-d > summary, .derived > li > .whohas-d > summary {
+  position: absolute; top: 6px; right: 4px; display: inline-flex; align-items: center; min-height: 24px; padding: 0 8px;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--panel); list-style: none; }
+.relrow > .whohas-d > summary::-webkit-details-marker, .derived > li > .whohas-d > summary::-webkit-details-marker { display: none; }
+.relrow > .whohas-d[open] > summary, .derived > li > .whohas-d[open] > summary { border-color: var(--accent); }
+.relrow > .whohas-d[open], .derived > li > .whohas-d[open] { margin-top: 6px; }
+@media (hover: hover) {
+  .relrow > .whohas-d:not([open]) > summary, .derived > li > .whohas-d:not([open]) > summary { opacity: 0; transition: opacity .12s; }
+  .relrow:hover > .whohas-d > summary, .relrow:focus-within > .whohas-d > summary,
+  .derived > li:hover > .whohas-d > summary, .derived > li:focus-within > .whohas-d > summary { opacity: 1; }
+}
+/* Incoming: the same stacked rows (relation, then its edges). */
+table.edges, table.edges tbody, table.edges tr, table.edges th, table.edges td { display: block; width: auto; }
+table.edges tr { padding: 8px 4px; border-bottom: 1px solid var(--soft); }
+table.edges th, table.edges td { padding: 0; border: 0; }
+table.edges td { margin-top: 4px; }
 
 /* ---- resizers ---- */
 .side-resizer, .splitter { cursor: col-resize; background: transparent; position: relative; }
@@ -619,3 +650,10 @@ table.changes time { font-family: var(--mono); font-size: 12px; white-space: now
 tr.rel-target > th, tr.rel-target > td { background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .rel-arrive { animation: rel-arrive 1.2s ease-out; }
 @keyframes rel-arrive { from { outline-color: var(--accent); background: color-mix(in srgb, var(--accent) 35%, transparent); outline-offset: 6px; } }
+
+/* Explore side panel with an instance open: the type section is hidden until
+   asked for (setInstanceFocus in explore.js). */
+.side.focus-instance #explore-types { display: none; }
+.side.focus-instance #instance-panel { border-top: 0; margin-top: 0; }
+.inst-nav { flex-wrap: wrap; align-items: center; }
+.inst-nav [data-act="show-type"][aria-expanded="true"] { color: var(--accent); border-color: var(--accent); }
