@@ -458,8 +458,8 @@ function goToRelation(target) {
   const sec = target.closest('.ipanel');
   const shown = sec instanceof HTMLElement && sec.hidden ? showTab(sec.closest('.instance'), sec.dataset.panel || '') : Promise.resolve();
   shown.then(() => {
-    $$('.rel-target').forEach((el) => el.classList.remove('rel-target', 'rel-arrive'));
-    target.classList.add('rel-target');
+    markRelation(target);
+    target.classList.remove('rel-arrive');
     void target.offsetWidth; // restart the arrival pulse
     target.classList.add('rel-arrive');
     if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
@@ -468,9 +468,25 @@ function goToRelation(target) {
   });
 }
 
+/**
+ * Marks the chosen relation (one at a time): the target of a relation link,
+ * or the row someone clicks or tabs into.
+ * @param {Element} el
+ */
+function markRelation(el) {
+  if (el.classList.contains('rel-target')) return;
+  $$('.rel-target').forEach((x) => x.classList.remove('rel-target', 'rel-arrive'));
+  el.classList.add('rel-target');
+}
+
+/** The relation row (Edges or Derived tab) holding an element. @param {EventTarget | null} t */
+const relationOf = (t) => (t instanceof Element ? t.closest('#instance-panel [id^="rel-"]') : null);
+
 /** @param {MouseEvent} e */
 function onClick(e) {
   const t = /** @type {Element} */ (e.target);
+  const row = relationOf(t);
+  if (row) markRelation(row);
   const chip = t.closest('.type-chip');
   if (chip instanceof HTMLElement) { selectType(chip.dataset.type || ''); showCanvas('schema'); return; }
   if (t.closest('[data-act="start-picking"]')) toggleSide(false);
@@ -591,6 +607,7 @@ export function initExplore() {
   });
 
   document.addEventListener('click', onClick);
+  document.addEventListener('focusin', (e) => { const row = relationOf(e.target); if (row) markRelation(row); });
   document.addEventListener('change', (e) => {
     const t = /** @type {HTMLInputElement} */ (e.target);
     if (!t.matches('.edge-check')) return;

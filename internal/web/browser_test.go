@@ -1199,6 +1199,18 @@ func TestBrowserExploreRelationLinks(t *testing.T) {
 		}
 		b.waitFor(id+" in view", visible(id))
 	}
+	// Clicking another relation (or tabbing into one) moves the mark to it.
+	other := eval[string](b, `document.querySelector('#ipanel-edges .relrow:not(.rel-target)').id`)
+	b.run(chromedp.Click(`#`+other+` .rr-head`, chromedp.ByQuery))
+	if got := eval[string](b, `[...document.querySelectorAll('.rel-target')].map((e) => e.id).join()`); got != other {
+		t.Errorf("after clicking %s, marked = %q", other, got)
+	}
+	b.run(chromedp.Click(`#itab-derived`, chromedp.ByQuery))
+	b.waitFor("derived tab", `!document.querySelector('#ipanel-derived').hidden`)
+	derived := eval[string](b, `(() => { const li = document.querySelector('#ipanel-derived li[id^="rel-"] .whohas-d > summary'); li.focus(); return li.closest('[id^="rel-"]').id; })()`)
+	if got := eval[string](b, `[...document.querySelectorAll('.rel-target')].map((e) => e.id).join()`); got != derived {
+		t.Errorf("after tabbing into %s, marked = %q", derived, got)
+	}
 	b.checkClean("relation links")
 }
 
