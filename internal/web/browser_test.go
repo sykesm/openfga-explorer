@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -1190,4 +1191,33 @@ func TestBrowserExploreRelationLinks(t *testing.T) {
 		b.waitFor(id+" in view", visible(id))
 	}
 	b.checkClean("relation links")
+}
+
+// TestBrowserCheckTuplesRead: the result says how many tuples the walk read,
+// and its "?" breaks the calls down and says what is not counted.
+func TestBrowserCheckTuplesRead(t *testing.T) {
+	x := newTestExplorer(t)
+	b := newBrowser(t, x)
+	b.open(`~/check?user=user:eng-002&relation=can_view&object=document:doc-0007&context=` +
+		`%7B%22current_time%22%3A%222026-11-24T12%3A00%3A00Z%22%2C%22user_ip%22%3A%2210.1.2.3%22%7D`)
+	b.waitFor("result", `document.querySelector('#check-result .verdict')`)
+	stats := eval[string](b, `document.querySelector('.verdict .stats').textContent.replace(/\s+/g, ' ')`)
+	m := regexp.MustCompile(`(\d+) tuples? read · (\d+) walk \+ \d+ verify calls`).FindStringSubmatch(stats)
+	if m == nil || m[1] == "0" {
+		t.Fatalf("no tuples-read count in %q", stats)
+	}
+	b.run(chromedp.Click(`.verdict [aria-controls="h-calls"]`, chromedp.ByQuery))
+	b.waitFor("calls help", `!document.querySelector('#h-calls').hidden`)
+	help := eval[string](b, `document.querySelector('#h-calls').textContent.replace(/\s+/g, ' ')`)
+	for _, want := range []string{"which returned " + m[1] + " tuple", "Check call", "ListObjects call", "not counted"} {
+		if !strings.Contains(help, want) {
+			t.Errorf("calls help lacks %q:\n%s", want, help)
+		}
+	}
+	// The kinds add up to the walk's calls.
+	sum := eval[int](b, `[...document.querySelector('#h-calls').textContent.matchAll(/(\d+) (?:Read|Check|ListObjects) calls?\b/g)].slice(0, 3).reduce((s, x) => s + +x[1], 0)`)
+	if fmt.Sprint(sum) != m[2] {
+		t.Errorf("call kinds add up to %d, the result says %s walk calls:\n%s", sum, m[2], help)
+	}
+	b.checkClean("tuples read")
 }

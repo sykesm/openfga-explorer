@@ -83,7 +83,7 @@
   <div class="stats">
     <span>walker <b class="o-{{.Walker}}">{{.Walker}}</b></span>
     <span>server {{with $t.Root.Server}}{{if .Err}}<b class="o-error" title="{{.Err}}">error</b>{{else if .Allowed}}<b class="o-allowed">allowed</b>{{else}}<b class="o-denied">denied</b>{{end}}{{else}}<b>not verified</b>{{end}}</span>
-    <span>{{$t.Calls}} walk + {{$t.VerifyCalls}} verify calls</span>
+    <span>{{$t.TuplesRead}} tuple{{if ne $t.TuplesRead 1}}s{{end}} read · {{$t.Calls}} walk + {{$t.VerifyCalls}} verify calls {{template "opt-q" (dict "ID" "calls" "Name" "tuples read and calls")}}</span>
     <span>{{$t.Duration.Round 1000000}}</span>
     {{if eq .Decision "allowed"}}
       {{if not $t.Options.AllPaths}}<button type="button" class="ghost sm" data-act="all-paths" title="Re-run the check evaluating every branch, so every way this user gets access is shown. Uses more API calls.">Show all granting paths</button>
@@ -101,6 +101,11 @@
     <a href="{{.Link}}" class="permalink">permalink</a>
     <span class="jump">Jump to <a href="#trace-graph">graph</a> · <a href="#inspector">details</a></span>
   </div>
+  <p class="opt-help" id="h-calls" hidden><b>Tuples read and calls</b>: the walk made {{$t.ReadCalls}} Read call{{if ne $t.ReadCalls 1}}s{{end}}, which returned {{$t.TuplesRead}} tuple{{if ne $t.TuplesRead 1}}s{{end}} from the store;
+    {{$t.CheckCalls}} Check call{{if ne $t.CheckCalls 1}}s{{end}} to the server (the shortest explanation uses them to choose branches and rule out groups; the other orders make none); and {{$t.ListCalls}} ListObjects call{{if ne $t.ListCalls 1}}s{{end}} (probes of large edge lists).
+    Verification made {{$t.VerifyCalls}} more Check call{{if ne $t.VerifyCalls 1}}s{{end}}.
+    Computed relations (like <code>viewer</code> from <code>editor</code>) read nothing themselves: they are steps in the walk, not tuples.
+    The tuples OpenFGA reads inside its own Check and ListObjects calls are not reported by the server, so they are not counted here.</p>
   <p class="order-note muted sm">{{if eq $t.Options.Order "guided"}}{{with $t.GroupsRuledOut}}<b>{{.}} group{{if ne . 1}}s{{end}} {{if eq . 1}}was{{else}}were{{end}} not walked</b>: the server's Check says {{$t.Request.User}} is not in {{if eq . 1}}it{{else}}them{{end}}. Click one to trace why, or <button type="button" class="linkish" data-act="order" data-order="model" title="Re-run walking every group (uses more calls; large group trees may run out of budget)">walk every group</button>. {{end}}Showing the shortest explanation, not a replay of the server's evaluation{{if $t.GuidedSkips}}: {{$t.GuidedSkips}} branch{{if ne $t.GuidedSkips 1}}es were{{else}} was{{end}} skipped after the server's Check showed which branch decides. Skipped branches show the server's verdict; click one to trace it{{end}}.
     <button type="button" class="linkish" data-act="order" data-order="model" title="Re-run trying branches in the order the model lists them">Show model order</button>
   {{else if eq $t.Options.Order "model"}}Branches were tried in the order the model lists them, stopping at the first that decides.

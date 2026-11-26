@@ -289,6 +289,11 @@ type Trace struct {
 	// GroupsRuledOut counts userset edges (e.g. groups with access) not
 	// walked because the server's Check says the user does not hold them.
 	GroupsRuledOut int
+	// The walk's calls by kind (ReadCalls + CheckCalls + ListCalls = Calls),
+	// and TuplesRead, the tuples its Read calls returned. Tuples the server
+	// reads inside its own Check and ListObjects calls are not known.
+	ReadCalls, CheckCalls, ListCalls int
+	TuplesRead                       int
 }
 
 // Decision is the overall answer: the server verdict when available, else the walker's.
@@ -312,8 +317,13 @@ type walker struct {
 	opt   Options
 	subj  schema.Subject
 
-	mu             sync.Mutex // guards rcache
-	calls          atomic.Int64
+	mu    sync.Mutex // guards rcache
+	calls atomic.Int64
+	// Calls by kind (they add up to calls), and the tuples the reads returned.
+	readCalls      atomic.Int64
+	checkCalls     atomic.Int64
+	listCalls      atomic.Int64
+	tuplesRead     atomic.Int64
 	guidedSkips    atomic.Int64
 	groupsRuledOut atomic.Int64
 	deadline       time.Time
@@ -393,6 +403,8 @@ func Explain(ctx context.Context, api fga.API, model *schema.Model, ev *cond.Eva
 	root := w.checkRelation(ctx, req.Object, req.Relation, 0)
 	tr := &Trace{Request: req, Options: opt, Root: root}
 	tr.Calls = int(w.calls.Load())
+	tr.ReadCalls, tr.CheckCalls, tr.ListCalls = int(w.readCalls.Load()), int(w.checkCalls.Load()), int(w.listCalls.Load())
+	tr.TuplesRead = int(w.tuplesRead.Load())
 	tr.Exhausted = w.exhaust.Load()
 	tr.VerifyCalls = w.verify(ctx, root)
 	tr.Steps = w.steps
@@ -459,6 +471,7 @@ func (w *walker) fetch(ctx context.Context, k readKey) *readEntry {
 	w.rcache[k] = e
 	w.mu.Unlock()
 	w.calls.Add(1)
+	w.readCalls.Add(1)
 	resp, err := fga.ReadPage(ctx, w.api, w.req.Store, &openfgav1.ReadRequestTupleKey{Object: k.object, Relation: k.relation, User: k.user}, 100, k.token, w.req.Consistency)
 	if err != nil {
 		e.err = err
@@ -466,6 +479,7 @@ func (w *walker) fetch(ctx context.Context, k readKey) *readEntry {
 		for _, t := range resp.GetTuples() {
 			e.tuples = append(e.tuples, t.GetKey())
 		}
+		w.tuplesRead.Add(int64(len(resp.GetTuples())))
 		e.next = resp.GetContinuationToken()
 	}
 	close(e.done)
@@ -1023,6 +1037,7 @@ func (w *walker) serverChecks(ctx context.Context, keys []string) map[string]boo
 	}
 	if bc, ok := w.api.(fga.BatchChecker); ok && len(todo) <= batchSize {
 		w.calls.Add(1)
+		w.checkCalls.Add(1)
 		req := &openfgav1.BatchCheckRequest{StoreId: w.req.Store, AuthorizationModelId: w.req.Model, Consistency: w.req.Consistency}
 		for i, k := range todo {
 			req.Checks = append(req.Checks, &openfgav1.BatchCheckItem{TupleKey: tk(k), ContextualTuples: ctuples, Context: w.req.Context, CorrelationId: fmt.Sprint(i)})
@@ -1041,6 +1056,7 @@ func (w *walker) serverChecks(ctx context.Context, keys []string) map[string]boo
 			break
 		}
 		w.calls.Add(1)
+		w.checkCalls.Add(1)
 		req := &openfgav1.CheckRequest{StoreId: w.req.Store, AuthorizationModelId: w.req.Model, TupleKey: tk(k), Context: w.req.Context, Consistency: w.req.Consistency, ContextualTuples: ctuples}
 		if resp, err := w.api.Check(ctx, req); err == nil {
 			record(k, resp.GetAllowed())
@@ -1452,6 +1468,7 @@ func (w *walker) listObjects(ctx context.Context, typ, relation string) ([]strin
 		return nil, false, err
 	}
 	w.calls.Add(1)
+	w.listCalls.Add(1)
 	req := &openfgav1.ListObjectsRequest{
 		StoreId: w.req.Store, AuthorizationModelId: w.req.Model,
 		Type: typ, Relation: relation, User: w.req.User,

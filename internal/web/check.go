@@ -399,7 +399,7 @@ func (s *Server) handleCheckRun(w http.ResponseWriter, r *http.Request) {
 		return // canceled by the browser
 	}
 	s.log.Info("trace", "identity", v.User.Name, "store", v.StoreID, "user", req.User, "relation", req.Relation, "object", req.Object,
-		"decision", tr.Decision(), "calls", tr.Calls, "verify_calls", tr.VerifyCalls, "mismatches", tr.Mismatches, "duration", tr.Duration)
+		"decision", tr.Decision(), "calls", tr.Calls, "tuples_read", tr.TuplesRead, "verify_calls", tr.VerifyCalls, "mismatches", tr.Mismatches, "duration", tr.Duration)
 
 	link := v.Base + "/check?" + string(queryOf(map[string]string{
 		"user": req.User, "relation": req.Relation, "object": req.Object, "context": ctxText, "contextual": ctText,
