@@ -134,3 +134,36 @@ export function fitCapped(cy, eles, pad = 30, cap = 1.15) {
 
 /** @param {string} rankDir @param {object} [extra] */
 export const dagre = (rankDir, extra = {}) => ({ name: 'dagre', rankDir, nodeSep: 24, rankSep: 56, edgeSep: 10, padding: 24, animate: false, ...extra });
+
+// ---- loading content with htmx ----
+
+/**
+ * Loads url into target (innerHTML) with htmx. Unlike htmx.ajax, which
+ * resolves as soon as the content is swapped in, this resolves once the new
+ * content is set up (htmx has processed it and the modules' load hooks have
+ * run), or when the request fails.
+ * @param {string} url
+ * @param {Element} target
+ * @returns {Promise<void>}
+ */
+export function load(url, target) {
+  return new Promise((resolve) => {
+    /** @param {Event} e */
+    const settled = (e) => {
+      if (e.target !== target) return; // a swap inside target, not this one
+      stop();
+      // The setup main.js queued (a microtask) while this swap settled runs
+      // before this microtask, and so before the caller's then.
+      queueMicrotask(resolve);
+    };
+    /** @param {any} e htmx:afterRequest (on the body, for htmx.ajax) */
+    const failed = (e) => { if (e.detail.target === target && !e.detail.successful) { stop(); resolve(); } };
+    const stop = () => {
+      target.removeEventListener('htmx:afterSettle', settled);
+      document.removeEventListener('htmx:afterRequest', failed);
+    };
+    target.addEventListener('htmx:afterSettle', settled);
+    document.addEventListener('htmx:afterRequest', failed);
+    htmx.ajax('GET', url, { target, swap: 'innerHTML' });
+  });
+}

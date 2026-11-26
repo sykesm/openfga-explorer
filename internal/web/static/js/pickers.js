@@ -2,7 +2,7 @@
 // the model has many types) plus an ID search whose results the server
 // renders. Choosing an instance dispatches "fgax:picked" on the picker; the
 // page decides what that means (Explore opens it, Check remembers the form).
-import { $, $$, base, esc, store } from './core.js';
+import { $, $$, base, esc, load, store } from './core.js';
 import { pushRecent, rankTypes, relTag, splitRels } from './typematch.js';
 import { onEscape } from './shortcuts.js';
 
@@ -42,7 +42,7 @@ export function refreshRelations(relation) {
     user_type: $('select[name="user_type"]')?.value || '',
     relation: relation ?? sel.value,
   });
-  return htmx.ajax('GET', `${base()}/relations?${q}`, { target: '#relation-select', swap: 'innerHTML' });
+  return load(`${base()}/relations?${q}`, sel);
 }
 
 /** @param {HTMLElement} btn a search result */

@@ -205,12 +205,9 @@ export function initCheckForm() {
   });
 }
 
-/** After a check result is swapped in. @param {Element} t */
-export function checkSwapped(t) {
-  if (t.id === 'check-result' && $('.verdict', t)) saveCheck({ ran: true });
-}
-
-/** After htmx has processed a result (its list form needs htmx handlers). @param {Element} t */
-export function checkSettled(t) {
-  if (t.id === 'check-result') reopenOthers();
+/** Sets up content htmx has loaded into region t (see main.js). @param {Element} t */
+export function checkLoaded(t) {
+  if (t.id !== 'check-result') return;
+  if ($('.verdict', t)) saveCheck({ ran: true });
+  reopenOthers();
 }

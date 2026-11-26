@@ -515,7 +515,10 @@ input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; margin:
 .page-alert { position: sticky; top: 0; z-index: 60; display: flex; gap: 10px; align-items: center; padding: 8px 16px;
   background: color-mix(in srgb, var(--error) 18%, var(--panel)); border-bottom: 1px solid var(--error); }
 @media (prefers-reduced-motion: reduce) {
-  *, ::before, ::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+  /* Off, not just very short: with a tiny duration every style change (the
+     default transition-property is all) waits for the next frame to land,
+     and the page shifts under the pointer between mousedown and mouseup. */
+  *, ::before, ::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
 
 /* Phones: the side panel is a bottom sheet; collapsed, only its header shows.

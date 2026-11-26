@@ -1,7 +1,7 @@
 // The Explore view: the type graph, the instance graph built up as you open
 // instances, the side panel (type and instance panels, rendered by the
 // server), and the per-tab persistence of all of it.
-import { $, $$, article, base, baseOpts, categoricalColor, dagre, fitCapped, labelWidth, pal, scrollBehavior, session, stateKey, store, typeColor } from './core.js';
+import { $, $$, article, base, baseOpts, categoricalColor, dagre, fitCapped, labelWidth, load, pal, scrollBehavior, session, stateKey, store, typeColor } from './core.js';
 import { openPicker } from './pickers.js';
 import { onKey } from './shortcuts.js';
 import { initTypeFinder, rememberType } from './typefinder.js';
@@ -222,7 +222,7 @@ function selectType(t, { loadPanel = true, browse = true } = {}) {
   if (schemaCy) focusType(t);
   const panel = $('#type-panel');
   if (loadPanel && panel && panel.querySelector('[data-selected-type]')?.dataset.selectedType !== t) {
-    return htmx.ajax('GET', `${base()}/explore/type?type=${encodeURIComponent(t)}`, { target: '#type-panel', swap: 'innerHTML' });
+    return load(`${base()}/explore/type?type=${encodeURIComponent(t)}`, panel);
   }
   return Promise.resolve();
 }
@@ -252,7 +252,8 @@ function loadInstance(obj) {
   const url = new URL(location.href);
   url.searchParams.set('type', type); url.searchParams.set('id', id); url.searchParams.delete('relation');
   history.replaceState(null, '', url);
-  return htmx.ajax('GET', `${base()}/explore/instance?object=${encodeURIComponent(obj)}`, { target: '#instance-panel', swap: 'innerHTML' });
+  const panel = $('#instance-panel');
+  return panel ? load(`${base()}/explore/instance?object=${encodeURIComponent(obj)}`, panel) : Promise.resolve();
 }
 
 // ---- instance graph ----
@@ -396,7 +397,7 @@ function showTab(panel, name) {
   const sec = $(`.ipanel[data-panel="${name}"]`, panel);
   if (btn?.dataset.src && !sec.dataset.loaded) {
     sec.dataset.loaded = '1';
-    return htmx.ajax('GET', btn.dataset.src, { target: sec, swap: 'innerHTML' });
+    return load(btn.dataset.src, sec);
   }
   return Promise.resolve();
 }
@@ -624,9 +625,17 @@ export function initExplore() {
   });
 }
 
-/** After htmx swaps content into the page. @param {Element} t */
-export function exploreSwapped(t) {
-  if (!instCy) return;
+/**
+ * Sets up content htmx has loaded into region t (see main.js).
+ * @param {Element} t
+ */
+export function exploreLoaded(t) {
+  if (instCy) instanceLoaded(t);
+  if (t.id === 'type-panel') updateEmpty();
+}
+
+/** @param {Element} t */
+function instanceLoaded(t) {
   // Any loaded fragment (instance panel, incoming tab) may carry graph updates.
   for (const patch of $$('.graph-patch', t)) {
     if (patch.dataset.applied) continue;
@@ -644,17 +653,3 @@ export function exploreSwapped(t) {
   syncGraphMarks();
 }
 
-/**
- * After htmx has processed new content.
- * @param {Element} t
- */
-export function exploreSettled(t) {
-  // Settling puts back the server's class attributes on elements whose id
-  // the previous instance also had (the tabs), dropping the selected tab's
-  // mark set at swap time: mark it again.
-  if (t.id === 'instance-panel') {
-    const on = $('.itabs [aria-selected="true"]', t);
-    if (on) selectTab(on);
-  }
-  if (t.id === 'type-panel') updateEmpty();
-}

@@ -3,9 +3,9 @@
 // keyboard support. Each module owns its own state; this file only wires
 // page lifecycle events to them.
 import { $$ } from './core.js';
-import { checkSettled, checkSwapped, consumeRestoring, initCheckForm } from './checkform.js';
+import { checkLoaded, consumeRestoring, initCheckForm } from './checkform.js';
 import { initContext } from './context.js';
-import { exploreSettled, exploreSwapped, initExplore } from './explore.js';
+import { exploreLoaded, initExplore } from './explore.js';
 import { initPickers, pickerHint } from './pickers.js';
 import { initScenarios } from './scenarios.js';
 import { initChanges } from './changes.js';
@@ -41,21 +41,31 @@ function init() {
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
 else init();
 
-document.addEventListener('htmx:afterSwap', (/** @type {any} */ e) => {
-  const t = e.detail.target;
-  if (!t) return;
-  $$('.picker', t).forEach(pickerHint);
-  exploreSwapped(t);
-  if (t.id === 'check-result') { const restoring = consumeRestoring(); renderTrace({ replay: !restoring, restore: restoring }); }
-  checkSwapped(t);
+// New content is set up in htmx.onLoad: htmx calls it for each element it
+// inserts, after the swap has settled and htmx has processed the element's
+// hx-* attributes (earlier, in htmx:afterSwap, settling would still put back
+// the server's class attributes, and the new controls would not work yet).
+// One swap can insert several elements: they are set up together, once per
+// region (the element they went into), before load() (core.js) resolves.
+/** @type {Element[]} */
+let inserted = [];
+htmx.onLoad((/** @type {Element} */ el) => {
+  if (el === document.body || !el.parentElement) return; // the first page: init()
+  if (!inserted.length) queueMicrotask(setUp);
+  inserted.push(el);
 });
 
-document.addEventListener('htmx:afterSettle', (/** @type {any} */ e) => {
-  const t = e.detail.target;
-  if (!t) return;
-  exploreSettled(t);
-  checkSettled(t);
-});
+function setUp() {
+  const regions = new Set(inserted.map((el) => el.parentElement));
+  inserted = [];
+  for (const t of regions) {
+    if (!t || !t.isConnected) continue;
+    $$('.picker', t).forEach(pickerHint);
+    exploreLoaded(t);
+    if (t.id === 'check-result') { const restoring = consumeRestoring(); renderTrace({ replay: !restoring, restore: restoring }); }
+    checkLoaded(t);
+  }
+}
 
 // "Keep scanning" appends results; drop the old incomplete note.
 document.addEventListener('htmx:afterRequest', (/** @type {any} */ e) => {
