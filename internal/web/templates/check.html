@@ -83,7 +83,7 @@
   <div class="stats">
     <span>walker <b class="o-{{.Walker}}">{{.Walker}}</b></span>
     <span>server {{with $t.Root.Server}}{{if .Err}}<b class="o-error" title="{{.Err}}">error</b>{{else if .Allowed}}<b class="o-allowed">allowed</b>{{else}}<b class="o-denied">denied</b>{{end}}{{else}}<b>not verified</b>{{end}}</span>
-    <span>{{$t.TuplesRead}} tuple{{if ne $t.TuplesRead 1}}s{{end}} read · {{$t.Calls}} walk + {{$t.VerifyCalls}} verify calls {{template "opt-q" (dict "ID" "calls" "Name" "tuples read and calls")}}</span>
+    <span>{{$t.TuplesRead}} tuple{{if ne $t.TuplesRead 1}}s{{end}} read{{with $t.TuplesCached}} ({{.}} from the explorer's cache){{end}} · {{$t.Calls}} walk + {{$t.VerifyCalls}} verify calls {{template "opt-q" (dict "ID" "calls" "Name" "tuples read and calls")}}</span>
     <span>{{$t.Duration.Round 1000000}}</span>
     {{if eq .Decision "allowed"}}
       {{if not $t.Options.AllPaths}}<button type="button" class="ghost sm" data-act="all-paths" title="Re-run the check evaluating every branch, so every way this user gets access is shown. Uses more API calls.">Show all granting paths</button>
@@ -101,7 +101,10 @@
     <a href="{{.Link}}" class="permalink">permalink</a>
     <span class="jump">Jump to <a href="#trace-graph">graph</a> · <a href="#inspector">details</a></span>
   </div>
-  <p class="opt-help" id="h-calls" hidden><b>Tuples read and calls</b>: the walk made {{$t.ReadCalls}} Read call{{if ne $t.ReadCalls 1}}s{{end}}, which returned {{$t.TuplesRead}} tuple{{if ne $t.TuplesRead 1}}s{{end}} from the store;
+  <p class="opt-help" id="h-calls" hidden><b>Tuples read and calls</b>: the walk made {{$t.ReadCalls}} Read call{{if ne $t.ReadCalls 1}}s{{end}}, which returned {{$t.TuplesRead}} tuple{{if ne $t.TuplesRead 1}}s{{end}}{{if $t.CachedReads}}.
+    {{$t.CachedReads}} of those calls ({{$t.TuplesCached}} tuple{{if ne $t.TuplesCached 1}}s{{end}}) were answered by the explorer's own read cache, which keeps a page for {{.CacheTTL}} so that related checks don't re-read the same tuples;
+    {{sub $t.TuplesRead $t.TuplesCached}} came from the store. Choose “higher consistency” to skip the cache.
+    The walk also made{{else}} from the store;{{end}}
     {{$t.CheckCalls}} Check call{{if ne $t.CheckCalls 1}}s{{end}} to the server (the shortest explanation uses them to choose branches and rule out groups; the other orders make none); and {{$t.ListCalls}} ListObjects call{{if ne $t.ListCalls 1}}s{{end}} (probes of large edge lists).
     Verification made {{$t.VerifyCalls}} more Check call{{if ne $t.VerifyCalls 1}}s{{end}}.
     Computed relations (like <code>viewer</code> from <code>editor</code>) read nothing themselves: they are steps in the walk, not tuples.

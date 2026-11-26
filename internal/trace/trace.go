@@ -294,6 +294,9 @@ type Trace struct {
 	// reads inside its own Check and ListObjects calls are not known.
 	ReadCalls, CheckCalls, ListCalls int
 	TuplesRead                       int
+	// CachedReads of the ReadCalls, and TuplesCached of the TuplesRead, were
+	// answered by a read cache in front of the API rather than by OpenFGA.
+	CachedReads, TuplesCached int
 }
 
 // Decision is the overall answer: the server verdict when available, else the walker's.
@@ -320,10 +323,14 @@ type walker struct {
 	mu    sync.Mutex // guards rcache
 	calls atomic.Int64
 	// Calls by kind (they add up to calls), and the tuples the reads returned.
-	readCalls      atomic.Int64
-	checkCalls     atomic.Int64
-	listCalls      atomic.Int64
-	tuplesRead     atomic.Int64
+	readCalls  atomic.Int64
+	checkCalls atomic.Int64
+	listCalls  atomic.Int64
+	tuplesRead atomic.Int64
+	// Reads (and their tuples) answered by a read cache in front of the API
+	// (fga.Cache), not by OpenFGA.
+	cachedReads    atomic.Int64
+	tuplesCached   atomic.Int64
 	guidedSkips    atomic.Int64
 	groupsRuledOut atomic.Int64
 	deadline       time.Time
@@ -405,6 +412,7 @@ func Explain(ctx context.Context, api fga.API, model *schema.Model, ev *cond.Eva
 	tr.Calls = int(w.calls.Load())
 	tr.ReadCalls, tr.CheckCalls, tr.ListCalls = int(w.readCalls.Load()), int(w.checkCalls.Load()), int(w.listCalls.Load())
 	tr.TuplesRead = int(w.tuplesRead.Load())
+	tr.CachedReads, tr.TuplesCached = int(w.cachedReads.Load()), int(w.tuplesCached.Load())
 	tr.Exhausted = w.exhaust.Load()
 	tr.VerifyCalls = w.verify(ctx, root)
 	tr.Steps = w.steps
@@ -472,7 +480,8 @@ func (w *walker) fetch(ctx context.Context, k readKey) *readEntry {
 	w.mu.Unlock()
 	w.calls.Add(1)
 	w.readCalls.Add(1)
-	resp, err := fga.ReadPage(ctx, w.api, w.req.Store, &openfgav1.ReadRequestTupleKey{Object: k.object, Relation: k.relation, User: k.user}, 100, k.token, w.req.Consistency)
+	rctx, cached := fga.WithCacheReport(ctx)
+	resp, err := fga.ReadPage(rctx, w.api, w.req.Store, &openfgav1.ReadRequestTupleKey{Object: k.object, Relation: k.relation, User: k.user}, 100, k.token, w.req.Consistency)
 	if err != nil {
 		e.err = err
 	} else {
@@ -480,6 +489,10 @@ func (w *walker) fetch(ctx context.Context, k readKey) *readEntry {
 			e.tuples = append(e.tuples, t.GetKey())
 		}
 		w.tuplesRead.Add(int64(len(resp.GetTuples())))
+		if *cached {
+			w.cachedReads.Add(1)
+			w.tuplesCached.Add(int64(len(resp.GetTuples())))
+		}
 		e.next = resp.GetContinuationToken()
 	}
 	close(e.done)

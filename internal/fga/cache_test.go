@@ -103,3 +103,33 @@ func TestCacheBatchCheckForwarding(t *testing.T) {
 		t.Errorf("BatchCheck without support: %v", err)
 	}
 }
+
+// TestCacheReport: a Read served from the cache's entries reports a hit; a
+// Read that reaches the API behind it (first read, or higher consistency)
+// does not; Reads without a report context still work.
+func TestCacheReport(t *testing.T) {
+	api := &countingAPI{}
+	c := NewCache(api, time.Minute)
+	hit := func(r *openfgav1.ReadRequest) bool {
+		ctx, hit := WithCacheReport(context.Background())
+		if _, err := c.Read(ctx, r); err != nil {
+			t.Fatal(err)
+		}
+		return *hit
+	}
+	if hit(read("doc:1", openfgav1.ConsistencyPreference_UNSPECIFIED)) {
+		t.Error("the first read reported a cache hit")
+	}
+	if !hit(read("doc:1", openfgav1.ConsistencyPreference_UNSPECIFIED)) {
+		t.Error("the repeated read did not report a cache hit")
+	}
+	if hit(read("doc:1", openfgav1.ConsistencyPreference_HIGHER_CONSISTENCY)) {
+		t.Error("a higher-consistency read reported a cache hit")
+	}
+	if api.reads != 2 {
+		t.Errorf("the API was read %d times, want 2", api.reads)
+	}
+	if _, err := c.Read(context.Background(), read("doc:1", openfgav1.ConsistencyPreference_UNSPECIFIED)); err != nil {
+		t.Fatal(err)
+	}
+}

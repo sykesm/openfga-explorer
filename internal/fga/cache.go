@@ -29,6 +29,15 @@ type cacheEntry struct {
 	at   time.Time
 }
 
+type cacheHitKey struct{}
+
+// WithCacheReport returns a context for one Read: if a Cache serves that
+// Read from its entries (not from the API behind it), it sets *hit.
+func WithCacheReport(ctx context.Context) (context.Context, *bool) {
+	hit := new(bool)
+	return context.WithValue(ctx, cacheHitKey{}, hit), hit
+}
+
 // NewCache wraps api with a read cache.
 func NewCache(api API, ttl time.Duration) *Cache {
 	return &Cache{API: api, TTL: ttl, MaxSize: 50000, entries: map[string]cacheEntry{}}
@@ -51,6 +60,9 @@ func (c *Cache) Read(ctx context.Context, req *openfgav1.ReadRequest) (*openfgav
 	if e, ok := c.entries[key]; ok && now.Sub(e.at) < c.TTL {
 		c.hits++
 		c.mu.Unlock()
+		if p, ok := ctx.Value(cacheHitKey{}).(*bool); ok {
+			*p = true
+		}
 		return e.resp, nil
 	}
 	c.misses++

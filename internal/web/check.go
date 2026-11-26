@@ -165,6 +165,8 @@ func (s *Server) handleCheckPage(w http.ResponseWriter, r *http.Request) {
 }
 
 type checkResult struct {
+	// CacheTTL is how long the walk's read cache keeps a page (walkCacheTTL).
+	CacheTTL time.Duration
 	Trace    *trace.Trace
 	Lines    []trace.Line
 	Graph    *trace.Graph
@@ -399,7 +401,7 @@ func (s *Server) handleCheckRun(w http.ResponseWriter, r *http.Request) {
 		return // canceled by the browser
 	}
 	s.log.Info("trace", "identity", v.User.Name, "store", v.StoreID, "user", req.User, "relation", req.Relation, "object", req.Object,
-		"decision", tr.Decision(), "calls", tr.Calls, "tuples_read", tr.TuplesRead, "verify_calls", tr.VerifyCalls, "mismatches", tr.Mismatches, "duration", tr.Duration)
+		"decision", tr.Decision(), "calls", tr.Calls, "tuples_read", tr.TuplesRead, "tuples_cached", tr.TuplesCached, "verify_calls", tr.VerifyCalls, "mismatches", tr.Mismatches, "duration", tr.Duration)
 
 	link := v.Base + "/check?" + string(queryOf(map[string]string{
 		"user": req.User, "relation": req.Relation, "object": req.Object, "context": ctxText, "contextual": ctText,
@@ -410,7 +412,7 @@ func (s *Server) handleCheckRun(w http.ResponseWriter, r *http.Request) {
 	graph := tr.Graph()
 	addNodeDetails(tr, graph, traceLinks{base: v.Base, user: req.User, context: ctxText, contextual: ctText}, me.m)
 	gaps := tr.Gaps()
-	v.Data = &checkResult{Trace: tr, Lines: tr.Lines(), Graph: graph, Decision: tr.Decision(), Walker: tr.Root.Outcome, Link: link, Context: ctxText, Contextual: ctText, Grants: tr.GrantingTuples(), Gaps: gaps,
+	v.Data = &checkResult{Trace: tr, CacheTTL: walkCacheTTL, Lines: tr.Lines(), Graph: graph, Decision: tr.Decision(), Walker: tr.Root.Outcome, Link: link, Context: ctxText, Contextual: ctText, Grants: tr.GrantingTuples(), Gaps: gaps,
 		Explanation: tr.Explanation(s.displayObject), Text: tr.Text(),
 		Summary: checkSummary(req.User, req.Relation, req.Object, ctxText), Done: doneTexts(tr.Decision(), order, len(gaps) == 0)}
 	if subj, err := schema.ParseSubject(req.User); err == nil {

@@ -79,7 +79,7 @@ func New(cfg config.Config, client *fga.Client, searcher search.Searcher, source
 	}
 	s := &Server{
 		cfg: cfg, fga: client, search: searcher, sources: sources, log: log,
-		walkAPI:    fga.NewCache(client, 30*time.Second),
+		walkAPI:    fga.NewCache(client, walkCacheTTL),
 		progress:   newProgressRegistry(),
 		traceSem:   make(chan struct{}, max(1, cfg.Trace.MaxConcurrent)),
 		sandboxSem: make(chan struct{}, max(1, cfg.Trace.MaxConcurrent)),
@@ -162,6 +162,10 @@ func cacheStatic(h http.Handler) http.Handler {
 
 // moduleVersionKey is the assets entry holding the version of the JS modules.
 const moduleVersionKey = "js/"
+
+// walkCacheTTL is how long check walks reuse a Read page (fga.Cache), so
+// stepping through related checks does not re-read the same tuples.
+const walkCacheTTL = 30 * time.Second
 
 // assetVersions fingerprints every embedded static file by content hash, and
 // the JavaScript modules (static/js) together under moduleVersionKey.
@@ -433,6 +437,7 @@ func (s *Server) funcs() template.FuncMap {
 		},
 		"dsl": highlightDSL,
 		"add": func(a, b int) int { return a + b },
+		"sub": func(a, b int) int { return a - b },
 		"dict": func(kv ...any) (map[string]any, error) {
 			if len(kv)%2 != 0 {
 				return nil, fmt.Errorf("dict: odd arguments")

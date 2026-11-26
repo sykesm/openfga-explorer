@@ -1214,10 +1214,34 @@ func TestBrowserCheckTuplesRead(t *testing.T) {
 			t.Errorf("calls help lacks %q:\n%s", want, help)
 		}
 	}
+	if strings.Contains(stats, "cache") {
+		t.Errorf("the first check mentions the cache: %q", stats)
+	}
 	// The kinds add up to the walk's calls.
 	sum := eval[int](b, `[...document.querySelector('#h-calls').textContent.matchAll(/(\d+) (?:Read|Check|ListObjects) calls?\b/g)].slice(0, 3).reduce((s, x) => s + +x[1], 0)`)
 	if fmt.Sprint(sum) != m[2] {
 		t.Errorf("call kinds add up to %d, the result says %s walk calls:\n%s", sum, m[2], help)
+	}
+
+	// The same check again (within the read cache's lifetime): the reads that
+	// the explorer's cache answered are counted apart from the store's.
+	b.open(`~/check?user=user:eng-002&relation=can_view&object=document:doc-0007&context=` +
+		`%7B%22current_time%22%3A%222026-11-24T12%3A00%3A00Z%22%2C%22user_ip%22%3A%2210.1.2.3%22%7D`)
+	b.waitFor("result again", `document.querySelector('#check-result .verdict')`)
+	stats = eval[string](b, `document.querySelector('.verdict .stats').textContent.replace(/\s+/g, ' ')`)
+	c := regexp.MustCompile(`(\d+) tuples? read \((\d+) from the explorer's cache\)`).FindStringSubmatch(stats)
+	if c == nil {
+		t.Fatalf("the repeated check does not say what came from the cache: %q", stats)
+	}
+	total, cached := 0, 0
+	fmt.Sscan(c[1], &total)
+	fmt.Sscan(c[2], &cached)
+	if cached == 0 || cached > total {
+		t.Errorf("%d of %d tuples from the cache", cached, total)
+	}
+	help = eval[string](b, `document.querySelector('#h-calls').textContent.replace(/\s+/g, ' ')`)
+	if want := fmt.Sprintf("%d came from the store", total-cached); !strings.Contains(help, want) || !strings.Contains(help, "30s") {
+		t.Errorf("calls help lacks %q or the cache lifetime:\n%s", want, help)
 	}
 	b.checkClean("tuples read")
 }
