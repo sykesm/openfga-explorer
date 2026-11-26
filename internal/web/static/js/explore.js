@@ -1,7 +1,7 @@
 // The Explore view: the type graph, the instance graph built up as you open
 // instances, the side panel (type and instance panels, rendered by the
 // server), and the per-tab persistence of all of it.
-import { $, $$, article, base, baseOpts, categoricalColor, dagre, fitCapped, labelWidth, load, pal, scrollBehavior, session, stateKey, store, typeColor } from './core.js';
+import { $, $$, article, base, baseOpts, categoricalColor, dagre, fitCapped, labelWidth, load, pal, reducedMotion, scrollBehavior, session, stateKey, store, typeColor } from './core.js';
 import { initEdgeLists } from './edgelist.js';
 import { picker } from './pickers.js';
 import { onEscape, onKey } from './shortcuts.js';
@@ -18,6 +18,12 @@ const typeFinder = () => /** @type {any} */ ($('fga-type-finder:defined'));
 /** @type {any} */ let instCy = null;
 // Whether the type graph shows a neighborhood laid out on its own.
 let subLayout = false;
+// Graphs fitted to a view at least once. After that, choosing or opening
+// something keeps the person's zoom; only Fit, Re-layout, and Show all types
+// fit the graph again.
+const fitted = new WeakSet();
+/** @param {any} cy @param {any} [eles] */
+const fitView = (cy, eles) => { fitCapped(cy, eles); fitted.add(cy); };
 // Large models start with an empty type graph (see exploreData.Large).
 const isLarge = () => $('.explore-layout')?.dataset.large === 'true';
 // The "too many types to draw" prompt shows (on the type graph tab) until a
@@ -53,7 +59,6 @@ const schemaNote = (text) => {
   if (el) el.textContent = text;
   updatePrompt();
 };
-let relayoutTimer = 0;
 
 // Optionally, types are colored by the module that defines them (modular models).
 const modules = () => ($('.explore-layout')?.dataset.modules || '').split(',').filter(Boolean);
@@ -144,8 +149,11 @@ function toggleSide(collapse) {
   for (const b of $$('[data-act="toggle-side"]')) b.setAttribute('aria-expanded', String(!now));
   store.set('sideCollapsed', now);
   if (now !== was) {
+    // The canvas changes width: keep the zoom, and what was in the middle.
+    const cy = activeCy();
+    const e = cy?.extent();
     resizeAll();
-    fitCapped(activeCy());
+    if (cy && e) cy.pan({ x: cy.width() / 2 - ((e.x1 + e.x2) / 2) * cy.zoom(), y: cy.height() / 2 - ((e.y1 + e.y2) / 2) * cy.zoom() });
   }
 }
 
@@ -167,7 +175,7 @@ function canvasShown(which) {
   $$('.canvas-wrap .legend').forEach((l) => l.classList.toggle('hidden', l.dataset.for !== which));
   $('#instance-note')?.classList.toggle('hidden', which !== 'instances');
   const cy = which === 'schema' ? schemaCy : instCy;
-  if (cy) { cy.resize(); fitCapped(cy); }
+  if (cy) { cy.resize(); if (!fitted.has(cy) && cy.elements(':visible').length) fitView(cy); }
   updateEmpty();
   updatePrompt();
   saveExplore();
@@ -220,7 +228,16 @@ function focusType(t) {
     schemaCy.layout(dagre('LR', { rankSep: 150, nodeSep: 40, fit: false })).run();
     subLayout = false;
   }
-  if (!$('#schema-canvas').hidden) fitCapped(schemaCy, schemaCy.elements(':visible'));
+  if ($('#schema-canvas').hidden) return; // fitted when shown (canvasShown)
+  // Choosing a type keeps the zoom: the type comes to the middle, and the
+  // rest of its neighborhood is a scroll away. Only a first view (nothing
+  // drawn before, as in a large model) is fitted.
+  if (!fitted.has(schemaCy)) {
+    fitView(schemaCy, schemaCy.elements(':visible'));
+  } else if (n.length) {
+    schemaCy.stop(true);
+    schemaCy.center(n);
+  }
 }
 
 function showAllTypes() {
@@ -232,7 +249,7 @@ function showAllTypes() {
     schemaCy.layout(dagre('LR', { rankSep: 150, nodeSep: 40, fit: false })).run();
   }
   $('.canvas-bar [data-act="show-all-types"]')?.classList.add('hidden');
-  fitCapped(schemaCy);
+  fitView(schemaCy);
 }
 
 /** Marks t as the selected type among the chips, and remembers it as recent. @param {string} t */
@@ -303,7 +320,7 @@ function instanceShown() {
 function relayout(cy) {
   if (!cy || cy.elements().length === 0) return;
   cy.layout(dagre('LR', { fit: false, rankSep: 130, nodeSep: 18 })).run();
-  fitCapped(cy);
+  fitView(cy);
 }
 
 /**
@@ -321,15 +338,26 @@ class FgaGraphPatch extends HTMLElement {
   }
 }
 
+/**
+ * Puts the instance open in the panel (if any) back on the instance graph,
+ * with the edges its panel and Incoming tab carry: no request.
+ */
+function showOpenInstance() {
+  for (const s of $$('#instance-panel fga-graph-patch script')) applyPatch(JSON.parse(s.textContent || '{}'));
+}
+
 /** Adds server-computed elements (an instance's edges) to the instance graph. @param {any} patch */
 function applyPatch(patch) {
   if (!instCy) return;
-  let added = 0;
+  const first = instCy.nodes().length === 0;
+  /** @type {string[]} */
+  const ids = [];
   instCy.batch(() => {
     for (const el of patch.elements || []) {
       if (instCy.getElementById(el.data.id).length) continue;
       if (el.group === 'edges' && (!instCy.getElementById(el.data.source).length || !instCy.getElementById(el.data.target).length)) continue;
-      instCy.add(el); added++;
+      instCy.add(el);
+      ids.push(el.data.id);
     }
     instCy.nodes().removeClass('current');
     if (patch.focus) instCy.getElementById(patch.focus).addClass('current');
@@ -338,9 +366,16 @@ function applyPatch(patch) {
   updateCount();
   markEdgeLists();
   showCanvas('instances');
-  if (added) relayout(instCy);
+  // The first instance is laid out and fitted. After that, the nodes already
+  // placed stay put, new ones go beside their neighbors, and the view keeps
+  // its zoom, moving to the instance opened.
+  if (first) { relayout(instCy); return; }
+  placeNear(instCy.collection(ids.map((id) => instCy.getElementById(id))).nodes());
   const f = instCy.getElementById(patch.focus);
-  if (f.length) instCy.animate({ center: { eles: f }, duration: 250 });
+  if (f.length) {
+    instCy.stop(true);
+    instCy.animate({ center: { eles: f }, duration: reducedMotion() ? 0 : 250 });
+  }
 }
 
 /**
@@ -357,14 +392,19 @@ const onGraph = (d) => !!instCy && instCy.getElementById(edgeId(d)).length > 0;
 /** @param {EdgeData} d */
 function addEdge(d) {
   if (!instCy || !d) return;
+  /** @type {any[]} */
+  const fresh = [];
   instCy.batch(() => {
     for (const [nid, lbl] of [[d.source, d.sourceLabel], [d.target, d.targetLabel]]) {
-      if (!instCy.getElementById(nid).length) instCy.add({ group: 'nodes', data: { id: nid, label: lbl || nid, type: String(nid).split(':')[0] } });
+      if (!instCy.getElementById(nid).length) fresh.push(instCy.add({ group: 'nodes', data: { id: nid, label: lbl || nid, type: String(nid).split(':')[0] } }));
     }
     if (!instCy.getElementById(edgeId(d)).length) instCy.add({ group: 'edges', data: { id: edgeId(d), source: d.source, target: d.target, label: d.label, relation: d.relation } });
     const anchor = $('#instance-panel .instance')?.dataset.object;
     if (anchor) instCy.getElementById(anchor).addClass('current');
   });
+  // A new peer goes beside its neighbor; the rest of the graph stays put.
+  if (fresh.length && instCy.nodes().length > fresh.length) placeNear(instCy.collection(fresh));
+  else if (fresh.length) relayout(instCy);
 }
 
 /** @param {EdgeData} d */
@@ -416,8 +456,6 @@ function graphChanged({ show = false } = {}) {
   markEdgeLists();
   saveExplore();
   if (show) showCanvas('instances');
-  clearTimeout(relayoutTimer);
-  relayoutTimer = window.setTimeout(() => relayout(instCy), 120);
 }
 
 /**
@@ -595,7 +633,7 @@ async function expand(objects, what, more = '') {
   const box = added.nodes().boundingBox();
   if (added.nodes().length && (box.x1 < view.x1 || box.x2 > view.x2 || box.y1 < view.y1 || box.y2 > view.y2)) {
     instCy.stop(true); // a centering still running would undo the fit
-    fitCapped(instCy, added.union(added.neighborhood()).union(instCy.nodes('.current')));
+    fitView(instCy, added.union(added.neighborhood()).union(instCy.nodes('.current')));
   }
   updateCount();
   markEdgeLists();
@@ -646,6 +684,8 @@ function expandHop(start) {
 /** +1 hop around the open instance (the canvas bar and the instance panel). */
 function hopFromOpen() {
   const obj = $('#instance-panel .instance')?.dataset.object;
+  // Taken off the graph (cleared, or removed): put it back first.
+  if (obj && !instCy?.getElementById(obj).length) showOpenInstance();
   const n = obj && instCy?.getElementById(obj);
   if (n?.length) { expandHop(n); return; }
   showCanvas('instances');
@@ -901,9 +941,15 @@ function onClick(e) {
   if (act instanceof HTMLElement) {
     const cy = activeCy();
     switch (act.dataset.act) {
-      case 'fit': fitCapped(cy); break;
+      case 'fit': fitView(cy); break;
       case 'relayout': relayout(cy); break;
-      case 'clear': instCy.elements().remove(); lastExpand = null; graphNote(''); graphChanged(); break;
+      case 'clear': // start over from the instance open in the panel, if any
+        instCy.elements().remove();
+        lastExpand = null;
+        graphNote('');
+        showOpenInstance();
+        graphChanged();
+        break;
       case 'expand-hop': hopFromOpen(); break;
       case 'reset-explore': session.del(stateKey('explore')); location.assign(`${base()}/explore`); break;
       case 'show-all-types': showAllTypes(); break;
@@ -968,7 +1014,7 @@ export function initExplore() {
       subLayout = true;
       $('.canvas-bar [data-act="show-all-types"]')?.classList.remove('hidden');
       schemaPrompt(true);
-    } else fitCapped(schemaCy);
+    } else fitView(schemaCy);
     if (byModule) colorByModule(true);
     // Choosing a type shows its details; it never opens the instance picker
     // over them (only "Pick … instance" and "/" do).
@@ -1003,7 +1049,7 @@ export function initExplore() {
   document.addEventListener('fgax:edge-list', (/** @type {any} */ e) => e.target.mark(onGraph));
   initEdgeLists();
   document.addEventListener('fgax:picked', (/** @type {any} */ e) => { if (e.detail.mode === 'explore') loadInstance(e.detail.value); });
-  onKey('fit', () => fitCapped(activeCy()));
+  onKey('fit', () => fitView(activeCy()));
   onKey('toggleText', () => toggleSide());
   onKey('find', () => {
     const box = picker('#type-panel') ?? typeFinder();

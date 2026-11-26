@@ -205,6 +205,7 @@ func TestBrowserExplore(t *testing.T) {
 	b.settled()
 	b.run(chromedp.Click(`[data-chooser-btn="out-member"]`, chromedp.ByQuery))
 	b.waitFor("chooser", `document.querySelector('.chooser input[name="filter"]')`)
+	b.settled() // htmx must have wired the filter before typing
 	b.key(`.chooser input[name="filter"]`, "plat-00")
 	b.waitFor("filtered chooser", `[...document.querySelectorAll('.chooser [data-edge]')].length > 0 && [...document.querySelectorAll('.chooser [data-edge]')].every((li) => li.textContent.includes('plat-00'))`)
 	if !eval[bool](b, `document.activeElement?.name === 'filter'`) {
@@ -1297,6 +1298,122 @@ func TestBrowserExploreExpandLimits(t *testing.T) {
 		t.Errorf("expanding is off, but %d of its controls are offered", n)
 	}
 	b.checkClean("expand off")
+}
+
+// TestBrowserExploreClearKeepsOpenInstance: "Clear instances" starts the
+// graph over from the instance open in the panel, and "Expand neighbors"
+// puts it back if it was taken off the graph.
+func TestBrowserExploreClearKeepsOpenInstance(t *testing.T) {
+	x := newTestExplorer(t)
+	b := newBrowser(t, x)
+	b.open("~/explore?type=document&id=doc-0007")
+	b.waitFor("instance panel", `document.querySelector('#instance-panel .instance[data-object="document:doc-0007"]')`)
+	b.settled()
+	const cy = `document.querySelector('#instance-canvas')._cyreg.cy`
+	const own = cy + `.getElementById('document:doc-0007')`
+	panelEdges := eval[int](b, `JSON.parse(document.querySelector('#instance-panel fga-graph-patch script').textContent).elements.filter((e) => e.group === 'edges').length`)
+	// Grow the graph beyond the instance, then clear it.
+	b.run(chromedp.Click(`#instance-panel [data-act="expand-hop"]`, chromedp.ByQuery))
+	b.waitFor("hop", `document.querySelector('#instance-note .note-text').textContent.startsWith('Added')`)
+	b.run(chromedp.Click(`.canvas-bar [data-act="clear"]`, chromedp.ByQuery))
+	b.waitFor("cleared to the open instance", own+`.length && `+own+`.hasClass('current') && `+cy+`.edges().length === `+fmt.Sprint(panelEdges))
+	if eval[bool](b, `!document.querySelector('#instance-empty').classList.contains('hidden')`) {
+		t.Error("the graph says it is empty, with the open instance on it")
+	}
+	// Taken off the graph: Expand neighbors puts it back and expands around it.
+	b.run(chromedp.Evaluate(`void `+own+`.remove()`, nil))
+	b.run(chromedp.Click(`#instance-panel [data-act="expand-hop"]`, chromedp.ByQuery))
+	b.waitFor("back on the graph", own+`.length && `+own+`.hasClass('current') && document.querySelector('#instance-note .note-text').textContent.includes('around')`)
+	b.checkClean("clear keeps the open instance")
+}
+
+// TestBrowserExploreInstanceGraphKeepsView: opening an instance from the
+// graph, or adding an edge from a list, keeps the zoom and leaves the nodes
+// already placed where they are.
+func TestBrowserExploreInstanceGraphKeepsView(t *testing.T) {
+	x := newTestExplorer(t)
+	b := newBrowser(t, x)
+	b.open("~/explore?type=document&id=doc-0007")
+	b.waitFor("instance panel", `document.querySelector('#instance-panel .instance[data-object="document:doc-0007"]')`)
+	b.settled()
+	const cy = `document.querySelector('#instance-canvas')._cyreg.cy`
+	positions := `JSON.stringify(` + cy + `.nodes().map((n) => [n.id(), Math.round(n.position('x')), Math.round(n.position('y'))]))`
+	kept := func(what, before string) {
+		t.Helper()
+		if z := eval[float64](b, cy+`.zoom()`); z < 1.59 || z > 1.61 {
+			t.Errorf("%s: zoom %.2f, want 1.60 (kept)", what, z)
+		}
+		after := eval[string](b, positions)
+		for _, p := range regexp.MustCompile(`\["[^"]+",-?\d+,-?\d+\]`).FindAllString(before, -1) {
+			if !strings.Contains(after, p) {
+				t.Errorf("%s: node moved: %s", what, p)
+			}
+		}
+	}
+	b.run(chromedp.Evaluate(`void `+cy+`.zoom({ level: 1.6, renderedPosition: { x: 200, y: 200 } })`, nil))
+
+	// Open a neighbor from the graph.
+	before := eval[string](b, positions)
+	peer := eval[string](b, cy+`.nodes().filter((n) => n.data('kind') !== 'count' && !n.hasClass('current'))[0].id()`)
+	b.run(chromedp.Evaluate(`void `+cy+`.getElementById('`+peer+`').emit('tap')`, nil))
+	b.waitFor("opened", `document.querySelector('#instance-panel .instance[data-object="`+peer+`"]')`)
+	b.settled()
+	b.run(chromedp.Sleep(400 * time.Millisecond)) // the pan to it
+	kept("opening "+peer, before)
+	if !eval[bool](b, `(() => { const p = `+cy+`.getElementById('`+peer+`').renderedPosition(); return p.x > 0 && p.y > 0 && p.x < `+cy+`.width() && p.y < `+cy+`.height(); })()`) {
+		t.Errorf("%s is not in view after opening it", peer)
+	}
+
+	// Add an edge from the panel's list.
+	before = eval[string](b, positions)
+	n := eval[int](b, cy+`.nodes().length`)
+	if eval[bool](b, `!!document.querySelector('#instance-panel .add-edge:not(.on)')`) {
+		b.run(chromedp.Click(`#instance-panel .add-edge:not(.on)`, chromedp.ByQuery))
+		b.waitFor("edge added", cy+`.nodes().length >= `+fmt.Sprint(n))
+		b.run(chromedp.Sleep(300 * time.Millisecond)) // the old re-layout ran 120ms later
+		kept("adding an edge", before)
+	}
+	b.checkClean("instance graph keeps its view")
+}
+
+// TestBrowserExploreTypeGraphKeepsZoom: choosing a type (a node, an edge, a
+// chip) or reopening the side panel keeps the type graph's zoom; the chosen
+// type comes into view.
+func TestBrowserExploreTypeGraphKeepsZoom(t *testing.T) {
+	x := newTestExplorer(t)
+	b := newBrowser(t, x)
+	b.open("~/explore")
+	const cy = `document.querySelector('#schema-canvas')._cyreg.cy`
+	b.waitFor("type graph", `document.querySelector('#schema-canvas')._cyreg?.cy?.nodes().length > 0`)
+	b.settled()
+	b.run(chromedp.Evaluate(`void `+cy+`.zoom({ level: 1.7, renderedPosition: { x: 100, y: 100 } })`, nil))
+	// The chosen type is inside the canvas (its middle, rendered).
+	inView := func(typ string) bool {
+		return eval[bool](b, `(() => { const p = `+cy+`.getElementById('`+typ+`').renderedPosition(); return p.x > 0 && p.y > 0 && p.x < `+cy+`.width() && p.y < `+cy+`.height(); })()`)
+	}
+	check := func(what, typ string) {
+		t.Helper()
+		b.waitFor(what, `document.querySelector('#type-panel [data-selected-type="`+typ+`"]')`)
+		b.settled()
+		if z := eval[float64](b, cy+`.zoom()`); z < 1.69 || z > 1.71 {
+			t.Errorf("%s: zoom %.2f, want 1.70 (kept)", what, z)
+		}
+		if !inView(typ) {
+			t.Errorf("%s: %s is not in view", what, typ)
+		}
+	}
+	b.run(chromedp.Evaluate(`void `+cy+`.getElementById('folder').emit('tap')`, nil))
+	check("node", "folder")
+	b.run(chromedp.Evaluate(`void `+cy+`.edges('[target = "document"]')[0].emit('tap')`, nil))
+	check("edge", "document")
+	b.run(chromedp.Click(`.type-chip[data-type="group"]`, chromedp.ByQuery))
+	check("chip", "group")
+	// Collapsing the side panel and reopening it (a node tap does) keeps it too.
+	b.run(chromedp.Evaluate(`document.activeElement.blur()`, nil), chromedp.KeyEvent("t"))
+	b.waitFor("collapsed", `document.querySelector('.explore-layout').classList.contains('side-collapsed')`)
+	b.run(chromedp.Evaluate(`void `+cy+`.getElementById('user').emit('tap')`, nil))
+	check("node, reopening the panel", "user")
+	b.checkClean("type graph zoom")
 }
 
 // TestBrowserExploreTabPerType: the instance panel reopens on the tab last
