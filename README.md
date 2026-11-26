@@ -180,6 +180,17 @@ Explain a check from the terminal:
   is resizable and collapsible the same way (`T` or **Panel**; it reopens when
   you open a type or instance from the graph), and instance details are split
   into Edges / Derived / Incoming tabs (Incoming loads when opened).
+- **Expanding the instance graph in place.** Shift+click a node (or
+  right-click it: Open, Expand here, Expand +1 hop, Remove) to add its edges
+  without opening it; **+1 hop** (the canvas bar, or **Expand neighbors** in
+  the instance panel) expands the open instance's neighbors that are not
+  expanded yet, then the next ring. Nodes already placed stay put; a dashed
+  outline marks instances not expanded yet; the line over the graph says what
+  was added, offers **Undo**, and says when a limit cut an expansion short.
+  Expansions are bounded per person by `graph_expansion` (instances per
+  expansion, a `max_reads` read budget, a `timeout`, one at a time,
+  `per_minute`), with higher limits for admins under `graph_expansion.admin`
+  (still capped); `enabled: false` turns it off.
 - **Changes** (the Changes tab): tuple writes and deletes from OpenFGA's
   change log, for live, the last 15 minutes to 7 days, or between two times
   (in the browser's timezone), optionally for one type; 50 per page, oldest

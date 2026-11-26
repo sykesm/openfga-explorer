@@ -1,5 +1,5 @@
 {{define "explore"}}{{template "head" .}}
-<div class="explore-layout" data-large="{{.Data.Large}}"{{with .Data.Modules}} data-modules="{{range $i, $m := .}}{{if $i}},{{end}}{{$m.Name}}{{end}}"{{end}}>
+<div class="explore-layout" data-large="{{.Data.Large}}" data-expand-max="{{.Data.ExpandMax}}"{{with .Data.Modules}} data-modules="{{range $i, $m := .}}{{if $i}},{{end}}{{$m.Name}}{{end}}"{{end}}>
   <section class="canvas-wrap">
     <div class="canvas-bar">
       <fga-tabs class="seg" id="graph-tabs" role="tablist" aria-label="Graph">
@@ -9,6 +9,7 @@
       <span class="spacer"></span>
       {{if .Data.Modules}}<label class="sm color-mod" title="Color each type by the module that defines it"><input type="checkbox" data-act="color-modules"> color by module</label>{{end}}
       <button type="button" class="ghost hidden" data-act="show-all-types" title="Show every type, not just the selected type's neighborhood">{{if .Data.Large}}Draw all types{{else}}Show all types{{end}}</button>
+      {{if .Data.ExpandMax}}<button type="button" class="ghost" data-act="expand-hop" title="Instance graph: expand the open instance's neighbors that are not expanded yet (up to {{.Data.ExpandMax}}); again for the next ring. Shift+click a node to expand just it, or right-click it for more.">+1 hop</button>{{end}}
       <button type="button" class="ghost" data-act="fit">Fit</button>
       <button type="button" class="ghost" data-act="relayout">Re-layout</button>
       <button type="button" class="ghost" data-act="clear" title="Remove all instances from the graph">Clear instances</button>
@@ -28,7 +29,17 @@
     </div>
     <button type="button" class="panel-rail" data-act="toggle-side" aria-controls="explore-side" aria-expanded="true" title="Show the side panel (T)">‹ Types &amp; instances</button>
     <div class="canvas-stack">
+      <p id="instance-note" class="canvas-note" role="status" hidden><span class="note-text"></span> <button type="button" class="linkish sm" data-act="undo-expand" hidden>Undo</button></p>
       <div id="instance-canvas" class="canvas" role="tabpanel" hidden aria-labelledby="tab-instances"></div>
+      <div id="node-menu" class="node-menu" role="menu" aria-labelledby="node-menu-title" hidden>
+        <p class="nm-title" id="node-menu-title"></p>
+        <button type="button" role="menuitem" data-node-act="open">Open in panel <kbd>click</kbd></button>
+        {{if .Data.ExpandMax}}
+        <button type="button" role="menuitem" data-node-act="expand">Expand here <kbd>⇧ click</kbd></button>
+        <button type="button" role="menuitem" data-node-act="hop">Expand +1 hop</button>
+        {{end}}
+        <button type="button" role="menuitem" data-node-act="remove">Remove from graph</button>
+      </div>
       <div id="instance-empty" class="canvas-empty hidden" role="status">
         <h2>The instance graph is empty</h2>
         <p class="ce-msg">It fills in as you open instances: each one adds its edges, and clicking a node walks to it.</p>
@@ -44,8 +55,9 @@
     </div>
     <div class="legend hidden" data-for="instances">
       <span>edges point from user → object</span>
-      <span><i class="nd count"></i>high-cardinality relation (click to choose edges)</span>
-      <span>click a node to explore it</span>
+      <span><i class="nd count"></i>many edges (click to choose)</span>
+      <span>{{if .Data.ExpandMax}}click: open · ⇧ click: expand · right-click: more{{else}}click a node to explore it{{end}}</span>
+      <span><i class="nd expanded"></i>expanded / <i class="nd unexpanded"></i>not yet</span>
     </div>
   </section>
   <div class="side-resizer" role="separator" aria-orientation="vertical" aria-label="resize panel" tabindex="0"></div>
@@ -161,6 +173,7 @@
   <div class="actions inst-nav">
     <button type="button" class="ghost sm" data-act="show-type" aria-controls="explore-types" aria-expanded="false" title="Show the type section: its relations, the type list and the instance picker">Type {{.Type.Name}}</button>
     <button type="button" class="ghost sm" data-act="change-instance" title="Pick another instance">Pick another…</button>
+    {{if .ExpandMax}}<button type="button" class="ghost sm" data-act="expand-hop" title="Add this instance's neighbors' edges to the instance graph, without leaving this panel (+1 hop); again for the next ring">Expand neighbors</button>{{end}}
     <a class="btn sm" href="{{$b}}/check?{{query "object" .Object}}">Check access…</a>
   </div>
   {{if not .Exists}}<div class="alert warn">No tuples reference <code>{{.Object}}</code>. It may not exist, or its ID may be normalized differently.</div>{{end}}

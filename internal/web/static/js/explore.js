@@ -4,7 +4,7 @@
 import { $, $$, article, base, baseOpts, categoricalColor, dagre, fitCapped, labelWidth, load, pal, scrollBehavior, session, stateKey, store, typeColor } from './core.js';
 import { initEdgeLists } from './edgelist.js';
 import { picker } from './pickers.js';
-import { onKey } from './shortcuts.js';
+import { onEscape, onKey } from './shortcuts.js';
 import { initTypeFinder } from './typefinder.js';
 import { initResizer, tabsOf } from './ui.js';
 
@@ -30,8 +30,18 @@ const updatePrompt = () => {
   const el = $('#schema-empty');
   if (el) el.hidden = !(promptWanted && onSchema);
   const note = $('#schema-note');
-  if (note) note.hidden = !(noteText && onSchema);
+  if (note) showNote(note, !!noteText && onSchema, schemaCy);
 };
+/**
+ * Shows or hides a note over a graph. The note moves the graph's canvas, so
+ * the graph re-measures it: clicks would otherwise land a line off.
+ * @param {HTMLElement} note @param {boolean} show @param {any} cy
+ */
+function showNote(note, show, cy) {
+  if (note.hidden === !show) return;
+  note.hidden = !show;
+  cy?.resize();
+}
 /** @param {boolean} on */
 const schemaPrompt = (on) => { promptWanted = on; updatePrompt(); };
 // Types shown around a hub at most (see focusType).
@@ -104,8 +114,11 @@ function instStyle(p) {
       shape: 'round-rectangle', label: 'data(label)', 'font-size': 11, color: p.fg, 'text-valign': 'center',
       'background-color': p.panel, 'border-width': 2, 'border-color': (/** @type {any} */ e) => typeColor(e.data('type')),
       width: (/** @type {any} */ e) => labelWidth(e.data('label')), height: 28, 'text-wrap': 'ellipsis', 'text-max-width': 260,
+      'border-style': 'dashed', // not expanded yet: its own edges are not on the graph
     } },
-    { selector: 'node[?focus]', style: { 'border-width': 4 } },
+    // Expanded: opened in the panel (focus) or expanded in place.
+    { selector: 'node[?focus], node.expanded', style: { 'border-width': 3, 'border-style': 'solid' } },
+    { selector: 'node.fresh', style: { 'border-color': p.accent } },
     { selector: 'node.current', style: { 'background-color': (/** @type {any} */ e) => typeColor(e.data('type')), color: '#fff' } },
     { selector: 'node[kind = "count"]', style: {
       shape: 'round-tag', 'border-style': 'dashed', 'border-color': p.muted, color: p.muted, 'font-style': 'italic',
@@ -152,6 +165,7 @@ function canvasShown(which) {
   $('#explore-side')?.classList.toggle('on-schema', which === 'schema');
   setInstanceFocus(which === 'instances' && !!$('#instance-panel .instance'));
   $$('.canvas-wrap .legend').forEach((l) => l.classList.toggle('hidden', l.dataset.for !== which));
+  $('#instance-note')?.classList.toggle('hidden', which !== 'instances');
   const cy = which === 'schema' ? schemaCy : instCy;
   if (cy) { cy.resize(); fitCapped(cy); }
   updateEmpty();
@@ -319,6 +333,7 @@ function applyPatch(patch) {
     }
     instCy.nodes().removeClass('current');
     if (patch.focus) instCy.getElementById(patch.focus).addClass('current');
+    if (patch.focus) markExpanded(patch.focus);
   });
   updateCount();
   markEdgeLists();
@@ -411,6 +426,322 @@ function graphChanged({ show = false } = {}) {
  */
 function markEdgeLists() {
   for (const list of /** @type {FgaEdgeList[]} */ ($$('fga-edge-list:defined'))) list.mark(onGraph);
+}
+
+// ---- expanding the instance graph in place (api/instance-graph) ----
+// Expanding a node adds its edges (both directions, as its panel shows them)
+// without opening it: the panel and the nodes already placed stay put.
+
+const MAX_GRAPH_NODES = 500; // no expanding past this
+/** Instances one expansion may read for this person (graph_expansion); 0: off. */
+const expandMax = () => Number($('.explore-layout')?.dataset.expandMax || 0);
+/** One expansion at a time (the server allows one per person). */
+let expanding = false;
+/** @param {boolean} on */
+function setExpanding(on) {
+  expanding = on;
+  for (const b of /** @type {HTMLButtonElement[]} */ ($$('[data-act="expand-hop"]'))) b.disabled = on;
+}
+/** The last expansion, for Undo. @type {{ added: string[], expanded: string[] } | null} */
+let lastExpand = null;
+
+/** The instance a node stands for ("group:eng" for "group:eng#member"). @param {string} id */
+const objectOf = (id) => {
+  const colon = id.indexOf(':');
+  const hash = id.lastIndexOf('#');
+  return hash > colon ? id.slice(0, hash) : id;
+};
+/** @param {any} n */
+const isExpanded = (n) => n.hasClass('expanded') || !!n.data('focus');
+/** @param {any} n */
+const isInstance = (n) => n.data('kind') !== 'count';
+
+/** Marks an instance (and its usersets' nodes) as expanded. @param {string} obj */
+function markExpanded(obj) {
+  instCy.nodes().filter((/** @type {any} */ n) => isInstance(n) && objectOf(n.id()) === obj).addClass('expanded');
+}
+
+/**
+ * Says what the graph did, in a line over the instance graph.
+ * @param {string} text
+ * @param {{ undo?: boolean }} [opts] undo: offer to undo the last expansion
+ */
+function graphNote(text, { undo = false } = {}) {
+  const note = $('#instance-note');
+  if (!note) return;
+  $('.note-text', note).textContent = text;
+  $('[data-act="undo-expand"]', note).hidden = !undo;
+  showNote(note, !!text, instCy);
+}
+
+/**
+ * Places new nodes in a ring around a node already on the graph, so the
+ * existing layout stays as it is (Re-layout tidies everything).
+ * @param {any} added new nodes
+ */
+function placeNear(added) {
+  /** @type {Map<string, any[]>} anchor id → the new nodes placed around it */
+  const around = new Map();
+  const before = instCy.nodes().not(added);
+  const placed = new Set(before.map((/** @type {any} */ n) => n.id()));
+  /** @type {any[]} */
+  let todo = added.toArray();
+  /** @type {any[]} not connected to anything placed */
+  let loose = [];
+  while (todo.length) {
+    /** @type {any[]} */
+    const later = [];
+    for (const n of todo) {
+      const anchor = n.neighborhood().nodes().filter((/** @type {any} */ m) => placed.has(m.id()))[0];
+      if (!anchor) { later.push(n); continue; }
+      if (!around.has(anchor.id())) around.set(anchor.id(), []);
+      around.get(anchor.id())?.push(n);
+      placed.add(n.id());
+    }
+    if (later.length === todo.length) { loose = later; break; }
+    todo = later;
+  }
+  // Boxes already taken; each new node moves out until it is clear of them.
+  /** @type {{ x: number, y: number, w: number, h: number }[]} */
+  const taken = before.map((/** @type {any} */ n) => ({ ...n.position(), w: n.outerWidth(), h: n.outerHeight() }));
+  const clear = (/** @type {{ x: number, y: number, w: number, h: number }} */ b) =>
+    taken.every((t) => Math.abs(t.x - b.x) > (t.w + b.w) / 2 + 12 || Math.abs(t.y - b.y) > (t.h + b.h) / 2 + 12);
+  // The graph's middle: new nodes fan out on the side of their anchor facing away from it.
+  const mid = before.length ? before.boundingBox() : { x1: 0, x2: 0, y1: 0, y2: 0 };
+  const cx = (mid.x1 + mid.x2) / 2;
+  const cy = (mid.y1 + mid.y2) / 2;
+  for (const [id, nodes] of around) {
+    const a = instCy.getElementById(id).position();
+    const away = Math.hypot(a.x - cx, a.y - cy) < 1 ? -Math.PI / 2 : Math.atan2(a.y - cy, a.x - cx);
+    const spread = Math.min(2 * Math.PI, 0.45 * nodes.length);
+    nodes.forEach((n, i) => {
+      const angle = away - spread / 2 + (spread * (i + 0.5)) / nodes.length;
+      const box = { x: 0, y: 0, w: n.outerWidth(), h: n.outerHeight() };
+      for (let r = 130, tries = 0; tries < 16; r += 45, tries++) {
+        box.x = a.x + r * Math.cos(angle);
+        box.y = a.y + r * Math.sin(angle);
+        if (clear(box)) break;
+      }
+      n.position({ x: box.x, y: box.y });
+      taken.push(box);
+    });
+  }
+  // Anything not connected to the graph goes in a column to its right.
+  loose.forEach((n, i) => n.position({ x: mid.x2 + 160, y: mid.y1 + 44 * i }));
+}
+
+/**
+ * Expands instances in place: adds their edges and peers to the graph.
+ * @param {string[]} objects instances (type:id), nearest first (only the first expandMax() are read)
+ * @param {string} what for the status line ("from document:doc-0007")
+ * @param {string} [more] said after the result (e.g. that more remain)
+ */
+async function expand(objects, what, more = '') {
+  if (!instCy || !expandMax()) return;
+  showCanvas('instances');
+  if (expanding) { graphNote('Still expanding; one expansion at a time.'); return; }
+  const n = instCy.nodes().length;
+  if (n >= MAX_GRAPH_NODES) {
+    graphNote(`The graph has ${n} nodes, the most it expands to. Remove some (right-click a node), or Clear instances.`);
+    return;
+  }
+  graphNote(`Expanding ${what}…`);
+  const q = new URLSearchParams();
+  for (const o of objects.slice(0, expandMax())) q.append('object', o);
+  /** @type {{ objects: string[], incomplete?: string[], limit?: string, elements: any[], errors?: string[] }} */
+  let g;
+  setExpanding(true);
+  try {
+    const r = await fetch(`${base()}/api/instance-graph?${q}`);
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(body.error || r.statusText);
+    g = body;
+  } catch (err) {
+    graphNote(`Could not expand ${what}: ${err instanceof Error ? err.message : err}`);
+    return;
+  } finally {
+    setExpanding(false);
+  }
+  const newly = g.objects.filter((o) => !instCy.getElementById(o).hasClass('expanded'));
+  /** @type {string[]} */
+  const ids = [];
+  instCy.batch(() => {
+    for (const el of g.elements) {
+      if (instCy.getElementById(el.data.id).length) continue;
+      if (el.group === 'edges' && (!instCy.getElementById(el.data.source).length || !instCy.getElementById(el.data.target).length)) continue;
+      instCy.add(el);
+      ids.push(el.data.id);
+    }
+    g.objects.forEach(markExpanded);
+  });
+  lastExpand = { added: ids, expanded: newly };
+  const added = instCy.collection(ids.map((id) => instCy.getElementById(id)));
+  placeNear(added.nodes());
+  const nodes = added.nodes().filter(isInstance).length;
+  const counts = added.nodes().length - nodes;
+  const plural = (/** @type {number} */ k, /** @type {string} */ w) => `${k} ${w}${k === 1 ? '' : 's'}`;
+  let text = ids.length ? `Added ${plural(nodes, 'node')} and ${plural(added.edges().length, 'edge')} ${what}.` : `Nothing new ${what}: its edges are already on the graph.`;
+  if (counts) text += ` ${plural(counts, 'relation')} with many edges ${counts === 1 ? 'is' : 'are'} shown as a count (click it to choose edges).`;
+  if (g.incomplete?.length) {
+    // Not marked expanded, so +1 hop picks them up again.
+    text += ` ${plural(g.incomplete.length, 'instance')} ${g.incomplete.length === 1 ? 'was' : 'were'} only partly read: ${g.limit} ran out (${g.incomplete.join(', ')}); +1 hop again to continue.`;
+  }
+  if (g.errors?.length) text += ` Could not read: ${g.errors.join('; ')}.`;
+  graphNote(text + (more ? ` ${more}` : ''), { undo: ids.length > 0 || newly.length > 0 });
+  // New nodes stand out for a moment; bring them into view if they are not.
+  added.nodes().addClass('fresh');
+  setTimeout(() => added.nodes().removeClass('fresh'), 2000);
+  const view = instCy.extent();
+  const box = added.nodes().boundingBox();
+  if (added.nodes().length && (box.x1 < view.x1 || box.x2 > view.x2 || box.y1 < view.y1 || box.y2 > view.y2)) {
+    instCy.stop(true); // a centering still running would undo the fit
+    fitCapped(instCy, added.union(added.neighborhood()).union(instCy.nodes('.current')));
+  }
+  updateCount();
+  markEdgeLists();
+  saveExplore();
+}
+
+/** Expands one node in place. @param {any} n */
+function expandNode(n) {
+  if (!isInstance(n)) return;
+  expand([objectOf(n.id())], `from ${n.data('label')}`);
+}
+
+/**
+ * One more hop around a node: expands the nearest instances not expanded
+ * yet. From an expanded node, those are its neighbors; when they are all
+ * expanded, the ring beyond them; and so on. A node not expanded yet is
+ * expanded first.
+ * @param {any} start
+ */
+function expandHop(start) {
+  if (!start?.length || !isInstance(start)) return;
+  const label = start.data('label');
+  if (!isExpanded(start)) { expandNode(start); return; }
+  /** @type {string[]} */
+  const frontier = [];
+  const seen = new Set([start.id()]);
+  let ring = [start];
+  while (ring.length) {
+    /** @type {any[]} */
+    const next = [];
+    for (const x of ring) {
+      for (const y of x.neighborhood().nodes().filter(isInstance)) {
+        if (seen.has(y.id())) continue;
+        seen.add(y.id());
+        if (isExpanded(y)) next.push(y);
+        else if (!frontier.includes(objectOf(y.id()))) frontier.push(objectOf(y.id()));
+      }
+    }
+    if (frontier.length) break; // the nearest ring that has unexpanded instances
+    ring = next;
+  }
+  if (!frontier.length) { graphNote(`Everything connected to ${label} on the graph is expanded.`); return; }
+  const take = frontier.slice(0, expandMax());
+  const more = frontier.length > take.length ? `Expanded ${take.length} of ${frontier.length} neighbors; +1 hop again for more.` : '';
+  expand(take, `around ${label}`, more);
+}
+
+/** +1 hop around the open instance (the canvas bar and the instance panel). */
+function hopFromOpen() {
+  const obj = $('#instance-panel .instance')?.dataset.object;
+  const n = obj && instCy?.getElementById(obj);
+  if (n?.length) { expandHop(n); return; }
+  showCanvas('instances');
+  graphNote('Open an instance first (click a node, or pick one on the right); +1 hop then expands around it. Shift+click a node to expand just that node.');
+}
+
+/** Undoes the last expansion: removes what it added. */
+function undoExpand() {
+  if (!lastExpand || !instCy) return;
+  const { added, expanded } = lastExpand;
+  lastExpand = null;
+  instCy.batch(() => {
+    instCy.collection(added.map((id) => instCy.getElementById(id))).remove();
+    for (const o of expanded) {
+      instCy.nodes().filter((/** @type {any} */ n) => objectOf(n.id()) === o && !n.data('focus')).removeClass('expanded');
+    }
+  });
+  graphNote('');
+  updateCount();
+  markEdgeLists();
+  saveExplore();
+}
+
+/** Removes a node and its edges, and peers left with no edges (not the open instance). @param {any} n */
+function removeNode(n) {
+  const peers = n.neighborhood().nodes();
+  n.remove();
+  const anchor = $('#instance-panel .instance')?.dataset.object;
+  peers.forEach((/** @type {any} */ p) => { if (p.id() !== anchor && !p.hasClass('current') && p.connectedEdges().length === 0) p.remove(); });
+  lastExpand = null;
+  graphNote('');
+  updateCount();
+  markEdgeLists();
+  saveExplore();
+}
+
+// ---- the node menu (right-click or long-press a node) ----
+
+/** @type {any} the node the menu is for */
+let menuNode = null;
+
+/** @param {any} n @param {{ x: number, y: number }} at page (client) coordinates */
+function openNodeMenu(n, at) {
+  const menu = $('#node-menu');
+  if (!menu || !isInstance(n)) return;
+  menuNode = n;
+  $('.nm-title', menu).textContent = n.data('label');
+  menu.hidden = false;
+  const r = menu.getBoundingClientRect();
+  menu.style.left = `${Math.min(at.x, window.innerWidth - r.width - 8)}px`;
+  menu.style.top = `${Math.min(at.y, window.innerHeight - r.height - 8)}px`;
+  $('[role="menuitem"]', menu)?.focus();
+}
+
+function closeNodeMenu() {
+  const menu = $('#node-menu');
+  if (!menu || menu.hidden) return;
+  menu.hidden = true;
+  menuNode = null;
+}
+
+/** @param {string} act */
+function nodeAction(act) {
+  const n = menuNode;
+  closeNodeMenu();
+  if (!n || n.removed()) return;
+  if (act === 'open') { toggleSide(false); loadInstance(objectOf(n.id())); }
+  else if (act === 'expand') expandNode(n);
+  else if (act === 'hop') expandHop(n);
+  else if (act === 'remove') removeNode(n);
+}
+
+function initNodeMenu() {
+  const menu = $('#node-menu');
+  if (!menu) return;
+  menu.addEventListener('click', (e) => {
+    const b = e.target instanceof Element ? e.target.closest('[data-node-act]') : null;
+    if (b instanceof HTMLElement) nodeAction(b.dataset.nodeAct || '');
+  });
+  // ↑/↓ move between items, Escape or Tab closes (WAI-ARIA menu).
+  menu.addEventListener('keydown', (e) => {
+    const items = $$('[role="menuitem"]', menu);
+    const i = items.indexOf(/** @type {HTMLElement} */ (document.activeElement));
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      items[(i + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length].focus();
+    } else if (e.key === 'Escape' || e.key === 'Tab') {
+      e.preventDefault();
+      e.stopPropagation();
+      closeNodeMenu();
+    }
+  });
+  document.addEventListener('pointerdown', (e) => { if (!(e.target instanceof Node && menu.contains(e.target))) closeNodeMenu(); }, true);
+  onEscape(closeNodeMenu);
+  // The browser's own menu would cover ours.
+  $('#instance-canvas')?.addEventListener('contextmenu', (e) => e.preventDefault());
 }
 
 // ---- instance panel tabs (Edges / Derived / Incoming / Access) ----
@@ -564,13 +895,16 @@ function onClick(e) {
     return;
   }
   if (t.closest('#schema-empty [data-act="show-all-types"]')) { showAllTypes(); return; }
+  if (t.closest('#instance-panel [data-act="expand-hop"]')) { hopFromOpen(); return; }
+  if (t.closest('[data-act="undo-expand"]')) { undoExpand(); return; }
   const act = t.closest('.canvas-bar [data-act]');
   if (act instanceof HTMLElement) {
     const cy = activeCy();
     switch (act.dataset.act) {
       case 'fit': fitCapped(cy); break;
       case 'relayout': relayout(cy); break;
-      case 'clear': instCy.elements().remove(); graphChanged(); break;
+      case 'clear': instCy.elements().remove(); lastExpand = null; graphNote(''); graphChanged(); break;
+      case 'expand-hop': hopFromOpen(); break;
       case 'reset-explore': session.del(stateKey('explore')); location.assign(`${base()}/explore`); break;
       case 'show-all-types': showAllTypes(); break;
       case 'toggle-side': toggleSide(); break;
@@ -598,13 +932,26 @@ export function initExplore() {
   const p = pal();
   instCy = cytoscape({ container: $('#instance-canvas'), elements: [], style: instStyle(p), ...baseOpts });
   if (!customElements.get('fga-graph-patch')) customElements.define('fga-graph-patch', FgaGraphPatch);
+  // Click opens a node; Shift+click expands it in place; right-click or a
+  // long press opens its menu (and the tap that ends a long press does nothing).
+  let heldAt = 0;
+  /** @param {any} e @returns {{ x: number, y: number }} where the menu opens */
+  const menuAt = (e) => {
+    const r = instCy.container().getBoundingClientRect();
+    return { x: r.left + e.renderedPosition.x, y: r.top + e.renderedPosition.y };
+  };
+  instCy.on('cxttap', 'node', (/** @type {any} */ e) => openNodeMenu(e.target, menuAt(e)));
+  instCy.on('taphold', 'node', (/** @type {any} */ e) => { heldAt = Date.now(); openNodeMenu(e.target, menuAt(e)); });
   instCy.on('tap', 'node', (/** @type {any} */ e) => {
+    if (Date.now() - heldAt < 800) return;
     const d = e.target.data();
+    if (e.originalEvent?.shiftKey && d.kind !== 'count' && expandMax()) { expandNode(e.target); return; }
     // Opening something from the graph fills the panel: show it.
     toggleSide(false);
     if (d.kind === 'count') openChooser(d); else loadInstance(d.id);
   });
   instCy.on('tap', 'edge', (/** @type {any} */ e) => { toggleSide(false); tapInstanceEdge(e.target); });
+  initNodeMenu();
   fetch(`${base()}/api/schema`).then((r) => r.json()).then((data) => {
     const large = isLarge();
     const toggle = $('[data-act="color-modules"]');

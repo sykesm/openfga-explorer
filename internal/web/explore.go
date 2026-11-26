@@ -41,6 +41,7 @@ func (s *Server) handleExplore(w http.ResponseWriter, r *http.Request) {
 	d := &exploreData{Type: typ, ID: q.Get("id"), Relation: q.Get("relation"), Many: len(v.Model.TypeNames) > manyTypes,
 		Large: len(v.Model.TypeNames) > largeModel}
 	d.Modules = v.Model.Modules()
+	d.ExpandMax = s.expandMax(r)
 	if d.Many {
 		d.Hubs = v.Model.HubTypes(8)
 		ext := map[string][]string{}
@@ -74,6 +75,9 @@ type exploreData struct {
 	Index []typeEntry
 	// Modules of a modular model (nil otherwise): types are grouped by module.
 	Modules []schema.Module
+	// ExpandMax is how many instances one expansion of the instance graph may
+	// read for this person (graph_expansion); 0 when expanding is off.
+	ExpandMax int
 }
 
 type typeEntry struct {
@@ -273,6 +277,8 @@ type instancePanel struct {
 	HasIncoming bool
 	// HasAccess offers "what can this access?" (admins, live queries enabled).
 	HasAccess bool
+	// ExpandMax: as in exploreData (the panel offers "Expand neighbors").
+	ExpandMax int
 }
 
 func (s *Server) handleInstance(w http.ResponseWriter, r *http.Request) {
@@ -307,6 +313,7 @@ func (s *Server) handleInstance(w http.ResponseWriter, r *http.Request) {
 	}
 	p.HasIncoming = len(v.Model.IncomingFor(typ)) > 0
 	p.HasAccess = s.liveAllowed(r) && len(accessSubjects(v.Model, p.Object)) > 0
+	p.ExpandMax = s.expandMax(r)
 	if !p.Exists {
 		// Incoming edges load on demand; check existence cheaply instead.
 		p.Exists = s.exists(ctx, v, typ, id)
@@ -465,6 +472,15 @@ func (s *Server) expansionLimits(r *http.Request) config.ExpansionLimits {
 		return s.cfg.GraphExpansion.Admin
 	}
 	return s.cfg.GraphExpansion.ExpansionLimits
+}
+
+// expandMax is how many instances one expansion may read for this person,
+// or 0 when expanding is off.
+func (s *Server) expandMax(r *http.Request) int {
+	if !s.cfg.GraphExpansion.Enabled {
+		return 0
+	}
+	return s.expansionLimits(r).MaxInstances
 }
 
 // handleInstanceGraph returns the instance graph around one or more

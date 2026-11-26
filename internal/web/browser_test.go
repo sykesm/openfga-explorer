@@ -1198,6 +1198,107 @@ func TestBrowserTraceReplacedMidReplay(t *testing.T) {
 	b.checkClean("replaced mid-replay")
 }
 
+// TestBrowserExploreExpand: expanding in place (Shift+click, the node menu,
+// +1 hop) adds edges without opening anything or moving the nodes already
+// placed, says what it added, and can be undone.
+func TestBrowserExploreExpand(t *testing.T) {
+	x := newTestExplorer(t)
+	b := newBrowser(t, x)
+	b.open("~/explore?type=document&id=doc-0007")
+	b.waitFor("instance panel", `document.querySelector('#instance-panel .instance[data-object="document:doc-0007"]')`)
+	b.settled()
+	const cy = `document.querySelector('#instance-canvas')._cyreg.cy`
+	const count = cy + `.nodes().length`
+	// Where a node is on the page, for real mouse clicks.
+	at := func(id string) (float64, float64) {
+		p := eval[[]float64](b, `(() => { const n = `+cy+`.getElementById('`+id+`'); const r = `+cy+`.container().getBoundingClientRect(); const q = n.renderedPosition(); return [r.left + q.x, r.top + q.y]; })()`)
+		return p[0], p[1]
+	}
+	positions := `JSON.stringify(` + cy + `.nodes().map((n) => [n.id(), Math.round(n.position('x')), Math.round(n.position('y'))]))`
+	note := `document.querySelector('#instance-note .note-text').textContent`
+
+	// Shift+click a peer: its edges are added; nothing else changes.
+	peer := eval[string](b, cy+`.nodes().filter((n) => n.data('kind') !== 'count' && !n.data('focus') && !n.hasClass('expanded'))[0].id()`)
+	before, placed := eval[int](b, count), eval[string](b, positions)
+	px, py := at(peer)
+	b.run(chromedp.MouseClickXY(px, py, chromedp.ButtonModifiers(input.ModifierShift)))
+	b.waitFor("expanded", note+`.startsWith('Added') || `+note+`.startsWith('Nothing new')`)
+	if !eval[bool](b, cy+`.getElementById('`+peer+`').hasClass('expanded')`) {
+		t.Errorf("%s is not marked expanded", peer)
+	}
+	if got := eval[string](b, `document.querySelector('#instance-panel .instance').dataset.object`); got != "document:doc-0007" {
+		t.Errorf("Shift+click opened %s", got)
+	}
+	var kept []any
+	for _, p := range regexp.MustCompile(`\["[^"]+",-?\d+,-?\d+\]`).FindAllString(placed, -1) {
+		kept = append(kept, p)
+	}
+	after := eval[string](b, positions)
+	for _, p := range kept {
+		if !strings.Contains(after, p.(string)) {
+			t.Errorf("node moved: %s", p)
+		}
+	}
+	grown := eval[int](b, count)
+	t.Logf("Shift+click %s: %d → %d nodes: %s", peer, before, grown, eval[string](b, note))
+
+	// Undo puts the graph back.
+	if grown > before {
+		b.run(chromedp.Click(`#instance-note [data-act="undo-expand"]`, chromedp.ByQuery))
+		b.waitFor("undone", count+` === `+fmt.Sprint(before))
+		if eval[bool](b, cy+`.getElementById('`+peer+`').hasClass('expanded')`) {
+			t.Errorf("%s still marked expanded after Undo", peer)
+		}
+	}
+
+	// The panel's "Expand neighbors" (+1 hop) expands the open instance's neighbors.
+	b.run(chromedp.Click(`#instance-panel [data-act="expand-hop"]`, chromedp.ByQuery))
+	b.waitFor("hop", note+`.includes('around') && !`+note+`.endsWith('…')`)
+	if n := eval[int](b, cy+`.getElementById('document:doc-0007').neighborhood().nodes().filter((n) => n.data('kind') !== 'count' && !n.hasClass('expanded') && !n.data('focus')).length`); n > 0 &&
+		!strings.Contains(eval[string](b, note), "again for more") {
+		t.Errorf("%d neighbors not expanded after +1 hop: %s", n, eval[string](b, note))
+	}
+
+	// Right-click a node: its menu, by keyboard: the last item removes it.
+	// A leaf at the top of the graph, clear of other nodes' edges.
+	victim := eval[string](b, cy+`.nodes().filter((n) => n.data('kind') !== 'count' && !n.hasClass('current') && n.degree() === 1).sort((a, b) => a.renderedPosition('y') - b.renderedPosition('y'))[0].id()`)
+	vx, vy := at(victim)
+	b.run(chromedp.MouseClickXY(vx, vy, chromedp.Button("right")))
+	b.waitFor("menu", `!document.querySelector('#node-menu').hidden && document.activeElement?.matches('#node-menu [role="menuitem"]')`)
+	if got := eval[string](b, `document.querySelector('#node-menu .nm-title').textContent`); got == "" {
+		t.Error("the menu does not name its node")
+	}
+	b.run(chromedp.KeyEvent(kb.ArrowUp), chromedp.KeyEvent(kb.Enter)) // ↑ from the first wraps to the last
+	b.waitFor("removed", `!`+cy+`.getElementById('`+victim+`').length && document.querySelector('#node-menu').hidden`)
+	b.checkClean("expand")
+}
+
+// TestBrowserExploreExpandLimits: an expansion a limit cuts short says so;
+// with expanding turned off, its controls are not offered.
+func TestBrowserExploreExpandLimits(t *testing.T) {
+	x := explorerFor(t, fgatest.Seed(t), func(c *config.Config) { c.GraphExpansion.MaxReads = 3 })
+	b := newBrowser(t, x)
+	b.open("~/explore?type=document&id=doc-0007")
+	b.waitFor("instance panel", `document.querySelector('#instance-panel .instance[data-object="document:doc-0007"]')`)
+	b.settled()
+	note := `document.querySelector('#instance-note .note-text').textContent`
+	b.run(chromedp.Click(`#instance-panel [data-act="expand-hop"]`, chromedp.ByQuery))
+	b.waitFor("hop", `!`+note+`.endsWith('…') && `+note+`.includes('around')`)
+	if got := eval[string](b, note); !strings.Contains(got, "only partly read: the read budget (3 reads) ran out") {
+		t.Errorf("a cut-short expansion: %q", got)
+	}
+	b.checkClean("expand limits")
+
+	off := explorerFor(t, fgatest.Seed(t), func(c *config.Config) { c.GraphExpansion.Enabled = false })
+	b = newBrowser(t, off)
+	b.open("~/explore?type=document&id=doc-0007")
+	b.waitFor("instance panel", `document.querySelector('#instance-panel .instance')`)
+	if n := eval[int](b, `document.querySelectorAll('[data-act="expand-hop"], [data-node-act="expand"], [data-node-act="hop"]').length`); n != 0 {
+		t.Errorf("expanding is off, but %d of its controls are offered", n)
+	}
+	b.checkClean("expand off")
+}
+
 // TestBrowserExploreTabPerType: the instance panel reopens on the tab last
 // used for that type; another type keeps its own (or the server's default).
 func TestBrowserExploreTabPerType(t *testing.T) {
