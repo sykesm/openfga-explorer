@@ -1360,6 +1360,7 @@ func TestBrowserWhoHasShowMore(t *testing.T) {
 	b := newBrowser(t, x)
 	b.open("~/explore?type=group&id=eng")
 	b.waitFor("instance panel", `document.querySelector('#instance-panel .instance[data-object="group:eng"]')`)
+	b.settled()
 	b.run(chromedp.Click(`#rel-member .whohas-d > summary`, chromedp.ByQuery))
 	b.run(chromedp.Click(`#rel-member form.whohas button[type="submit"]`, chromedp.ByQuery))
 	b.waitFor("holders", `document.querySelector('#rel-member .lu-list li')`)
@@ -1418,4 +1419,27 @@ func TestBrowserExploreSideFollowsCanvas(t *testing.T) {
 		t.Errorf("back on the instance graph: instance, types = %q", got)
 	}
 	b.checkClean("side follows canvas")
+}
+
+// Opening another instance keeps its selected tab marked: htmx's settle step
+// puts back the server's class attributes on the tabs (same ids as before).
+func TestBrowserExploreNextInstanceTabMarked(t *testing.T) {
+	x := newTestExplorer(t)
+	b := newBrowser(t, x)
+	b.open("~/explore?type=document&id=doc-0007")
+	b.waitFor("instance panel", `document.querySelector('#instance-panel .instance[data-object="document:doc-0007"]')`)
+	b.settled()
+	marked := `[...document.querySelectorAll('#instance-panel .itabs [role="tab"]')].map((t) => (t.classList.contains('on') ? '+' : '-') + t.dataset.tab + (t.getAttribute('aria-selected') === 'true' ? '*' : '')).join(' ')`
+	first := eval[string](b, marked)
+	if !strings.HasPrefix(first, "+edges* ") {
+		t.Fatalf("first instance tabs: %q", first)
+	}
+	b.run(chromedp.Evaluate(`void document.querySelector('#instance-panel a.peer[data-explore]').click()`, nil))
+	b.waitFor("next instance", `document.querySelector('#instance-panel .instance:not([data-object="document:doc-0007"])')`)
+	b.settled()
+	b.run(chromedp.Sleep(200 * time.Millisecond))
+	if got := eval[string](b, marked); !strings.Contains(got, "+") || strings.Count(got, "+") != 1 || !regexp.MustCompile(`\+\w+\*`).MatchString(got) {
+		t.Errorf("next instance tabs: %q, want the selected tab marked", got)
+	}
+	b.checkClean("next instance tab")
 }

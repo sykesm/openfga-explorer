@@ -649,6 +649,12 @@ export function exploreSwapped(t) {
  * @param {Element} t
  */
 export function exploreSettled(t) {
-  if (t.id !== 'type-panel') return;
-  updateEmpty();
+  // Settling puts back the server's class attributes on elements whose id
+  // the previous instance also had (the tabs), dropping the selected tab's
+  // mark set at swap time: mark it again.
+  if (t.id === 'instance-panel') {
+    const on = $('.itabs [aria-selected="true"]', t);
+    if (on) selectTab(on);
+  }
+  if (t.id === 'type-panel') updateEmpty();
 }
