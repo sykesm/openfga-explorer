@@ -1,6 +1,6 @@
 {{define "check"}}{{template "head" .}}{{with .Data}}
 <div class="check-layout">
-  <form id="check-form" class="check-form" hx-post="{{$.Base}}/check/run" hx-target="#check-result" hx-indicator="#check-spinner"
+  <form id="check-form" class="check-form" tabindex="-1" aria-label="Check" hx-post="{{$.Base}}/check/run" hx-target="#check-result" hx-indicator="#check-spinner"
     hx-trigger="submit{{if .AutoRun}}, load{{end}}" hx-disabled-elt="#explain-btn">
     <div class="qsummary" hidden>
       <span class="qs-text"></span>
@@ -20,32 +20,47 @@
     <details class="more-opts" {{if or .Context .Contextual}}open{{end}}>
       <summary>Context, contextual tuples &amp; walk options</summary>
       <div class="grid2">
-        <label>Request context <span class="muted">JSON — condition parameters</span>
-          <textarea name="context" rows="4" spellcheck="false" placeholder='{"current_time": "2026-11-24T12:00:00Z", "user_ip": "10.1.2.3"}'>{{.Context}}</textarea></label>
-        <label>Contextual tuples <span class="muted">one per line: user relation object [condition {json}]</span>
-          <textarea name="contextual" rows="4" spellcheck="false" placeholder="user:anne viewer document:roadmap">{{.Contextual}}</textarea></label>
+        <label><span class="opt-cap">Request context {{template "opt-q" (dict "ID" "context" "Name" "Request context")}}</span><span class="muted">JSON — condition parameters</span>
+          <textarea name="context" rows="4" spellcheck="false" aria-describedby="h-context" placeholder='{"current_time": "2026-11-24T12:00:00Z", "user_ip": "10.1.2.3"}'>{{.Context}}</textarea></label>
+        <label><span class="opt-cap">Contextual tuples {{template "opt-q" (dict "ID" "contextual" "Name" "Contextual tuples")}}</span><span class="muted">one per line: user relation object [condition {json}]</span>
+          <textarea name="contextual" rows="4" spellcheck="false" aria-describedby="h-contextual" placeholder="user:anne viewer document:roadmap">{{.Contextual}}</textarea></label>
       </div>
       <div class="opts">
-        <label title="Shortest explanation: the server's Check picks the branch that decides, and the rest are skipped (their server verdicts are still shown). Model order: branches are tried in the order the model lists them, stopping at the first that decides — what a step-by-step evaluator goes through. Every path: nothing is skipped.">Evaluation order
-          <select name="order">
+        <label><span class="opt-cap">Evaluation order {{template "opt-q" (dict "ID" "order" "Name" "Evaluation order")}}</span>
+          <select name="order" aria-describedby="h-order">
             <option value="guided" {{if eq .Order "guided"}}selected{{end}}>shortest explanation</option>
             <option value="model" {{if eq .Order "model"}}selected{{end}}>model order</option>
             <option value="all" {{if eq .Order "all"}}selected{{end}}>every path</option>
           </select></label>
-        <label>Verify steps with server Check
-          <select name="verify">
+        <label><span class="opt-cap">Verify with server Check {{template "opt-q" (dict "ID" "verify" "Name" "Verify with server Check")}}</span>
+          <select name="verify" aria-describedby="h-verify">
             <option value="all" {{if eq .Verify "all"}}selected{{end}}>every relation</option>
             <option value="root" {{if eq .Verify "root"}}selected{{end}}>root + undecided</option>
             <option value="none" {{if eq .Verify "none"}}selected{{end}}>off</option>
           </select></label>
-        <label>Consistency
-          <select name="consistency">
+        <label><span class="opt-cap">Consistency {{template "opt-q" (dict "ID" "consistency" "Name" "Consistency")}}</span>
+          <select name="consistency" aria-describedby="h-consistency">
             <option value="">minimize latency</option>
             <option value="higher" {{if eq .Consistency "higher"}}selected{{end}}>higher consistency</option>
           </select></label>
-        <label title="Maximum OpenFGA API calls for the walk (verification calls are separate)">Call budget <input type="number" name="max_calls" value="{{.MaxCalls}}" min="10" max="5000" step="10"></label>
-        <label title="Group or parent edges examined directly per step before switching to a ListObjects probe">Edges per step <input type="number" name="max_fanout" value="{{.MaxFanout}}" min="1" max="1000"></label>
-        <label title="Probe candidates (groups or parents the user belongs to) looked up per step">Probe lookups <input type="number" name="probe_limit" value="{{.ProbeLimit}}" min="1" max="1000"></label>
+        <label><span class="opt-cap">Call budget {{template "opt-q" (dict "ID" "max_calls" "Name" "Call budget")}}</span><input type="number" name="max_calls" value="{{.MaxCalls}}" min="10" max="5000" step="10" aria-describedby="h-max_calls"></label>
+        <label><span class="opt-cap">Edges per step {{template "opt-q" (dict "ID" "max_fanout" "Name" "Edges per step")}}</span><input type="number" name="max_fanout" value="{{.MaxFanout}}" min="1" max="1000" aria-describedby="h-max_fanout"></label>
+        <label><span class="opt-cap">Probe lookups {{template "opt-q" (dict "ID" "probe_limit" "Name" "Probe lookups")}}</span><input type="number" name="probe_limit" value="{{.ProbeLimit}}" min="1" max="1000" aria-describedby="h-probe_limit"></label>
+      </div>
+      <div class="opt-helps">
+        <p class="opt-help" id="h-context" hidden><b>Request context</b>: values for the parameters of conditions, as JSON (Check's <code>context</code>), for example the current time or the caller's IP address. A condition whose parameters are missing shows as “missing parameters” in the result.</p>
+        <p class="opt-help" id="h-contextual" hidden><b>Contextual tuples</b>: tuples that count for this check only, as if they were written (OpenFGA's contextual tuples). Nothing is stored. Use them to ask “what if”: would this user have access if they joined that group? They are marked “(contextual)” in the text trace.</p>
+        <p class="opt-help" id="h-order" hidden><b>Evaluation order</b>: how the walk treats the branches of a rule like <code>viewer or editor</code>.
+          <b>Shortest explanation</b> (default): the server's Check says which branches hold, the walk follows one that decides, and the others are shown as “not evaluated” with the server's verdict. Fewest calls.
+          <b>Model order</b>: branches are tried in the order the model lists them, stopping at the first that decides, as a step-by-step evaluator would. Can use many calls on deep group trees.
+          <b>Every path</b>: every branch is evaluated, so every way the user gets access is shown. Uses the most calls.</p>
+        <p class="opt-help" id="h-verify" hidden><b>Verify with server Check</b>: whether the steps the walk decides are confirmed with OpenFGA's own Check, so any difference between the walk and the server is flagged.
+          <b>Every relation</b> (default): every relation in the walk is checked. <b>Root + undecided</b>: only the overall answer and the steps the walk could not decide. <b>Off</b>: nothing is checked; the result is the walk's alone.
+          Verification calls do not count against the call budget.</p>
+        <p class="opt-help" id="h-consistency" hidden><b>Consistency</b>: sent to OpenFGA with every read and Check. <b>Minimize latency</b> (default) lets OpenFGA answer from its cache, so very recent writes may not show yet. <b>Higher consistency</b> reads the latest data, skipping the cache; slower.</p>
+        <p class="opt-help" id="h-max_calls" hidden><b>Call budget</b>: the most OpenFGA API calls the walk may make (verification calls are separate). If it runs out, the walk stops, the parts it did not reach are “undecided”, and the result offers to run again with a bigger budget.</p>
+        <p class="opt-help" id="h-max_fanout" hidden><b>Edges per step</b>: how many tuples behind one edge (the members of <code>[group#member]</code>, the parents of <code>viewer from parent</code>) the walk follows one by one. When there are more, it asks OpenFGA's ListObjects which of them the user belongs to (a “probe”) and follows only those.</p>
+        <p class="opt-help" id="h-probe_limit" hidden><b>Probe lookups</b>: how many of the groups or parents a probe finds are looked up in one step. If the user belongs to more, the rest are not looked up and the step can be left undecided; the step's details say how many were looked up.</p>
       </div>
     </details>
   </form>
@@ -154,3 +169,6 @@
 <script type="application/json" id="trace-data">{{json .Graph}}</script>
 <script type="text/plain" id="trace-plain">{{.Text}}</script>
 {{end}}{{end}}
+
+{{/* A "?" button that shows an option's help (#h-ID) under the options. */}}
+{{define "opt-q"}}<button type="button" class="opt-q" data-act="opt-help" aria-controls="h-{{.ID}}" aria-expanded="false" aria-label="What is “{{.Name}}”?" title="What is “{{.Name}}”?">?</button>{{end}}

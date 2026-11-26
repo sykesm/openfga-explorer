@@ -64,9 +64,31 @@ function collapseForm(on) {
   if (summary) $('.qsummary .qs-text', f).textContent = summary;
 }
 
+/**
+ * Re-opens the form for editing. Focus goes to the form itself, not the User
+ * box: focusing a picker opens its instance list over the form ("/" does
+ * that on purpose). Tab moves into the fields.
+ */
 function editCheck() {
   collapseForm(false);
-  $('#check-form .picker-q')?.focus();
+  form()?.focus();
+}
+
+/**
+ * Shows (or hides) an option's help under the options; one at a time.
+ * @param {HTMLElement} btn
+ */
+function toggleOptionHelp(btn) {
+  const help = document.getElementById(btn.getAttribute('aria-controls') || '');
+  if (!help) return;
+  const open = help.hidden;
+  for (const b of $$('[data-act="opt-help"]')) {
+    const h = document.getElementById(b.getAttribute('aria-controls') || '');
+    if (h) h.hidden = true;
+    b.setAttribute('aria-expanded', 'false');
+  }
+  help.hidden = !open;
+  btn.setAttribute('aria-expanded', String(open));
 }
 
 /** Re-runs the check with a field changed. @param {(f: HTMLFormElement) => void} change */
@@ -154,6 +176,7 @@ function onClick(e) {
         }
       });
       break;
+    case 'opt-help': toggleOptionHelp(act); break;
     case 'edit-check': editCheck(); break;
     case 'reset-check': session.del(stateKey('check')); location.assign(`${base()}/check`); break;
     default:

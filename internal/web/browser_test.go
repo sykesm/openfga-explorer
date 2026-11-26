@@ -1063,3 +1063,87 @@ func TestBrowserExploreTypeGraphKeepsDetails(t *testing.T) {
 	b.waitFor("picker on /", `document.activeElement?.matches('#type-panel .picker-q')`)
 	b.checkClean("type graph keeps details")
 }
+
+// TestBrowserCheckEditKeepsPickerClosed: "Edit" (and "e") re-opens the
+// form without opening an instance list over it; focus starts at the form,
+// and "/" still opens the picker.
+func TestBrowserCheckEditKeepsPickerClosed(t *testing.T) {
+	x := newTestExplorer(t)
+	b := newBrowser(t, x)
+	b.open(`~/check?user=user:eng-002&relation=can_view&object=document:doc-0007&context=` +
+		`%7B%22current_time%22%3A%222026-11-24T12%3A00%3A00Z%22%2C%22user_ip%22%3A%2210.1.2.3%22%7D`)
+	b.waitFor("collapsed form", `document.querySelector('#check-form').classList.contains('collapsed')`)
+	b.settled()
+	const listOpen = `[...document.querySelectorAll('#check-form .picker-results')].some((r) => r.children.length > 0 && r.offsetParent)`
+	for _, how := range []string{"button", "key"} {
+		if how == "button" {
+			b.run(chromedp.Click(`#check-form [data-act="edit-check"]`, chromedp.ByQuery))
+		} else {
+			b.run(chromedp.Evaluate(`document.querySelector('#check-form').classList.add('collapsed'); document.activeElement.blur()`, nil), chromedp.KeyEvent("e"))
+		}
+		b.waitFor("form expanded", `!document.querySelector('#check-form').classList.contains('collapsed')`)
+		b.settled()
+		b.run(chromedp.Sleep(300 * time.Millisecond))
+		if eval[bool](b, listOpen) {
+			t.Errorf("edit (%s) opened an instance list", how)
+		}
+		if !eval[bool](b, `document.activeElement?.id === 'check-form'`) {
+			t.Errorf("edit (%s): focus is on %s, want the form", how, eval[string](b, `document.activeElement?.outerHTML.slice(0, 80) || ''`))
+		}
+	}
+	// "/" still opens the picker on purpose.
+	b.run(chromedp.KeyEvent("/"))
+	b.waitFor("picker on /", `document.activeElement?.matches('#check-form .picker-q')`)
+	b.checkClean("check edit")
+}
+
+// TestBrowserCheckOptionHelp: every Check option has a "?" that shows a
+// plain explanation (one at a time, toggled), linked to its control for
+// screen readers, without acting on the control itself.
+func TestBrowserCheckOptionHelp(t *testing.T) {
+	x := newTestExplorer(t)
+	b := newBrowser(t, x)
+	b.open("~/check")
+	b.run(chromedp.Evaluate(`document.querySelector('#check-form .more-opts').open = true`, nil))
+	// Every option control is described by a help paragraph that exists.
+	if bad := eval[[]string](b, `[...document.querySelectorAll('#check-form .more-opts textarea, #check-form .more-opts select, #check-form .more-opts input')]
+		.filter((c) => !document.getElementById(c.getAttribute('aria-describedby') || '-')?.textContent.trim()).map((c) => c.name)`); len(bad) > 0 {
+		t.Errorf("options without help: %v", bad)
+	}
+	buttons := eval[[]string](b, `[...document.querySelectorAll('#check-form [data-act="opt-help"]')].map((q) => q.getAttribute('aria-controls'))`)
+	if len(buttons) != 8 {
+		t.Fatalf("%d help buttons, want 8", len(buttons))
+	}
+	if small := eval[int](b, `[...document.querySelectorAll('#check-form .opt-q')].filter((q) => { const r = q.getBoundingClientRect(); return r.width < 24 || r.height < 24; }).length`); small > 0 {
+		t.Errorf("%d help buttons are smaller than 24×24", small)
+	}
+	// Each option's caption (name and "?") sits above its control, not into it.
+	for _, w := range []int64{1440, 1100} {
+		b.run(emulation.SetDeviceMetricsOverride(w, 800, 1, false))
+		if bad := eval[[]string](b, `[...document.querySelectorAll('#check-form .opts label')].filter((l) => {
+			const cap = l.querySelector('.opt-cap').getBoundingClientRect(), c = l.querySelector('select, input').getBoundingClientRect();
+			return cap.bottom > c.top + 1; }).map((l) => l.textContent.trim().split('\n')[0])`); len(bad) > 0 {
+			t.Errorf("at %dpx these captions run into their controls: %v", w, bad)
+		}
+	}
+	shown := `[...document.querySelectorAll('#check-form .opt-help')].filter((h) => !h.hidden).map((h) => h.id)`
+	order := `document.querySelector('#check-form select[name="order"]')`
+	before := eval[string](b, order+`.value`)
+	for _, id := range buttons {
+		b.run(chromedp.Click(`#check-form [aria-controls="`+id+`"]`, chromedp.ByQuery))
+		if got := eval[[]string](b, shown); len(got) != 1 || got[0] != id {
+			t.Errorf("after ? for %s, shown: %v", id, got)
+		}
+		if !eval[bool](b, `document.querySelector('#check-form [aria-controls="`+id+`"]').getAttribute('aria-expanded') === 'true'`) {
+			t.Errorf("? for %s is not marked expanded", id)
+		}
+	}
+	b.run(chromedp.Click(`#check-form [aria-controls="`+buttons[len(buttons)-1]+`"]`, chromedp.ByQuery))
+	if got := eval[[]string](b, shown); len(got) != 0 {
+		t.Errorf("pressing ? again left %v shown", got)
+	}
+	if eval[string](b, order+`.value`) != before || eval[bool](b, `document.activeElement?.name === 'order'`) {
+		t.Error("pressing ? acted on the option's control")
+	}
+	b.checkClean("check option help")
+}
