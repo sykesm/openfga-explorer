@@ -1,56 +1,114 @@
 // Generic, accessible UI pieces: tabs, modal dialogs, drag resizers, and
 // request-failure reporting. Feature modules use these; nothing here knows
 // about OpenFGA.
-import { $, $$, store } from './core.js';
+import { $, $$, load, session, stateKey, store } from './core.js';
 
-// ---- tabs (WAI-ARIA tabs pattern: roving tabindex, arrows, Home/End) ----
+// ---- tabs: <fga-tabs> (WAI-ARIA tabs pattern: roving tabindex, arrows, Home/End) ----
+//
+// The element is the tablist. The server renders it with role="tablist" and
+// its [role=tab] buttons; each tab names its panel with aria-controls (the
+// panel may be anywhere on the page) and may have:
+//   data-tab  a name to select it by (otherwise its id)
+//   data-src  a URL that fills the panel the first time it is shown
+// The markup's aria-selected="true" tab is selected first. On the tablist,
+// data-remember="key" keeps the choice for this browser tab and store
+// (data-remember-in="local": for this browser), and reselects it next time.
+//
+// The selected tab is marked by aria-selected only (CSS styles that), never a
+// class: when htmx settles a swap it puts back the server's class attributes.
+//
+// Pages select tabs with select(), and hear about every selection from the
+// "fgax:tab" event (detail: { name, panel }), sent from the tablist.
 
-/**
- * Marks tab as the selected tab of its tablist.
- * @param {Element} tab
- */
-export function selectTab(tab) {
-  const list = tab.closest('[role="tablist"]');
-  if (!list) return;
-  for (const t of $$('[role="tab"]', list)) {
-    const on = t === tab;
-    t.classList.toggle('on', on);
-    t.setAttribute('aria-selected', String(on));
-    t.tabIndex = on ? 0 : -1;
+export class FgaTabs extends HTMLElement {
+  connectedCallback() {
+    if (!this.wired) {
+      this.wired = true;
+      this.addEventListener('click', (e) => {
+        const tab = e.target instanceof Element ? e.target.closest('[role="tab"]') : null;
+        if (tab && this.contains(tab)) this.select(tab);
+      });
+      this.addEventListener('keydown', (e) => this.onKey(e));
+    }
+    const saved = this.recall();
+    this.select((saved && this.tab(saved)) || $('[role="tab"][aria-selected="true"]', this) || this.tabs[0]);
   }
-}
 
-/** Arrow keys move between tabs; the focused tab is activated (clicked). */
-export function initTabKeys() {
-  document.addEventListener('keydown', (e) => {
-    const tab = e.target instanceof Element ? e.target.closest('[role="tab"]') : null;
-    if (!tab) return;
-    const tabs = $$('[role="tab"]', /** @type {Element} */ (tab.closest('[role="tablist"]')));
-    const i = tabs.indexOf(tab);
+  /** @returns {HTMLElement[]} */
+  get tabs() { return $$('[role="tab"]', this); }
+  /** @returns {string} the selected tab's name */
+  get selected() {
+    const t = $('[role="tab"][aria-selected="true"]', this);
+    return t ? this.nameOf(t) : '';
+  }
+  /** @param {Element} tab */
+  nameOf(tab) { return /** @type {HTMLElement} */ (tab).dataset.tab || tab.id; }
+  /** @param {string} name @returns {HTMLElement | undefined} */
+  tab(name) { return this.tabs.find((t) => this.nameOf(t) === name); }
+  /** @param {Element} tab @returns {HTMLElement | null} */
+  panelOf(tab) { return document.getElementById(tab.getAttribute('aria-controls') || ''); }
+
+  /**
+   * Selects a tab (by name, the tab, or its panel) and shows its panel,
+   * loading the panel first if it has never been shown.
+   * @param {string | Element | undefined | null} which
+   * @returns {Promise<void>} when the panel is ready
+   */
+  select(which) {
+    const tab = typeof which === 'string' ? this.tab(which)
+      : this.tabs.find((t) => t === which || this.panelOf(t) === which);
+    if (!tab) return Promise.resolve();
+    for (const t of this.tabs) {
+      const on = t === tab;
+      t.setAttribute('aria-selected', String(on));
+      t.tabIndex = on ? 0 : -1;
+      const p = this.panelOf(t);
+      if (p) p.hidden = !on;
+    }
+    const name = this.nameOf(tab);
+    this.remember(name);
+    const panel = this.panelOf(tab);
+    this.dispatchEvent(new CustomEvent('fgax:tab', { bubbles: true, detail: { name, panel } }));
+    if (tab.dataset.src && panel && !panel.dataset.loaded) {
+      panel.dataset.loaded = '1';
+      return load(tab.dataset.src, panel);
+    }
+    return Promise.resolve();
+  }
+
+  /** Arrow keys, Home and End move between tabs, selecting the one they reach. @param {KeyboardEvent} e */
+  onKey(e) {
+    const tabs = this.tabs;
+    const i = tabs.indexOf(/** @type {HTMLElement} */ (e.target));
+    if (i < 0) return;
     const next = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1 }[e.key];
     if (next === undefined) return;
     e.preventDefault();
     const t = tabs[(next + tabs.length) % tabs.length];
     t.focus();
-    t.click();
-  });
+    this.select(t);
+  }
+
+  get storage() { return this.dataset.rememberIn === 'local' ? store : session; }
+  get key() { const k = this.dataset.remember || ''; return this.dataset.rememberIn === 'local' ? k : stateKey(k); }
+  /** @returns {string | null} */
+  recall() { return this.dataset.remember ? this.storage.get(this.key, null) : null; }
+  /** @param {string} name */
+  remember(name) { if (this.dataset.remember) this.storage.set(this.key, name); }
+}
+
+/** Defines <fga-tabs>, which sets up the tablists already on the page and every one added later. */
+export function initTabs() {
+  if (!customElements.get('fga-tabs')) customElements.define('fga-tabs', FgaTabs);
 }
 
 /**
- * Plain tab lists (marked data-tabs): a tab shows the panel it controls
- * (aria-controls) and hides its siblings' panels.
+ * The tablist holding an element (a tab), or matching a selector.
+ * @param {string | Element | null} which
+ * @returns {FgaTabs | null}
  */
-export function initPlainTabs() {
-  document.addEventListener('click', (e) => {
-    const tab = e.target instanceof Element ? e.target.closest('[data-tabs] [role="tab"]') : null;
-    if (!tab) return;
-    selectTab(tab);
-    for (const t of $$('[role="tab"]', /** @type {Element} */ (tab.closest('[data-tabs]')))) {
-      const panel = document.getElementById(t.getAttribute('aria-controls') || '');
-      if (panel) panel.hidden = t !== tab;
-    }
-  });
-}
+export const tabsOf = (which) => /** @type {FgaTabs | null} */ (
+  (typeof which === 'string' ? $(which) : which)?.closest('fga-tabs') ?? null);
 
 // ---- modal dialog: focus moves in, stays in, and returns on close ----
 

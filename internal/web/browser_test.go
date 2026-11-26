@@ -303,8 +303,8 @@ func TestBrowserTypeCombobox(t *testing.T) {
 	x := explorerFor(t, st)
 	b := newBrowser(t, x)
 	b.open("~/check")
-	b.waitFor("combobox", `document.querySelector('.picker[data-field="object"] .tcombo-q')`)
-	obj := `.picker[data-field="object"] .tcombo-q`
+	b.waitFor("combobox", `document.querySelector('fga-picker[data-field="object"] .tcombo-q')`)
+	obj := `fga-picker[data-field="object"] .tcombo-q`
 	b.run(chromedp.Click(obj, chromedp.ByQuery))
 	b.waitFor("list open", `document.querySelector('#tc-object:not([hidden]) li[data-value]')`)
 	b.key(obj, "approve")
@@ -321,11 +321,24 @@ func TestBrowserTypeCombobox(t *testing.T) {
 	b.key(obj, kb.Escape)
 	b.waitFor("closed", `document.querySelector('#tc-object').hidden`)
 
+	// A picker sets itself up wherever it is added, not only on the first page.
+	b.run(chromedp.Evaluate(`(() => {
+		const p = document.querySelector('fga-picker[data-field="object"]').cloneNode(true);
+		p.dataset.field = 'later';
+		p.querySelector('.tcombo-list').id = 'tc-later';
+		p.querySelector('.tcombo-q').setAttribute('aria-controls', 'tc-later');
+		document.querySelector('main').append(p);
+	})()`, nil))
+	later := `fga-picker[data-field="later"] .tcombo-q`
+	b.run(chromedp.Click(later, chromedp.ByQuery))
+	b.waitFor("added picker's list", `document.querySelector('#tc-later:not([hidden]) li[data-value]')`)
+	b.key(later, kb.Escape)
+
 	// Explore offers the type finder, matching relations too.
 	b.open("~/explore")
 	b.waitFor("finder", `document.querySelector('.type-q')`)
 	b.key(`.type-q`, "approve")
-	b.waitFor("results", `[...document.querySelectorAll('#type-results [role="option"]')].map((o) => o.dataset.type).join() === 'kind_03,kind_10,kind_17'`)
+	b.waitFor("results", `[...document.querySelectorAll('#type-results [role="option"]')].map((o) => o.dataset.value).join() === 'kind_03,kind_10,kind_17'`)
 	if got := eval[string](b, `document.querySelector('.type-count').textContent`); got != "3 matching types" {
 		t.Errorf("count = %q", got)
 	}
@@ -437,6 +450,10 @@ func TestBrowserInspector(t *testing.T) {
 	b.waitFor("holders", `document.querySelector('#rpanel-others .lu-trace:not(.current)')`)
 	b.run(chromedp.Click(`#rpanel-others .lu-trace:not(.current)`, chromedp.ByQuery))
 	b.waitFor("re-traced", `!document.querySelector('.verdict')?.dataset.summary.startsWith('user:eng-002')`)
+	// The user picker shows the traced user.
+	if got := eval[string](b, `(() => { const p = document.querySelector('#check-form fga-picker[data-field="user"]'); return p.querySelector('.picker-value').value + ' ' + p.querySelector('.picker-type').value + ' ' + p.querySelector('.picker-q').value; })()`); !strings.HasPrefix(got, "user:") || strings.HasPrefix(got, "user:eng-002 ") || !strings.Contains(got, " user ") {
+		t.Errorf("user picker after tracing a listed user: %q", got)
+	}
 	b.waitFor("re-listed", `!document.querySelector('#rpanel-others').hidden && document.querySelector('#rpanel-others .lu-trace')`)
 
 	// Collapsing gives the graph the width; selecting a node reopens the panel.
@@ -538,7 +555,7 @@ func TestBrowserLargeModel(t *testing.T) {
 
 	// Search lists matches; Enter opens the first and shows its neighborhood.
 	b.key(`.type-q`, "kind_42")
-	b.waitFor("results", `[...document.querySelectorAll('#type-results [role="option"]')].map((o) => o.dataset.type).join() === 'kind_42'`)
+	b.waitFor("results", `[...document.querySelectorAll('#type-results [role="option"]')].map((o) => o.dataset.value).join() === 'kind_42'`)
 	b.key(`.type-q`, kb.Enter)
 	b.waitFor("type panel", `document.querySelector('#type-panel [data-selected-type="kind_42"]')`)
 	if !eval[bool](b, `document.querySelector('#type-results').hidden && document.querySelector('.type-q').value === ''`) {
@@ -1158,6 +1175,112 @@ func TestBrowserCheckOptionHelp(t *testing.T) {
 	b.checkClean("check option help")
 }
 
+// TestBrowserTraceReplacedMidReplay: a result replaced while its walk is
+// replaying stops replaying; it does not drive the new result's controls.
+func TestBrowserTraceReplacedMidReplay(t *testing.T) {
+	x := newTestExplorer(t)
+	b := newBrowser(t, x)
+	b.open("~/check")
+	// Replay on load, slowly (reduced motion turns it off by default).
+	b.run(chromedp.Evaluate(`localStorage.setItem('fgax.autoplay', 'true'); localStorage.setItem('fgax.speed', '1')`, nil))
+	b.open(`~/check?user=user:eng-002&relation=can_view&object=document:doc-0007`)
+	b.waitFor("replaying", `document.querySelector('.player [data-act="play"]')?.textContent.includes('Pause')`)
+	// Run it again, this time without a replay.
+	b.run(chromedp.Evaluate(`localStorage.setItem('fgax.autoplay', 'false'); document.querySelector('fga-trace').dataset.old = '1'; htmx.trigger('#check-form', 'submit')`, nil))
+	b.waitFor("new result", `document.querySelector('fga-trace:not([data-old]) .player .step-count')?.textContent`)
+	b.settled()
+	const controls = `document.querySelector('.player [data-act="play"]').textContent + ' | ' + document.querySelector('.player .step-count').textContent`
+	first := eval[string](b, controls)
+	b.run(chromedp.Sleep(1500 * time.Millisecond)) // several steps of the old replay
+	if got := eval[string](b, controls); got != first || !strings.HasPrefix(got, "▶ Replay walk") {
+		t.Errorf("the new result's controls changed from %q to %q: the old replay is still running", first, got)
+	}
+	b.checkClean("replaced mid-replay")
+}
+
+// TestBrowserExploreTabPerType: the instance panel reopens on the tab last
+// used for that type; another type keeps its own (or the server's default).
+func TestBrowserExploreTabPerType(t *testing.T) {
+	x := newTestExplorer(t)
+	b := newBrowser(t, x)
+	b.open("~/explore?type=document&id=doc-0007")
+	b.waitFor("instance panel", `document.querySelector('#instance-panel .instance[data-object="document:doc-0007"]')`)
+	b.settled()
+	b.run(chromedp.Click(`#itab-derived`, chromedp.ByQuery))
+	b.waitFor("derived", `!document.querySelector('#ipanel-derived').hidden`)
+	const selected = `document.querySelector('#instance-panel .itabs [aria-selected="true"]')?.dataset.tab + ' ' + [...document.querySelectorAll('#instance-panel .ipanel')].filter((p) => !p.hidden).map((p) => p.id).join()`
+	peer := eval[string](b, `(() => { const a = [...document.querySelectorAll('#instance-panel a.peer[data-explore]')].find((a) => !a.dataset.explore.startsWith('document:')); a.click(); return a.dataset.explore; })()`)
+	b.waitFor("peer", `document.querySelector('#instance-panel .instance[data-object="`+peer+`"]')`)
+	b.settled()
+	if got := eval[string](b, selected); strings.HasPrefix(got, "derived ") {
+		t.Errorf("%s opened on the tab chosen for documents: %q", peer, got)
+	}
+	b.run(chromedp.Evaluate(`void document.querySelector('#instance-canvas')._cyreg.cy.getElementById('document:doc-0007').emit('tap')`, nil))
+	b.waitFor("document again", `document.querySelector('#instance-panel .instance[data-object="document:doc-0007"]')`)
+	b.settled()
+	if got := eval[string](b, selected); got != "derived ipanel-derived" {
+		t.Errorf("document reopened on %q, want derived ipanel-derived", got)
+	}
+	b.checkClean("tab per type")
+}
+
+// TestBrowserExploreEdgeTaps: tapping an edge works like tapping a node (it
+// selects the type or opens the instance at the edge's object end) and goes
+// to the relation the edge stands for in the side panel.
+func TestBrowserExploreEdgeTaps(t *testing.T) {
+	x := newTestExplorer(t)
+	b := newBrowser(t, x)
+	b.open("~/explore")
+	b.waitFor("type graph", `document.querySelector('#schema-canvas')._cyreg?.cy?.edges().length > 0`)
+	const marked = `[...document.querySelectorAll('.rel-target')].map((el) => el.id).sort().join()`
+
+	// Type graph: an edge into document, merging the most relations.
+	want := eval[string](b, `(() => {
+		const e = document.querySelector('#schema-canvas')._cyreg.cy.edges('[target = "document"]').sort((a, b) => b.data('relations').length - a.data('relations').length)[0];
+		e.emit('tap');
+		return e.data('relations').map((r) => 'type-rel-' + r).sort().join();
+	})()`)
+	if !strings.Contains(want, ",") {
+		t.Logf("type edge stands for one relation only: %s", want)
+	}
+	b.waitFor("document panel", `document.querySelector('#type-panel [data-selected-type="document"]')`)
+	b.settled()
+	b.waitFor("type relations marked", marked+` === '`+want+`'`)
+	if got := eval[string](b, `document.activeElement?.id`); !strings.HasPrefix(got, "type-rel-") {
+		t.Errorf("focus on %q, want the first marked relation", got)
+	}
+
+	// Instance graph: an edge into the open instance goes to its relation.
+	b.open("~/explore?type=document&id=doc-0007")
+	b.waitFor("instance panel", `document.querySelector('#instance-panel .instance[data-object="document:doc-0007"]')`)
+	b.settled()
+	const inst = `document.querySelector('#instance-canvas')._cyreg.cy`
+	rel := eval[string](b, `(() => {
+		const e = `+inst+`.edges('[target = "document:doc-0007"]').filter((e) => e.source().data('kind') !== 'count')[0];
+		if (!e) return '';
+		e.emit('tap');
+		return e.data('relation');
+	})()`)
+	if rel == "" {
+		t.Fatal("no edge into document:doc-0007 on the instance graph")
+	}
+	b.waitFor("instance relation marked", marked+` === 'rel-`+rel+`'`)
+
+	// With another instance open, an edge into document:doc-0007 opens it again.
+	peer := eval[string](b, `(() => {
+		const e = `+inst+`.edges('[target = "document:doc-0007"][relation = "`+rel+`"]').filter((e) => e.source().data('kind') !== 'count')[0];
+		e.source().emit('tap');
+		return e.source().id();
+	})()`)
+	b.waitFor("peer instance", `document.querySelector('#instance-panel .instance[data-object="`+peer+`"]')`)
+	b.settled()
+	b.run(chromedp.Evaluate(`void `+inst+`.edges('[target = "document:doc-0007"][relation = "`+rel+`"]')[0].emit('tap')`, nil))
+	b.waitFor("instance again", `document.querySelector('#instance-panel .instance[data-object="document:doc-0007"]')`)
+	b.settled()
+	b.waitFor("relation marked again", marked+` === 'rel-`+rel+`'`)
+	b.checkClean("edge taps")
+}
+
 // TestBrowserExploreRelationLinks: a link from a computed relation to another
 // relation switches tabs if needed, brings the target into view, marks it
 // (one at a time), and moves focus to it.
@@ -1429,7 +1552,7 @@ func TestBrowserExploreNextInstanceTabMarked(t *testing.T) {
 	b.open("~/explore?type=document&id=doc-0007")
 	b.waitFor("instance panel", `document.querySelector('#instance-panel .instance[data-object="document:doc-0007"]')`)
 	b.settled()
-	marked := `[...document.querySelectorAll('#instance-panel .itabs [role="tab"]')].map((t) => (t.classList.contains('on') ? '+' : '-') + t.dataset.tab + (t.getAttribute('aria-selected') === 'true' ? '*' : '')).join(' ')`
+	marked := `[...document.querySelectorAll('#instance-panel .itabs [role="tab"]')].map((t) => (getComputedStyle(t).borderBottomColor !== 'rgba(0, 0, 0, 0)' ? '+' : '-') + t.dataset.tab + (t.getAttribute('aria-selected') === 'true' ? '*' : '')).join(' ')`
 	first := eval[string](b, marked)
 	if !strings.HasPrefix(first, "+edges* ") {
 		t.Fatalf("first instance tabs: %q", first)

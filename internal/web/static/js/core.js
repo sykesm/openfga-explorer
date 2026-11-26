@@ -138,10 +138,26 @@ export const dagre = (rankDir, extra = {}) => ({ name: 'dagre', rankDir, nodeSep
 // ---- loading content with htmx ----
 
 /**
+ * Runs fn once htmx has finished putting el in place, or at once if el is
+ * not being swapped in by htmx. A custom element that starts work its new
+ * content depends on calls this from connectedCallback: htmx inserts new
+ * content (marked htmx-added) before it settles it (putting back the server's
+ * class and style on elements with an id) and processes its hx-* attributes,
+ * and fires htmx:load on the inserted element when it is done.
+ * @param {Element} el
+ * @param {() => void} fn
+ */
+export function whenLoaded(el, fn) {
+  const added = el.closest('.htmx-added');
+  if (added) added.addEventListener('htmx:load', fn, { once: true });
+  else fn();
+}
+
+/**
  * Loads url into target (innerHTML) with htmx. Unlike htmx.ajax, which
  * resolves as soon as the content is swapped in, this resolves once the new
- * content is set up (htmx has processed it and the modules' load hooks have
- * run), or when the request fails.
+ * content has settled and htmx has processed it (so its hx-* attributes work),
+ * or when the request fails.
  * @param {string} url
  * @param {Element} target
  * @returns {Promise<void>}
@@ -152,9 +168,7 @@ export function load(url, target) {
     const settled = (e) => {
       if (e.target !== target) return; // a swap inside target, not this one
       stop();
-      // The setup main.js queued (a microtask) while this swap settled runs
-      // before this microtask, and so before the caller's then.
-      queueMicrotask(resolve);
+      resolve();
     };
     /** @param {any} e htmx:afterRequest (on the body, for htmx.ajax) */
     const failed = (e) => { if (e.detail.target === target && !e.detail.successful) { stop(); resolve(); } };

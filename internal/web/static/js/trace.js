@@ -2,9 +2,9 @@
 // granting path, folding of failed branches, the text trace, and exports.
 // The server computes what to show (granting path, folds, node details);
 // this module draws it and handles interaction.
-import { $, $$, baseOpts, color, dagre, esc, fitCapped, labelHeight, labelWidth, mix, pal, reducedMotion, scrollBehavior, session, stateKey, store } from './core.js';
+import { $, $$, baseOpts, color, dagre, esc, fitCapped, labelHeight, labelWidth, mix, pal, reducedMotion, scrollBehavior, session, stateKey, store, whenLoaded } from './core.js';
 import { onEscape, onKey } from './shortcuts.js';
-import { initResizer, selectTab } from './ui.js';
+import { initResizer } from './ui.js';
 
 /**
  * @typedef {{ id: string, parent: string, label: string, hidden: string[] }} Fold
@@ -687,14 +687,6 @@ function observeLayout(container) {
 }
 
 
-/** Shows one of the side panel's tabs (text trace, who else). @param {string} name */
-function showResultTab(name) {
-  const tab = $(`.rtabs [data-rtab="${name}"]`);
-  if (!tab) return;
-  selectTab(tab);
-  for (const p of $$('.inspector .rpanel')) p.hidden = p.id !== `rpanel-${name}`;
-  store.set('resultTab', name);
-}
 
 /** Selects a node from the text trace or the graph. @param {any} cy @param {any} n @param {{ zoom?: boolean }} [opts] */
 function selectNode(cy, n, { zoom = false } = {}) {
@@ -780,11 +772,40 @@ function restoreView(cy, v, phase) {
 }
 
 /**
- * Renders the trace in #check-result.
+ * <fga-trace>: a check's result as the server renders it (the verdict, the
+ * evaluation graph with its replay controls, the side panel, and the graph
+ * data in #trace-data). It draws itself when it arrives, once htmx has put
+ * it in place, and stops its replay when it is removed.
+ *
+ * Before drawing, it sends "fgax:trace" (detail: { restore: false }). The page
+ * sets detail.restore when the result is a check being restored (coming back
+ * to the page), so the kept view comes back instead of a replay.
+ */
+class FgaTrace extends HTMLElement {
+  connectedCallback() {
+    if (this.started) return;
+    this.started = true;
+    whenLoaded(this, () => {
+      if (!this.isConnected) return;
+      const detail = { restore: false };
+      this.dispatchEvent(new CustomEvent('fgax:trace', { bubbles: true, detail }));
+      renderTrace({ replay: !detail.restore, restore: detail.restore });
+    });
+  }
+
+  disconnectedCallback() {
+    view?.player.pause();
+    view?.player.flow.stop();
+    view = null;
+  }
+}
+
+/**
+ * Draws the trace on the page.
  * @param {{ replay?: boolean, restore?: boolean }} [opts] replay: animate the walk if the viewer allows it;
  *   restore: put back the view kept for this result (coming back to the page)
  */
-export function renderTrace({ replay = true, restore = false } = {}) {
+function renderTrace({ replay = true, restore = false } = {}) {
   const dataEl = $('#trace-data');
   const container = $('#trace-canvas');
   if (!dataEl || !container) return;
@@ -885,12 +906,9 @@ export function renderTrace({ replay = true, restore = false } = {}) {
   const grantsBtn = /** @type {HTMLButtonElement | null} */ ($('.verdict [data-act="show-grants"]'));
   grantsBtn?.addEventListener('click', () => toggleGrants(cy, tree, grantsBtn, flow));
   $('.inspector')?.addEventListener('click', (/** @type {any} */ e) => {
-    const t = e.target.closest('[data-rtab]');
-    if (t) showResultTab(t.dataset.rtab);
     if (e.target.closest('.insp-head [data-act="toggle-panel"]')) togglePanel();
   });
   $('.panel-rail')?.addEventListener('click', () => togglePanel(false));
-  showResultTab(store.get('resultTab', 'trace'));
   initTreeKeys(tree, cy);
   // On phones the panel is a bottom sheet: closed until asked for (or a node is selected).
   togglePanel(store.get('panelCollapsed', matchMedia('(max-width: 700px)').matches));
@@ -904,8 +922,9 @@ export function renderTrace({ replay = true, restore = false } = {}) {
   keepView(cy, data.folds || [], sig);
 }
 
-/** Registers the trace's keyboard shortcuts (they act on the trace shown). */
-export function initTraceKeys() {
+/** Defines <fga-trace> and registers the trace's keyboard shortcuts (they act on the trace shown). */
+export function initTrace() {
+  if (!customElements.get('fga-trace')) customElements.define('fga-trace', FgaTrace);
   const player = () => ($('#trace-canvas') && view ? view.player : null);
   onKey('play', () => { const p = player(); if (!p) return false; p.play(); return true; });
   onKey('step', () => { const p = player(); if (!p) return false; p.pause(); p.step(); return true; });

@@ -15,6 +15,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -673,17 +674,21 @@ func (s *Server) handleSchemaJSON(w http.ResponseWriter, r *http.Request) {
 	type key struct{ from, to, kind string }
 	var order []key
 	labels := map[key][]string{}
+	rels := map[key][]string{}
 	for _, e := range v.Model.TypeGraph() {
 		k := key{e.From, e.To, e.Kind}
 		if _, ok := labels[k]; !ok {
 			order = append(order, k)
 		}
 		labels[k] = append(labels[k], e.Label)
+		if !slices.Contains(rels[k], e.Relation) {
+			rels[k] = append(rels[k], e.Relation)
+		}
 	}
 	for i, k := range order {
 		els = append(els, map[string]any{"group": "edges", "data": map[string]any{
 			"id": fmt.Sprintf("se%d", i), "source": k.from, "target": k.to, "kind": k.kind,
-			"label": strings.Join(labels[k], "\n"), "count": len(labels[k]),
+			"label": strings.Join(labels[k], "\n"), "count": len(labels[k]), "relations": rels[k],
 		}, "classes": k.kind})
 	}
 	w.Header().Set("Content-Type", "application/json")

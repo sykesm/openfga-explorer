@@ -2,10 +2,10 @@
 <div class="explore-layout" data-large="{{.Data.Large}}"{{with .Data.Modules}} data-modules="{{range $i, $m := .}}{{if $i}},{{end}}{{$m.Name}}{{end}}"{{end}}>
   <section class="canvas-wrap">
     <div class="canvas-bar">
-      <div class="seg" role="tablist" aria-label="Graph">
-        <button type="button" data-canvas="schema" class="on" role="tab" id="tab-schema" aria-controls="schema-canvas" aria-selected="true">Type graph</button>
-        <button type="button" data-canvas="instances" role="tab" id="tab-instances" aria-controls="instance-canvas" aria-selected="false" tabindex="-1">Instance graph <span class="pill" id="inst-count">0</span></button>
-      </div>
+      <fga-tabs class="seg" id="graph-tabs" role="tablist" aria-label="Graph">
+        <button type="button" data-tab="schema" role="tab" id="tab-schema" aria-controls="schema-canvas" aria-selected="true">Type graph</button>
+        <button type="button" data-tab="instances" role="tab" id="tab-instances" aria-controls="instance-canvas" aria-selected="false" tabindex="-1">Instance graph <span class="pill" id="inst-count">0</span></button>
+      </fga-tabs>
       <span class="spacer"></span>
       {{if .Data.Modules}}<label class="sm color-mod" title="Color each type by the module that defines it"><input type="checkbox" data-act="color-modules"> color by module</label>{{end}}
       <button type="button" class="ghost hidden" data-act="show-all-types" title="Show every type, not just the selected type's neighborhood">{{if .Data.Large}}Draw all types{{else}}Show all types{{end}}</button>
@@ -28,7 +28,7 @@
     </div>
     <button type="button" class="panel-rail" data-act="toggle-side" aria-controls="explore-side" aria-expanded="true" title="Show the side panel (T)">‹ Types &amp; instances</button>
     <div class="canvas-stack">
-      <div id="instance-canvas" class="canvas hidden" role="tabpanel" aria-labelledby="tab-instances"></div>
+      <div id="instance-canvas" class="canvas" role="tabpanel" hidden aria-labelledby="tab-instances"></div>
       <div id="instance-empty" class="canvas-empty hidden" role="status">
         <h2>The instance graph is empty</h2>
         <p class="ce-msg">It fills in as you open instances: each one adds its edges, and clicking a node walks to it.</p>
@@ -54,7 +54,7 @@
     {{if .Data.Many}}
     {{/* Many types: a search (results appear as you type), the types you used
          recently, and the most connected types as starting points. */}}
-    <div class="type-find many">
+    <fga-type-finder class="type-find many">
       <div class="type-filter">
         <input type="search" class="type-q" role="combobox" aria-expanded="false" aria-controls="type-results" aria-autocomplete="list"
           placeholder="Find a type or relation among {{len .Model.TypeNames}} types…" aria-label="find a type by name or relation" autocomplete="off" spellcheck="false"
@@ -79,8 +79,8 @@
           <div class="ts-chips">{{range .Data.Hubs}}<button type="button" class="type-chip" data-type="{{.}}">{{.}}</button>{{end}}</div>
         </section>
       </div>
-      <script type="application/json" id="type-index">{{json .Data.Index}}</script>
-    </div>
+      <script type="application/json">{{json .Data.Index}}</script>
+    </fga-type-finder>
     {{else if .Data.Modules}}
     {{/* A small modular model: types grouped by the module that defines them. */}}
     <div class="type-find by-module">
@@ -131,7 +131,7 @@
     </p>
     {{if not .Relations}}<p class="empty sm">none</p>{{end}}
     <ul class="rels">{{range .Relations}}
-      <li>
+      <li id="type-rel-{{.Name}}">
         <span class="rel">{{.Name}}</span>{{template "relmod" .}}{{range .Findings}} <span class="lint {{.Severity}}" role="img" aria-label="{{.Severity}}: {{.Message}}" title="{{.Message}}">{{if eq .Severity "warning"}}⚠{{else}}ⓘ{{end}}</span>{{end}}
         {{if .DirectTypes}}<span class="refs">{{refs .DirectTypes}}</span>{{end}}
         {{if ne .Kind.String "direct"}}<div class="expr">= {{.DerivedExpr}}</div>{{end}}
@@ -153,8 +153,9 @@
 {{end}}{{end}}
 
 {{define "instance"}}{{$b := .Base}}{{with .Data}}
-<div class="panel instance" data-object="{{.Object}}" data-default-tab="{{if .Out}}edges{{else if .HasIncoming}}incoming{{else}}derived{{end}}">
-  <script type="application/json" class="graph-patch">{{json (graphPatch .)}}</script>
+{{$tab := "derived"}}{{if .Out}}{{$tab = "edges"}}{{else if .HasIncoming}}{{$tab = "incoming"}}{{end}}
+<div class="panel instance" data-object="{{.Object}}">
+  <fga-graph-patch><script type="application/json">{{json (graphPatch .)}}</script></fga-graph-patch>
   <h2 class="ptitle"><span class="k">instance</span> {{display .Object}}</h2>
   {{if ne (display .Object) .Object}}<div class="rawid">stored as <code>{{.Object}}</code></div>{{end}}
   <div class="actions inst-nav">
@@ -164,14 +165,14 @@
   </div>
   {{if not .Exists}}<div class="alert warn">No tuples reference <code>{{.Object}}</code>. It may not exist, or its ID may be normalized differently.</div>{{end}}
 
-  <div class="itabs" role="tablist" aria-label="Instance views">
-    <button type="button" role="tab" data-tab="edges" id="itab-edges" aria-controls="ipanel-edges" aria-selected="false" tabindex="-1" title="Tuples with {{display .Object}} as the object">Edges <span class="pill">{{len .Out}}</span></button>
-    <button type="button" role="tab" data-tab="derived" id="itab-derived" aria-controls="ipanel-derived" aria-selected="false" tabindex="-1" title="Relations computed from others">Derived <span class="pill">{{len .Derived}}</span></button>
-    {{if .HasIncoming}}<button type="button" role="tab" data-tab="incoming" id="itab-incoming" aria-controls="ipanel-incoming" aria-selected="false" tabindex="-1" data-src="{{$b}}/explore/incoming?{{query "object" .Object}}" title="Tuples where {{display .Object}} is the user (loaded when opened)">Incoming</button>{{end}}
-    {{if .HasAccess}}<button type="button" role="tab" data-tab="access" id="itab-access" aria-controls="ipanel-access" aria-selected="false" tabindex="-1" data-src="{{$b}}/explore/access?{{query "object" .Object}}" title="What can {{display .Object}} access? Queries the store's real tuples (admins)">Access</button>{{end}}
-  </div>
+  <fga-tabs class="itabs" role="tablist" aria-label="Instance views" data-remember="itab:{{.Type.Name}}">
+    <button type="button" role="tab" data-tab="edges" id="itab-edges" aria-controls="ipanel-edges" aria-selected="{{if eq $tab "edges"}}true{{else}}false{{end}}"{{if ne $tab "edges"}} tabindex="-1"{{end}} title="Tuples with {{display .Object}} as the object">Edges <span class="pill">{{len .Out}}</span></button>
+    <button type="button" role="tab" data-tab="derived" id="itab-derived" aria-controls="ipanel-derived" aria-selected="{{if eq $tab "derived"}}true{{else}}false{{end}}"{{if ne $tab "derived"}} tabindex="-1"{{end}} title="Relations computed from others">Derived <span class="pill">{{len .Derived}}</span></button>
+    {{if .HasIncoming}}<button type="button" role="tab" data-tab="incoming" id="itab-incoming" aria-controls="ipanel-incoming" aria-selected="{{if eq $tab "incoming"}}true{{else}}false{{end}}"{{if ne $tab "incoming"}} tabindex="-1"{{end}} data-src="{{$b}}/explore/incoming?{{query "object" .Object}}" title="Tuples where {{display .Object}} is the user (loaded when opened)">Incoming</button>{{end}}
+    {{if .HasAccess}}<button type="button" role="tab" data-tab="access" id="itab-access" aria-controls="ipanel-access" aria-selected="{{if eq $tab "access"}}true{{else}}false{{end}}"{{if ne $tab "access"}} tabindex="-1"{{end}} data-src="{{$b}}/explore/access?{{query "object" .Object}}" title="What can {{display .Object}} access? Queries the store's real tuples (admins)">Access</button>{{end}}
+  </fga-tabs>
 
-  <section class="ipanel" data-panel="edges" role="tabpanel" id="ipanel-edges" aria-labelledby="itab-edges">
+  <section class="ipanel" data-panel="edges" role="tabpanel" id="ipanel-edges" aria-labelledby="itab-edges"{{if ne $tab "edges"}} hidden{{end}}>
   <ul class="relrows">
   {{range .Out}}
     <li class="relrow" id="rel-{{.Rel.Name}}">
@@ -186,7 +187,7 @@
   </ul>
   </section>
 
-  <section class="ipanel" data-panel="derived" role="tabpanel" id="ipanel-derived" aria-labelledby="itab-derived" hidden>
+  <section class="ipanel" data-panel="derived" role="tabpanel" id="ipanel-derived" aria-labelledby="itab-derived"{{if ne $tab "derived"}} hidden{{end}}>
   {{if .Derived}}
   <ul class="derived">
   {{range .Derived}}
@@ -204,13 +205,13 @@
   {{else}}<p class="muted">{{.Type.Name}} has no derived relations.</p>{{end}}
   </section>
 
-  {{if .HasIncoming}}<section class="ipanel" data-panel="incoming" role="tabpanel" id="ipanel-incoming" aria-labelledby="itab-incoming" hidden><p class="muted">Loading…</p></section>{{end}}
-  {{if .HasAccess}}<section class="ipanel" data-panel="access" role="tabpanel" id="ipanel-access" aria-labelledby="itab-access" hidden><p class="muted">Loading…</p></section>{{end}}
+  {{if .HasIncoming}}<section class="ipanel" data-panel="incoming" role="tabpanel" id="ipanel-incoming" aria-labelledby="itab-incoming"{{if ne $tab "incoming"}} hidden{{end}}><p class="muted">Loading…</p></section>{{end}}
+  {{if .HasAccess}}<section class="ipanel" data-panel="access" role="tabpanel" id="ipanel-access" aria-labelledby="itab-access"{{if ne $tab "access"}} hidden{{end}}><p class="muted">Loading…</p></section>{{end}}
 </div>
 {{end}}{{end}}
 
 {{define "incoming"}}{{$b := .Base}}{{with .Data}}
-<script type="application/json" class="graph-patch">{{json (graphPatch .)}}</script>
+<fga-graph-patch><script type="application/json">{{json (graphPatch .)}}</script></fga-graph-patch>
 {{if .In}}
 <p class="muted sm">Tuples where {{display .Object}} is the user.</p>
 <table class="edges">
@@ -257,7 +258,7 @@
 {{if $e.Err}}<span class="errc">{{$e.Err}}</span>
 {{else if $e.Empty}}<span class="muted">none</span>
 {{else if $e.Inline}}
-  <ul class="edgelist">{{range $e.Edges}}{{template "edge" .}}{{end}}</ul>
+  <fga-edge-list><ul class="edgelist">{{range $e.Edges}}{{template "edge" .}}{{end}}</ul></fga-edge-list>
 {{else}}
   <div class="cardinality"><span class="card">{{$e.Count}}</span> edges
     <button type="button" class="ghost sm" data-chooser-btn="{{.ID}}" hx-get="{{.Base}}/explore/edges?{{.Q}}" hx-target="next .chooser">Choose edges…</button></div>
@@ -287,7 +288,7 @@
 
     </div>
   </form>
-  <div class="chooser-results">
+  <fga-edge-list class="chooser-results">
     <div class="chooser-meta">
       {{if .Err}}<span class="errc">{{.Err}}</span>
       {{else if .Filter}}
@@ -311,7 +312,7 @@
       <span class="sel-count muted sm"></span>
       {{if .More}}<button type="button" class="ghost sm" hx-get="{{$.Base}}/explore/edges?{{.NextQuery}}" hx-target="closest .chooser-results" hx-select=".chooser-results" hx-swap="outerHTML">{{if .Filter}}More matches →{{else}}Next 100 →{{end}}</button>{{end}}
     </div>
-  </div>
+  </fga-edge-list>
 </div>
 {{end}}{{end}}
 

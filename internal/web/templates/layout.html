@@ -101,7 +101,7 @@
 {{template "foot" .}}{{end}}
 
 {{define "picker"}}{{$p := .P}}
-<div class="picker" data-field="{{$p.Field}}" data-mode="{{$p.Mode}}">
+<fga-picker data-field="{{$p.Field}}" data-mode="{{$p.Mode}}">
   <input type="hidden" name="field" value="{{$p.Field}}">
   <input type="hidden" name="mode" value="{{$p.Mode}}">
   {{if $p.Many}}
@@ -118,10 +118,10 @@
   <input type="text" name="{{$p.Field}}_q" class="picker-q" autocomplete="off" spellcheck="false"
     value="{{with $p.Value}}{{pickerText .}}{{end}}" placeholder="type an ID or prefix…" aria-label="{{$p.Field}} id"
     hx-get="{{.Base}}/search" hx-trigger="input changed delay:200ms, focus" hx-target="next .picker-results"
-    hx-include="closest .picker" hx-sync="this:replace">
+    hx-include="closest fga-picker" hx-sync="this:replace">
   <input type="hidden" name="{{$p.Field}}" value="{{$p.Value}}" class="picker-value">
   <div class="picker-results" role="listbox"></div>
-</div>
+</fga-picker>
 {{end}}
 
 {{define "search-results"}}{{with .Data}}
@@ -206,11 +206,11 @@
       </tbody>
     </table>
     {{with .FilesErr}}<div class="alert warn">The module files could not be rebuilt: {{.}}. The combined model is shown instead.</div>{{end}}
-    <div class="itabs" role="tablist" aria-label="Model files" data-tabs>
+    <fga-tabs class="itabs" role="tablist" aria-label="Model files">
       {{range $i, $f := .Files}}<button type="button" role="tab" id="mtab-{{$i}}" aria-controls="mfile-{{$i}}" aria-selected="{{if eq $i 0}}true{{else}}false{{end}}"{{if $i}} tabindex="-1"{{end}}>{{$f.Name}}</button>{{end}}
       {{if .Manifest}}<button type="button" role="tab" id="mtab-mod" aria-controls="mfile-mod" aria-selected="false" tabindex="-1">fga.mod</button>{{end}}
       <button type="button" role="tab" id="mtab-all" aria-controls="mfile-all" aria-selected="{{if .Files}}false{{else}}true{{end}}"{{if .Files}} tabindex="-1"{{end}} title="All modules as one model, each definition annotated with its module and file">Combined</button>
-    </div>
+    </fga-tabs>
     {{range $i, $f := .Files}}<section class="mfile" id="mfile-{{$i}}" role="tabpanel" aria-labelledby="mtab-{{$i}}"{{if $i}} hidden{{end}}>
       <p class="muted sm">module <b>{{$f.Module}}</b> · <code>{{$f.Name}}</code></p>
       <pre class="dsl">{{dsl $f.DSL}}</pre></section>{{end}}

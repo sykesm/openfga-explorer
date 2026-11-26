@@ -123,7 +123,7 @@ main { flex: 1; min-height: 0; }
 .canvas-bar .spacer { flex: 1; }
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
 .seg button { border: 0; border-radius: 0; background: transparent; }
-.seg button.on { background: var(--soft); font-weight: 600; }
+.seg [role="tab"][aria-selected="true"] { background: var(--soft); font-weight: 600; }
 .pill { font-size: 11px; background: var(--accent); color: #fff; border-radius: 9px; padding: 0 6px; }
 .canvas { flex: 1; min-height: 360px; background: var(--bg); }
 .canvas-stack { position: relative; display: contents; }
@@ -213,6 +213,9 @@ td .refs, th .refs, th .expr { margin-left: 0; }
 table.edges { width: 100%; border-collapse: collapse; }
 table.edges th, table.edges td { text-align: left; vertical-align: top; padding: 6px 4px; border-bottom: 1px solid var(--soft); font-weight: 400; }
 table.edges th { width: 44%; }
+fga-edge-list { display: block; }
+fga-trace { display: block; }
+fga-type-finder { display: block; }
 .edgelist { list-style: none; margin: 0; padding: 0; }
 .edgelist li { display: flex; align-items: center; gap: 4px; padding: 1px 0; flex-wrap: wrap; }
 .edgelist .peer { font-family: var(--mono); font-size: 12.5px; word-break: break-all; }
@@ -236,8 +239,8 @@ table.edges th { width: 44%; }
 .lu { margin-top: 4px; }
 
 /* picker */
-.picker { position: relative; display: flex; gap: 4px; align-items: center; }
-.picker .picker-q { flex: 1; font-family: var(--mono); font-size: 13px; }
+fga-picker { position: relative; display: flex; gap: 4px; align-items: center; }
+fga-picker .picker-q { flex: 1; font-family: var(--mono); font-size: 13px; }
 .picker-results:not(:empty) {
   position: absolute; z-index: 20; top: calc(100% + 2px); left: 0; right: 0; min-width: 300px; background: var(--panel);
   border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 8px 24px rgb(0 0 0 / .18); max-height: 360px; overflow-y: auto;
@@ -473,7 +476,7 @@ table.edges td { margin-top: 4px; }
 /* ---- instance tabs ---- */
 .itabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin: 12px 0 8px; }
 .itabs button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; padding: 6px 10px; }
-.itabs button.on { border-bottom-color: var(--accent); font-weight: 650; }
+.itabs [role="tab"][aria-selected="true"] { border-bottom-color: var(--accent); font-weight: 650; }
 .itabs .pill { background: var(--soft); color: var(--muted); }
 
 /* ---- shared context ---- */

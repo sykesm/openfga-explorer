@@ -147,7 +147,7 @@ func (e edgeView) GraphData() map[string]string {
 	if e.Condition != "" {
 		label += " [" + e.Condition + "]"
 	}
-	return map[string]string{"source": e.Source, "target": e.Target, "label": label, "peer": e.Peer, "sourceLabel": e.SourceLabel, "targetLabel": e.TargetLabel}
+	return map[string]string{"source": e.Source, "target": e.Target, "label": label, "relation": e.Relation, "peer": e.Peer, "sourceLabel": e.SourceLabel, "targetLabel": e.TargetLabel}
 }
 
 type edgeSet struct {
@@ -897,7 +897,7 @@ func (s *Server) graphPatch(p *instancePanel) map[string]any {
 		}
 		seen[id] = true
 		node(e.Peer, nil)
-		els = append(els, map[string]any{"group": "edges", "data": map[string]any{"id": id, "source": g["source"], "target": g["target"], "label": g["label"]}})
+		els = append(els, map[string]any{"group": "edges", "data": map[string]any{"id": id, "source": g["source"], "target": g["target"], "label": g["label"], "relation": g["relation"]}})
 	}
 	node(p.Object, map[string]any{"focus": true})
 	for _, o := range p.Out {
@@ -909,7 +909,7 @@ func (s *Server) graphPatch(p *instancePanel) map[string]any {
 		case !o.Empty() && o.Err == "":
 			id := p.Object + "|out|" + o.Rel.Name
 			node(id, map[string]any{"label": o.Count + " " + o.Rel.Name, "kind": "count", "chooser": "out-" + o.Rel.Name, "owner": p.Object})
-			els = append(els, map[string]any{"group": "edges", "data": map[string]any{"id": id + "|e", "source": id, "target": p.Object, "label": o.Rel.Name}, "classes": "count"})
+			els = append(els, map[string]any{"group": "edges", "data": map[string]any{"id": id + "|e", "source": id, "target": p.Object, "label": o.Rel.Name, "relation": o.Rel.Name}, "classes": "count"})
 		}
 	}
 	for _, in := range p.In {
@@ -922,7 +922,7 @@ func (s *Server) graphPatch(p *instancePanel) map[string]any {
 		case !in.Empty() && in.Err == "":
 			id := p.Object + "|in|" + name
 			node(id, map[string]any{"label": in.Count + " " + name, "kind": "count", "chooser": "in-" + name, "owner": p.Object})
-			els = append(els, map[string]any{"group": "edges", "data": map[string]any{"id": id + "|e", "source": p.Object, "target": id, "label": in.In.Relation}, "classes": "count"})
+			els = append(els, map[string]any{"group": "edges", "data": map[string]any{"id": id + "|e", "source": p.Object, "target": id, "label": in.In.Relation, "relation": in.In.Relation}, "classes": "count"})
 		}
 	}
 	return map[string]any{"focus": p.Object, "elements": els}

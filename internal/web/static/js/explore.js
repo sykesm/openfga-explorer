@@ -2,10 +2,17 @@
 // instances, the side panel (type and instance panels, rendered by the
 // server), and the per-tab persistence of all of it.
 import { $, $$, article, base, baseOpts, categoricalColor, dagre, fitCapped, labelWidth, load, pal, scrollBehavior, session, stateKey, store, typeColor } from './core.js';
-import { openPicker } from './pickers.js';
+import { initEdgeLists } from './edgelist.js';
+import { picker } from './pickers.js';
 import { onKey } from './shortcuts.js';
-import { initTypeFinder, rememberType } from './typefinder.js';
-import { initResizer, selectTab } from './ui.js';
+import { initTypeFinder } from './typefinder.js';
+import { initResizer, tabsOf } from './ui.js';
+
+/** @typedef {{ open(): void, remember(t: string): void }} TypeFinder <fga-type-finder> (typefinder.js) */
+/** @returns {TypeFinder | null} */
+const typeFinder = () => /** @type {any} */ ($('fga-type-finder:defined'));
+
+/** @typedef {import('./edgelist.js').FgaEdgeList} FgaEdgeList */
 
 /** @type {any} */ let schemaCy = null;
 /** @type {any} */ let instCy = null;
@@ -19,7 +26,7 @@ let promptWanted = false;
 let noteText = '';
 // The prompt and the note belong to the type graph tab.
 const updatePrompt = () => {
-  const onSchema = !$('#schema-canvas')?.classList.contains('hidden');
+  const onSchema = !$('#schema-canvas')?.hidden;
   const el = $('#schema-empty');
   if (el) el.hidden = !(promptWanted && onSchema);
   const note = $('#schema-note');
@@ -129,15 +136,17 @@ function toggleSide(collapse) {
   }
 }
 
-const activeCy = () => ($('#schema-canvas')?.classList.contains('hidden') ? instCy : schemaCy);
+const activeCy = () => ($('#schema-canvas')?.hidden ? instCy : schemaCy);
 const resizeAll = () => { instCy?.resize(); schemaCy?.resize(); };
 
-/** @param {'schema' | 'instances'} which */
-function showCanvas(which) {
-  const tab = $(`.canvas-bar [data-canvas="${which}"]`);
-  if (tab) selectTab(tab);
-  $('#schema-canvas')?.classList.toggle('hidden', which !== 'schema');
-  $('#instance-canvas')?.classList.toggle('hidden', which !== 'instances');
+/** Shows a graph (its tab is selected; canvasShown follows). @param {'schema' | 'instances'} which */
+const showCanvas = (which) => tabsOf('#graph-tabs')?.select(which);
+
+/**
+ * Updates the rest of the view for the graph now showing.
+ * @param {'schema' | 'instances'} which
+ */
+function canvasShown(which) {
   // The side panel follows the canvas: types on the type graph, the open
   // instance (kept, not discarded) on the instance graph.
   $('#explore-side')?.classList.toggle('on-schema', which === 'schema');
@@ -147,6 +156,7 @@ function showCanvas(which) {
   if (cy) { cy.resize(); fitCapped(cy); }
   updateEmpty();
   updatePrompt();
+  saveExplore();
 }
 
 // ---- type graph ----
@@ -196,7 +206,7 @@ function focusType(t) {
     schemaCy.layout(dagre('LR', { rankSep: 150, nodeSep: 40, fit: false })).run();
     subLayout = false;
   }
-  if (!$('#schema-canvas').classList.contains('hidden')) fitCapped(schemaCy, schemaCy.elements(':visible'));
+  if (!$('#schema-canvas').hidden) fitCapped(schemaCy, schemaCy.elements(':visible'));
 }
 
 function showAllTypes() {
@@ -211,6 +221,13 @@ function showAllTypes() {
   fitCapped(schemaCy);
 }
 
+/** Marks t as the selected type among the chips, and remembers it as recent. @param {string} t */
+function markType(t) {
+  $$('.type-chip').forEach((c) => c.classList.toggle('on', c.dataset.type === t));
+  $(`.type-list .type-chip[data-type="${CSS.escape(t)}"]`)?.scrollIntoView({ block: 'nearest' });
+  typeFinder()?.remember(t);
+}
+
 /**
  * @param {string} t
  * @param {{ loadPanel?: boolean, browse?: boolean }} [opts] browse: the person
@@ -218,11 +235,11 @@ function showAllTypes() {
  */
 function selectType(t, { loadPanel = true, browse = true } = {}) {
   if (browse) setInstanceFocus(false);
-  rememberType(t);
+  markType(t);
   if (schemaCy) focusType(t);
   const panel = $('#type-panel');
   if (loadPanel && panel && panel.querySelector('[data-selected-type]')?.dataset.selectedType !== t) {
-    return load(`${base()}/explore/type?type=${encodeURIComponent(t)}`, panel);
+    return load(`${base()}/explore/type?type=${encodeURIComponent(t)}`, panel).then(() => { updateEmpty(); saveExplore(); });
   }
   return Promise.resolve();
 }
@@ -253,7 +270,17 @@ function loadInstance(obj) {
   url.searchParams.set('type', type); url.searchParams.set('id', id); url.searchParams.delete('relation');
   history.replaceState(null, '', url);
   const panel = $('#instance-panel');
-  return panel ? load(`${base()}/explore/instance?object=${encodeURIComponent(obj)}`, panel) : Promise.resolve();
+  return panel ? load(`${base()}/explore/instance?object=${encodeURIComponent(obj)}`, panel).then(instanceShown) : Promise.resolve();
+}
+
+/** With an instance loaded, the side panel shows just it, scrolled into view. */
+function instanceShown() {
+  const panel = $('#instance-panel');
+  if ($('.instance', panel)) setInstanceFocus(true);
+  const det = $('#type-panel .type-details');
+  if (det) det.open = false;
+  panel.scrollIntoView({ block: 'start', behavior: scrollBehavior() });
+  saveExplore();
 }
 
 // ---- instance graph ----
@@ -263,6 +290,21 @@ function relayout(cy) {
   if (!cy || cy.elements().length === 0) return;
   cy.layout(dagre('LR', { fit: false, rankSep: 130, nodeSep: 18 })).run();
   fitCapped(cy);
+}
+
+/**
+ * <fga-graph-patch>: server-computed additions to the instance graph (an
+ * instance's edges, as JSON in a <script type="application/json"> child),
+ * sent with each instance panel and Incoming tab. It adds them to the graph
+ * when it arrives on the page, once.
+ */
+class FgaGraphPatch extends HTMLElement {
+  connectedCallback() {
+    const json = $('script', this)?.textContent;
+    if (this.applied || !json) return;
+    this.applied = true;
+    applyPatch(JSON.parse(json));
+  }
 }
 
 /** Adds server-computed elements (an instance's edges) to the instance graph. @param {any} patch */
@@ -279,21 +321,23 @@ function applyPatch(patch) {
     if (patch.focus) instCy.getElementById(patch.focus).addClass('current');
   });
   updateCount();
-  syncGraphMarks();
+  markEdgeLists();
   showCanvas('instances');
   if (added) relayout(instCy);
   const f = instCy.getElementById(patch.focus);
   if (f.length) instCy.animate({ center: { eles: f }, duration: 250 });
 }
 
-/** @typedef {{ source: string, target: string, label: string, sourceLabel?: string, targetLabel?: string }} EdgeData */
+/**
+ * An instance-graph edge: user (source) → object (target), and the object's
+ * relation it stands for.
+ * @typedef {{ source: string, target: string, label: string, relation?: string, sourceLabel?: string, targetLabel?: string }} EdgeData
+ */
 
 /** @param {EdgeData} d */
 const edgeId = (d) => `${d.source}|${d.label}|${d.target}`;
 /** @param {EdgeData} d */
 const onGraph = (d) => !!instCy && instCy.getElementById(edgeId(d)).length > 0;
-/** @param {Element} el @returns {EdgeData} */
-const edgeData = (el) => JSON.parse(/** @type {HTMLElement} */ (el.closest('[data-edge]')).dataset.edge || '{}');
 
 /** @param {EdgeData} d */
 function addEdge(d) {
@@ -302,7 +346,7 @@ function addEdge(d) {
     for (const [nid, lbl] of [[d.source, d.sourceLabel], [d.target, d.targetLabel]]) {
       if (!instCy.getElementById(nid).length) instCy.add({ group: 'nodes', data: { id: nid, label: lbl || nid, type: String(nid).split(':')[0] } });
     }
-    if (!instCy.getElementById(edgeId(d)).length) instCy.add({ group: 'edges', data: { id: edgeId(d), source: d.source, target: d.target, label: d.label } });
+    if (!instCy.getElementById(edgeId(d)).length) instCy.add({ group: 'edges', data: { id: edgeId(d), source: d.source, target: d.target, label: d.label, relation: d.relation } });
     const anchor = $('#instance-panel .instance')?.dataset.object;
     if (anchor) instCy.getElementById(anchor).addClass('current');
   });
@@ -329,7 +373,7 @@ function updateCount() {
 function updateEmpty() {
   const box = $('#instance-empty');
   if (!box || !instCy) return;
-  const showing = !$('#instance-canvas').classList.contains('hidden');
+  const showing = !$('#instance-canvas').hidden;
   box.classList.toggle('hidden', !(showing && instCy.nodes().length === 0));
   const type = $('#type-panel [data-selected-type]')?.dataset.selectedType;
   const btn = $('[data-act="start-picking"]', box);
@@ -344,80 +388,50 @@ function updateEmpty() {
 }
 
 function startPicking() {
-  const q = $('#type-panel .picker-q');
-  if (q) { openPicker(q); return; }
-  const find = $('.type-q');
-  if (find) { find.focus(); return; }
+  const p = picker('#type-panel');
+  if (p) { p.open(); return; }
+  const finder = typeFinder();
+  if (finder) { finder.open(); return; }
   $$('.type-chip').forEach((c) => { c.classList.remove('nudge'); void c.offsetWidth; c.classList.add('nudge'); });
 }
 
 /** @param {{ show?: boolean }} [opts] */
 function graphChanged({ show = false } = {}) {
   updateCount();
-  syncGraphMarks();
+  markEdgeLists();
   saveExplore();
   if (show) showCanvas('instances');
   clearTimeout(relayoutTimer);
   relayoutTimer = window.setTimeout(() => relayout(instCy), 120);
 }
 
-/** The edge lists mirror the graph: checked (or "−") means the edge is on it. */
-export function syncGraphMarks() {
-  if (!instCy) return;
-  for (const li of $$('#instance-panel [data-edge]')) {
-    const on = onGraph(JSON.parse(li.dataset.edge));
-    const cb = $('.edge-check', li);
-    if (cb) cb.checked = on;
-    const b = $('.add-edge', li);
-    if (b) {
-      b.textContent = on ? '−' : '＋';
-      b.classList.toggle('on', on);
-      b.title = on ? 'Remove this edge from the graph' : 'Add this edge to the graph';
-      b.setAttribute('aria-label', b.title);
-    }
-  }
-  for (const ch of $$('#instance-panel .chooser')) {
-    const items = $$('[data-edge]', ch);
-    const n = items.filter((li) => onGraph(JSON.parse(li.dataset.edge))).length;
-    for (const el of $$('.sel-count', ch)) el.textContent = items.length ? `${n} of ${items.length} shown are on the graph` : '';
-    for (const b of $$('.add-shown', ch)) b.disabled = n === items.length;
-    for (const b of $$('.remove-shown', ch)) b.disabled = n === 0;
-  }
+/**
+ * The edge lists (edgelist.js) mirror the graph: checked (or "−") means the
+ * edge is on it. Lists not set up yet (:defined) mark themselves on arrival.
+ */
+function markEdgeLists() {
+  for (const list of /** @type {FgaEdgeList[]} */ ($$('fga-edge-list:defined'))) list.mark(onGraph);
 }
 
-// ---- instance panel tabs (Edges / Derived / Incoming) ----
+// ---- instance panel tabs (Edges / Derived / Incoming / Access) ----
+// <fga-tabs> (ui.js) remembers the last tab per type and loads the lazy ones.
 
-/** @param {HTMLElement | null} panel @param {string} name */
-function showTab(panel, name) {
-  if (!panel) return Promise.resolve();
-  const btn = $(`.itabs [data-tab="${name}"]`, panel);
-  if (btn) selectTab(btn);
-  for (const sec of $$('.ipanel', panel)) sec.hidden = sec.dataset.panel !== name;
-  session.set(stateKey('itab'), { type: (panel.dataset.object || '').split(':')[0], tab: name });
-  const sec = $(`.ipanel[data-panel="${name}"]`, panel);
-  if (btn?.dataset.src && !sec.dataset.loaded) {
-    sec.dataset.loaded = '1';
-    return load(btn.dataset.src, sec);
-  }
-  return Promise.resolve();
-}
-
-/** Reuses the last tab only for instances of the same type. @param {HTMLElement | null} panel */
-function initInstanceTabs(panel) {
-  if (!panel) return;
-  const saved = session.get(stateKey('itab'));
-  const type = (panel.dataset.object || '').split(':')[0];
-  const want = saved?.type === type ? saved.tab : null;
-  const has = (/** @type {string} */ n) => !!$(`.itabs [data-tab="${n}"]`, panel);
-  showTab(panel, want && has(want) ? want : panel.dataset.defaultTab || 'edges');
-}
+/**
+ * Shows an instance panel tab, by name or by its panel.
+ * @param {string | Element} which
+ */
+const showTab = (which) => tabsOf('#instance-panel .itabs')?.select(which) ?? Promise.resolve();
 
 /** Opens the edge chooser behind a "100+" count node. @param {any} d */
 function openChooser(d) {
   const tab = d.chooser.startsWith('in-') ? 'incoming' : 'edges';
-  const go = () => showTab($('#instance-panel .instance'), tab).then(() => {
+  const go = () => showTab(tab).then(() => {
     const btn = $(`[data-chooser-btn="${CSS.escape(d.chooser)}"]`);
-    if (btn) { btn.scrollIntoView({ block: 'center', behavior: scrollBehavior() }); btn.click(); }
+    if (!btn) return;
+    const row = btn.closest('#instance-panel [id^="rel-"], #instance-panel tr');
+    if (row) markRelation(row);
+    btn.scrollIntoView({ block: 'center', behavior: scrollBehavior() });
+    btn.click();
   });
   if ($('#instance-panel .instance')?.dataset.object === d.owner) go();
   else loadInstance(d.owner).then(go);
@@ -430,7 +444,7 @@ function saveExplore() {
   session.set(stateKey('explore'), {
     type: $('#type-panel [data-selected-type]')?.dataset.selectedType || '',
     object: $('#instance-panel .instance')?.dataset.object || '',
-    canvas: $('#schema-canvas').classList.contains('hidden') ? 'instances' : 'schema',
+    canvas: $('#schema-canvas').hidden ? 'instances' : 'schema',
     elements: instCy.elements().jsons(),
   });
 }
@@ -450,34 +464,76 @@ function restoreExplore() {
 // ---- wiring ----
 
 /**
- * Goes to a relation in the instance panel: switches to its tab if needed,
- * scrolls it into view only when it is out of view, marks it (until another
- * is chosen) and moves focus to it, so it can be found in the list.
- * @param {HTMLElement} target
+ * Goes to relations in a panel (one row, or several from a type-graph edge):
+ * switches to their tab or opens their section if needed, scrolls the first
+ * into view only when it is out of view, marks them (until another is
+ * chosen) and moves focus to the first, so it can be found in the list.
+ * @param {...HTMLElement} targets
  */
-function goToRelation(target) {
-  const sec = target.closest('.ipanel');
-  const shown = sec instanceof HTMLElement && sec.hidden ? showTab(sec.closest('.instance'), sec.dataset.panel || '') : Promise.resolve();
+function goToRelation(...targets) {
+  const [first] = targets;
+  if (!first) return;
+  const sec = first.closest('.ipanel');
+  const shown = sec instanceof HTMLElement && sec.hidden ? showTab(sec) : Promise.resolve();
+  const det = first.closest('details');
+  if (det) det.open = true;
   shown.then(() => {
-    markRelation(target);
-    target.classList.remove('rel-arrive');
-    void target.offsetWidth; // restart the arrival pulse
-    target.classList.add('rel-arrive');
-    if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
-    target.focus({ preventScroll: true });
-    target.scrollIntoView({ block: 'nearest', behavior: scrollBehavior() });
+    markRelation(...targets);
+    for (const t of targets) {
+      t.classList.remove('rel-arrive');
+      void t.offsetWidth; // restart the arrival pulse
+      t.classList.add('rel-arrive');
+    }
+    if (!first.hasAttribute('tabindex')) first.setAttribute('tabindex', '-1');
+    first.focus({ preventScroll: true });
+    first.scrollIntoView({ block: 'nearest', behavior: scrollBehavior() });
   });
 }
 
 /**
- * Marks the chosen relation (one at a time): the target of a relation link,
- * or the row someone clicks or tabs into.
- * @param {Element} el
+ * Marks the chosen relation (one at a time, or the relations of one
+ * type-graph edge): the target of a relation link or a graph edge, or the
+ * row someone clicks or tabs into.
+ * @param {...Element} els
  */
-function markRelation(el) {
-  if (el.classList.contains('rel-target')) return;
-  $$('.rel-target').forEach((x) => x.classList.remove('rel-target', 'rel-arrive'));
-  el.classList.add('rel-target');
+function markRelation(...els) {
+  const marked = $$('.rel-target');
+  if (marked.length === els.length && els.every((el) => marked.includes(el))) return;
+  marked.forEach((x) => x.classList.remove('rel-target', 'rel-arrive'));
+  els.forEach((el) => el.classList.add('rel-target'));
+}
+
+/**
+ * An instance-graph edge stands for a relation on its target (the object):
+ * tapping it opens that instance, as tapping the node does, and goes to the
+ * relation. A count edge opens its edge chooser, as its count node does.
+ * @param {any} edge a Cytoscape edge
+ */
+function tapInstanceEdge(edge) {
+  const count = edge.connectedNodes('[kind = "count"]');
+  if (count.length) { openChooser(count.data()); return; }
+  const d = /** @type {EdgeData} */ (edge.data());
+  const rel = d.relation || d.label.split(' ')[0]; // graphs saved before edges carried it
+  const go = () => {
+    const row = document.getElementById(`rel-${rel}`);
+    if (row) goToRelation(row);
+  };
+  if ($('#instance-panel .instance')?.dataset.object === d.target) go();
+  else loadInstance(d.target).then(go);
+}
+
+/**
+ * A type-graph edge stands for relations on its target type (several when
+ * parallel edges are merged): tapping it selects that type, as tapping the
+ * node does, and goes to those relations in the type panel.
+ * @param {any} edge a Cytoscape edge
+ */
+function tapTypeEdge(edge) {
+  const d = edge.data();
+  selectType(d.target).then(() => {
+    const rows = (d.relations || []).map((/** @type {string} */ r) => document.getElementById(`type-rel-${r}`)).filter(Boolean);
+    goToRelation(...rows);
+  });
 }
 
 /** The relation row (Edges or Derived tab) holding an element. @param {EventTarget | null} t */
@@ -492,16 +548,12 @@ function onClick(e) {
   if (chip instanceof HTMLElement) { selectType(chip.dataset.type || ''); showCanvas('schema'); return; }
   if (t.closest('[data-act="start-picking"]')) toggleSide(false);
   if (t.closest('[data-act="start-picking"]')) { startPicking(); return; }
-  const canvasTab = t.closest('[data-canvas]');
-  if (canvasTab instanceof HTMLElement) { showCanvas(/** @type {any} */ (canvasTab.dataset.canvas)); saveExplore(); return; }
-  const tab = t.closest('.itabs [data-tab]');
-  if (tab instanceof HTMLElement) { showTab(tab.closest('.instance'), tab.dataset.tab || ''); return; }
   // The instance header: show the type section, or pick another instance.
   if (t.closest('[data-act="show-type"]')) { setInstanceFocus(!$('#explore-side')?.classList.contains('focus-instance')); return; }
   if (t.closest('[data-act="change-instance"]')) {
     setInstanceFocus(false);
-    const q = $('#type-panel .picker-q');
-    if (q) { q.scrollIntoView({ block: 'nearest', behavior: scrollBehavior() }); openPicker(q); }
+    const p = picker('#type-panel');
+    if (p) { p.q.scrollIntoView({ block: 'nearest', behavior: scrollBehavior() }); p.open(); }
     return;
   }
   // Links to a relation row (possibly in another tab): show and mark it.
@@ -526,49 +578,33 @@ function onClick(e) {
     }
     return;
   }
-  const toggle = t.closest('.add-edge');
-  if (toggle) {
-    const d = edgeData(toggle);
-    const adding = !onGraph(d);
-    if (adding) addEdge(d); else removeEdge(d);
-    graphChanged({ show: adding });
-    return;
-  }
+  // Walks to a peer (an edge list has already added the edge to the graph).
   const peer = t.closest('[data-explore]');
   if (peer instanceof HTMLElement && $('#instance-canvas')) {
     e.preventDefault();
-    const li = peer.closest('.edge');
-    if (li instanceof HTMLElement && li.dataset.edge) addEdge(JSON.parse(li.dataset.edge));
     loadInstance(peer.dataset.explore || '');
-    return;
-  }
-  const bulk = t.closest('.add-shown, .remove-shown');
-  if (bulk) {
-    const adding = bulk.classList.contains('add-shown');
-    for (const li of $$('[data-edge]', /** @type {Element} */ (bulk.closest('.chooser')))) {
-      const d = JSON.parse(li.dataset.edge);
-      if (adding) addEdge(d); else removeEdge(d);
-    }
-    graphChanged({ show: adding });
   }
 }
 
 export function initExplore() {
   const sc = $('#schema-canvas');
   if (!sc) return;
-  initTypeFinder((t) => { selectType(t); showCanvas('schema'); });
+  document.addEventListener('fgax:type-chosen', (/** @type {any} */ e) => { selectType(e.detail.type); showCanvas('schema'); });
+  initTypeFinder();
   toggleSide(store.get('sideCollapsed', false));
   $('.canvas-wrap > .panel-rail')?.addEventListener('click', () => toggleSide(false));
   const setSideW = (/** @type {number} */ w) => { document.documentElement.style.setProperty('--side-w', `${Math.round(Math.min(Math.max(w, 320), window.innerWidth * 0.7))}px`); return w; };
   initResizer($('.side-resizer'), (x) => setSideW(window.innerWidth - x), setSideW, 'sideWidth', resizeAll);
   const p = pal();
   instCy = cytoscape({ container: $('#instance-canvas'), elements: [], style: instStyle(p), ...baseOpts });
+  if (!customElements.get('fga-graph-patch')) customElements.define('fga-graph-patch', FgaGraphPatch);
   instCy.on('tap', 'node', (/** @type {any} */ e) => {
     const d = e.target.data();
     // Opening something from the graph fills the panel: show it.
     toggleSide(false);
     if (d.kind === 'count') openChooser(d); else loadInstance(d.id);
   });
+  instCy.on('tap', 'edge', (/** @type {any} */ e) => { toggleSide(false); tapInstanceEdge(e.target); });
   fetch(`${base()}/api/schema`).then((r) => r.json()).then((data) => {
     const large = isLarge();
     const toggle = $('[data-act="color-modules"]');
@@ -590,6 +626,7 @@ export function initExplore() {
     // Choosing a type shows its details; it never opens the instance picker
     // over them (only "Pick … instance" and "/" do).
     schemaCy.on('tap', 'node', (/** @type {any} */ e) => { toggleSide(false); selectType(e.target.id()); });
+    schemaCy.on('tap', 'edge', (/** @type {any} */ e) => { toggleSide(false); tapTypeEdge(e.target); });
     // Tapping the background shows every type again, except in large models
     // (it would bring back the unreadable whole).
     schemaCy.on('tap', (/** @type {any} */ e) => { if (e.target === schemaCy && !large) { schemaCy.elements().removeClass('faded sel'); showAllTypes(); } });
@@ -608,48 +645,23 @@ export function initExplore() {
   });
 
   document.addEventListener('click', onClick);
+  document.addEventListener('fgax:tab', (/** @type {any} */ e) => { if (e.target.id === 'graph-tabs') canvasShown(e.detail.name); });
   document.addEventListener('focusin', (e) => { const row = relationOf(e.target); if (row) markRelation(row); });
-  document.addEventListener('change', (e) => {
-    const t = /** @type {HTMLInputElement} */ (e.target);
-    if (!t.matches('.edge-check')) return;
-    const d = edgeData(t);
-    if (t.checked) addEdge(d); else removeEdge(d);
-    graphChanged({ show: t.checked });
+  // Edge lists ask for edges to be added or removed, and to be marked.
+  document.addEventListener('fgax:edges', (/** @type {any} */ e) => {
+    const { edges, add } = e.detail;
+    for (const d of edges) { if (add) addEdge(d); else removeEdge(d); }
+    graphChanged({ show: add });
   });
+  document.addEventListener('fgax:edge-list', (/** @type {any} */ e) => e.target.mark(onGraph));
+  initEdgeLists();
   document.addEventListener('fgax:picked', (/** @type {any} */ e) => { if (e.detail.mode === 'explore') loadInstance(e.detail.value); });
   onKey('fit', () => fitCapped(activeCy()));
   onKey('toggleText', () => toggleSide());
   onKey('find', () => {
-    const q = $('#type-panel .picker-q');
-    if (q) openPicker(q); else ($('.type-q') || $('.type-chip'))?.focus();
+    const box = picker('#type-panel') ?? typeFinder();
+    if (box) box.open(); else $('.type-chip')?.focus();
   });
 }
 
-/**
- * Sets up content htmx has loaded into region t (see main.js).
- * @param {Element} t
- */
-export function exploreLoaded(t) {
-  if (instCy) instanceLoaded(t);
-  if (t.id === 'type-panel') updateEmpty();
-}
-
-/** @param {Element} t */
-function instanceLoaded(t) {
-  // Any loaded fragment (instance panel, incoming tab) may carry graph updates.
-  for (const patch of $$('.graph-patch', t)) {
-    if (patch.dataset.applied) continue;
-    patch.dataset.applied = '1';
-    applyPatch(JSON.parse(patch.textContent));
-  }
-  if (t.id === 'instance-panel') {
-    initInstanceTabs($('.instance', t));
-    if ($('.instance', t)) setInstanceFocus(true);
-    const det = $('#type-panel .type-details');
-    if (det) det.open = false;
-    t.scrollIntoView({ block: 'start', behavior: scrollBehavior() });
-  }
-  if (t.id === 'instance-panel' || t.id === 'type-panel') saveExplore();
-  syncGraphMarks();
-}
 

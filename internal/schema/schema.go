@@ -366,6 +366,8 @@ func (m *Model) IncomingFor(userType string) []Incoming {
 // GraphEdge is an edge in the type-level graph.
 type GraphEdge struct {
 	From, To string
+	// Relation is the object type's (To's) relation; Label describes the edge.
+	Relation string
 	Label    string
 	// Kind is "direct", "userset", "wildcard", or "ttu".
 	Kind string
@@ -388,7 +390,7 @@ func (m *Model) TypeGraph() []GraphEdge {
 		for _, rn := range t.RelationNames {
 			r := t.Relations[rn]
 			for _, ref := range r.DirectTypes {
-				e := GraphEdge{From: ref.GetType(), To: tn, Label: rn, Kind: "direct"}
+				e := GraphEdge{From: ref.GetType(), To: tn, Relation: rn, Label: rn, Kind: "direct"}
 				if ref.GetWildcard() != nil {
 					e.Kind = "wildcard"
 					e.Label = rn + " (*)"
@@ -403,7 +405,7 @@ func (m *Model) TypeGraph() []GraphEdge {
 					continue
 				}
 				for _, tt := range d.TargetTypes {
-					add(GraphEdge{From: tt, To: tn, Label: rn + " ← " + d.Relation + " from " + d.Via, Kind: "ttu"})
+					add(GraphEdge{From: tt, To: tn, Relation: rn, Label: rn + " ← " + d.Relation + " from " + d.Via, Kind: "ttu"})
 				}
 			}
 		}

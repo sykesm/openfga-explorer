@@ -64,6 +64,20 @@ deploy/               docker compose stack, generic sample data (seed/gen
   `prefers-reduced-motion`.
 - Each module owns its state; `main.js` only wires page events. Shortcuts are
   registered per page (`shortcuts.onKey`). Escape HTML you build (`esc`).
+- **Widgets are custom elements** (`<fga-picker>`, `<fga-tabs>`,
+  `<fga-type-finder>`, `<fga-edge-list>`, `<fga-graph-patch>`, `<fga-trace>`):
+  the server renders their parts, and the element sets itself up in
+  `connectedCallback`, wherever it appears (first page or htmx swap), so
+  `main.js` has no per-swap wiring. Work that needs htmx to have finished
+  (settled, `hx-*` processed) waits with `whenLoaded` (core.js); code that
+  loads a region acts on it when `load()` resolves. Call methods only on
+  elements the browser has set up (`:defined`). Light DOM only (no shadow
+  DOM: ARIA id references and the global stylesheet must reach inside).
+  Pages call the element's methods and listen for its `fgax:*` events; a
+  widget never reaches into page state. Document the parts, methods, and
+  events at the top of its definition. Mark state with ARIA attributes
+  (`aria-selected`, …) rather than classes on elements with an `id`: htmx
+  puts back the server's `class` when it settles a swap.
 
 ## Domain notes
 

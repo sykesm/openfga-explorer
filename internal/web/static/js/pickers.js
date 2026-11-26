@@ -1,8 +1,22 @@
-// Instance pickers: a type (a <select>, or a find-as-you-type combobox when
-// the model has many types) plus an ID search whose results the server
-// renders. Choosing an instance dispatches "fgax:picked" on the picker; the
-// page decides what that means (Explore opens it, Check remembers the form).
-import { $, $$, base, esc, load, store } from './core.js';
+// Instance pickers: <fga-picker>, a custom element. The server renders its
+// parts: a type (a <select>, or a find-as-you-type combobox when the model
+// has many types) plus an ID search whose results the server renders. The
+// element adds the behavior: the browser calls connectedCallback whenever a
+// picker is added to the page (the first page, or content htmx loads), so a
+// picker sets itself up wherever it appears.
+//
+// Pages talk to a picker through its methods (open, set, hint) and hear from
+// it through events, so they need not know its parts:
+//   fgax:picked        an instance was chosen; the page decides what that
+//                      means (Explore opens it, Check remembers the form)
+//   fgax:type-changed  the type changed (Check refreshes its relations)
+//
+// The server renders the parts the element expects (layout.html, "picker"):
+// .picker-type (a <select>, the source of truth for the type), an optional
+// .tcombo (type combobox: .tcombo-q and .tcombo-list), .picker-q (the ID
+// search box), .picker-value (the chosen "type:id") and .picker-results.
+import { $, $$, base, store } from './core.js';
+import { Listbox } from './combobox.js';
 import { pushRecent, rankTypes, relTag, splitRels } from './typematch.js';
 import { onEscape } from './shortcuts.js';
 
@@ -10,83 +24,141 @@ import { onEscape } from './shortcuts.js';
 
 const closeResults = () => $$('.picker-results').forEach((r) => { r.innerHTML = ''; });
 
-/** Updates the ID placeholder (per-type hint) and the combobox label. @param {Element} picker */
-export function pickerHint(picker) {
-  const sel = $('.picker-type', picker);
-  const q = $('.picker-q', picker);
-  const opt = sel?.selectedOptions[0];
-  if (q) q.placeholder = opt?.dataset.hint || 'type an ID or prefix…';
-  const combo = $('.tcombo-q', picker);
-  if (combo && document.activeElement !== combo) combo.value = opt?.textContent || '';
+export class FgaPicker extends HTMLElement {
+  connectedCallback() {
+    this.hint();
+    if (this.wired) return; // moved, not new: its listeners are already on it
+    this.wired = true;
+    const combo = $('.tcombo', this);
+    if (combo) new TypeCombo(combo);
+    this.addEventListener('click', (e) => {
+      const btn = e.target instanceof Element && e.target.closest('.pick');
+      if (btn instanceof HTMLElement) this.choose(btn);
+    });
+    this.addEventListener('input', (e) => { if (e.target === this.q) this.valueInput.value = ''; });
+    this.addEventListener('change', (e) => { if (e.target === this.typeSelect) this.typeChanged(); });
+    this.addEventListener('keydown', (e) => { if (e.target === this.q) this.onKey(e); });
+    // "Keep scanning" appends results: drop the note it came from.
+    this.addEventListener('htmx:afterRequest', (/** @type {any} */ e) => {
+      const btn = e.detail.elt;
+      if (btn?.classList?.contains('keep-scanning') && e.detail.successful) btn.closest('.sr-note')?.remove();
+    });
+  }
+
+  get field() { return this.dataset.field || ''; }
+  get mode() { return this.dataset.mode || ''; }
+  /** @returns {HTMLInputElement} the ID search box */
+  get q() { return $('.picker-q', this); }
+  /** @returns {HTMLSelectElement} the type: the source of truth, even under a combobox */
+  get typeSelect() { return $('.picker-type', this); }
+  /** @returns {HTMLInputElement} the chosen "type:id", submitted with the form */
+  get valueInput() { return $('.picker-value', this); }
+  /** @returns {HTMLElement} */
+  get results() { return $('.picker-results', this); }
+
+  /** Updates the ID placeholder (per-type hint) and the combobox label. */
+  hint() {
+    const opt = this.typeSelect?.selectedOptions[0];
+    if (this.q) this.q.placeholder = opt?.dataset.hint || 'type an ID or prefix…';
+    const combo = $('.tcombo-q', this);
+    if (combo && document.activeElement !== combo) combo.value = opt?.textContent || '';
+  }
+
+  /**
+   * Opens the results: focusing fires the search, but a box that already has
+   * focus gets no focus event, so trigger the search directly.
+   */
+  open() {
+    if (document.activeElement === this.q) htmx.trigger(this.q, 'focus');
+    else this.q.focus();
+  }
+
+  /**
+   * Sets the chosen instance without a search (and its type, which the value
+   * names: "type:id", or "type:id#relation" for a userset).
+   * @param {string} value
+   * @param {string} text what the ID box shows
+   */
+  set(value, text) {
+    const colon = value.indexOf(':');
+    const hash = value.lastIndexOf('#');
+    const type = value.slice(0, colon);
+    const want = hash > colon ? `${type}#${value.slice(hash + 1)}` : type;
+    if ([...this.typeSelect.options].some((o) => o.value === want)) this.typeSelect.value = want;
+    this.valueInput.value = value;
+    this.q.value = text;
+    this.hint();
+  }
+
+  /** A new type clears the instance, announces the change, and searches the new type. */
+  typeChanged() {
+    this.hint();
+    this.valueInput.value = '';
+    this.dispatchEvent(new CustomEvent('fgax:type-changed', { bubbles: true, detail: { field: this.field } }));
+    htmx.trigger(this.q, 'input');
+  }
+
+  /** @param {HTMLElement} btn a search result */
+  choose(btn) {
+    this.valueInput.value = btn.dataset.value || '';
+    this.q.value = btn.dataset.text || '';
+    this.results.innerHTML = '';
+    /** @type {PickedDetail} */
+    const detail = { value: btn.dataset.value || '', text: btn.dataset.text || '', mode: this.mode };
+    this.dispatchEvent(new CustomEvent('fgax:picked', { bubbles: true, detail }));
+  }
+
+  /** ↑/↓ move through results, Enter chooses, Escape closes. @param {KeyboardEvent} e */
+  onKey(e) {
+    const items = $$('.pick', this);
+    const cur = items.findIndex((b) => b.classList.contains('active'));
+    /** @param {number} i */
+    const move = (i) => {
+      items.forEach((b) => b.classList.remove('active'));
+      if (items[i]) { items[i].classList.add('active'); items[i].scrollIntoView({ block: 'nearest' }); }
+    };
+    if (e.key === 'ArrowDown') { e.preventDefault(); move(Math.min(items.length - 1, cur + 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); move(Math.max(0, cur - 1)); }
+    else if (e.key === 'Escape') { this.results.innerHTML = ''; e.stopPropagation(); }
+    else if (e.key === 'Enter' && items.length && this.mode === 'explore') { e.preventDefault(); this.choose(items[Math.max(0, cur)]); }
+    else if (e.key === 'Enter' && cur >= 0) { e.preventDefault(); this.choose(items[cur]); }
+  }
 }
 
 /**
- * Opens the picker's results: focusing fires its search, but an input that
- * already has focus gets no focus event, so trigger the search directly.
- * @param {HTMLInputElement} q
+ * A picker on the page, if any: the first inside scope, for field if given.
+ * @param {string} scope a selector, e.g. '#check-form'
+ * @param {string} [field] e.g. 'user'
+ * @returns {FgaPicker | null}
  */
-export function openPicker(q) {
-  if (document.activeElement === q) htmx.trigger(q, 'focus');
-  else q.focus();
-}
+export const picker = (scope, field = '') =>
+  /** @type {FgaPicker | null} */ ($(`${scope} fga-picker${field ? `[data-field="${field}"]` : ''}`));
 
-/**
- * Reloads the relation options for the current user and object types, so
- * relations the user type can never reach are disabled.
- * @param {string} [relation]
- */
-export function refreshRelations(relation) {
-  const sel = $('#relation-select');
-  const q = new URLSearchParams({
-    object_type: $('select[name="object_type"]')?.value || '',
-    user_type: $('select[name="user_type"]')?.value || '',
-    relation: relation ?? sel.value,
-  });
-  return load(`${base()}/relations?${q}`, sel);
-}
+/** Every picker inside an element. @param {ParentNode} root @returns {FgaPicker[]} */
+export const pickersIn = (root) => /** @type {FgaPicker[]} */ ($$('fga-picker', root));
 
-/** @param {HTMLElement} btn a search result */
-function choose(btn) {
-  const picker = /** @type {HTMLElement} */ (btn.closest('.picker'));
-  $('.picker-value', picker).value = btn.dataset.value;
-  $('.picker-q', picker).value = btn.dataset.text;
-  $('.picker-results', picker).innerHTML = '';
-  /** @type {PickedDetail} */
-  const detail = { value: btn.dataset.value || '', text: btn.dataset.text || '', mode: picker.dataset.mode || '' };
-  picker.dispatchEvent(new CustomEvent('fgax:picked', { bubbles: true, detail }));
-}
-
-// ---- type combobox (WAI-ARIA combobox with listbox popup) ----
+// ---- type combobox (combobox.js) ----
 // The <select> stays, hidden, as the source of truth: choosing sets it and
 // fires "change", so everything that reads the type is unchanged.
 const MAX_COMBO = 80;
 
-export class TypeCombo {
+class TypeCombo {
   /** @param {HTMLElement} box */
   constructor(box) {
-    this.picker = /** @type {HTMLElement} */ (box.closest('.picker'));
+    this.picker = /** @type {FgaPicker} */ (box.closest('fga-picker'));
     /** @type {HTMLInputElement} */
     this.input = $('.tcombo-q', box);
-    /** @type {HTMLUListElement} */
-    this.list = $('.tcombo-list', box);
     /** @type {HTMLSelectElement} */
-    this.select = $('.picker-type', this.picker);
-    /** @type {string[]} */
-    this.items = [];
-    this.active = -1;
+    this.select = this.picker.typeSelect;
+    this.list = new Listbox(this.input, $('.tcombo-list', box), (v) => this.choose(v));
     this.input.addEventListener('focus', () => { this.input.select(); this.open(''); });
-    this.input.addEventListener('click', () => { if (this.list.hidden) this.open(''); });
+    this.input.addEventListener('click', () => { if (!this.list.open) this.open(''); });
     this.input.addEventListener('input', () => this.open(this.input.value));
     this.input.addEventListener('keydown', (e) => this.onKey(e));
     this.input.addEventListener('blur', () => setTimeout(() => this.close(), 120));
-    // mousedown, not click: choose before the input's blur closes the list.
-    this.list.addEventListener('mousedown', (e) => {
-      const li = e.target instanceof Element && e.target.closest('li[data-value]');
-      if (li instanceof HTMLElement) { e.preventDefault(); this.choose(li.dataset.value || ''); }
-    });
     this.select.addEventListener('change', () => this.sync());
   }
-  get key() { return `recentPick:${this.picker.dataset.field}:${base()}`; }
+  get key() { return `recentPick:${this.picker.field}:${base()}`; }
   options() {
     return Array.from(this.select.options).map((o) => ({ value: o.value, label: o.textContent || '', rels: splitRels(o.dataset.rels) }));
   }
@@ -95,56 +167,30 @@ export class TypeCombo {
     closeResults(); // one dropdown at a time
     const all = this.options();
     const ranked = rankTypes(all, q);
+    /** @type {import('./combobox.js').Row[]} */
     const rows = [];
-    this.items = [];
-    /** @param {{ value: string, label: string }} o @param {string[]} [rels] */
-    const add = (o, rels = []) => {
-      const tag = relTag(rels);
-      rows.push(`<li id="${this.list.id}-${this.items.length}" role="option" data-value="${esc(o.value)}" aria-selected="false">${esc(o.label)}${tag ? `<span class="rel-tag">${esc(tag)}</span>` : ''}</li>`);
-      this.items.push(o.value);
-    };
     if (!q.trim()) {
       const recent = store.get(this.key, []).map((/** @type {string} */ v) => all.find((o) => o.value === v)).filter(Boolean).slice(0, 5);
       if (recent.length) {
-        rows.push('<li class="sec" role="presentation">recent</li>');
-        recent.forEach((/** @type {any} */ o) => add(o));
-        rows.push(`<li class="sec" role="presentation">all ${all.length} types</li>`);
+        rows.push({ section: 'recent' }, ...recent, { section: `all ${all.length} types` });
       }
     }
-    ranked.slice(0, MAX_COMBO).forEach(({ o, m }) => add(o, m.rels));
-    if (ranked.length > MAX_COMBO) rows.push(`<li class="more" role="presentation">…${ranked.length - MAX_COMBO} more: keep typing to narrow</li>`);
-    if (!ranked.length) rows.push(`<li class="more" role="presentation">no type or relation matches “${esc(q)}”</li>`);
-    this.list.innerHTML = rows.join('');
-    this.list.hidden = false;
-    this.input.setAttribute('aria-expanded', 'true');
+    rows.push(...ranked.slice(0, MAX_COMBO).map(({ o, m }) => ({ value: o.value, label: o.label, tag: relTag(m.rels) })));
+    if (ranked.length > MAX_COMBO) rows.push({ note: `…${ranked.length - MAX_COMBO} more: keep typing to narrow` });
+    if (!ranked.length) rows.push({ note: `no type or relation matches “${q}”` });
     // With a query, the best match is ready for Enter; without, the current type.
-    this.move(q.trim() ? 0 : this.items.indexOf(this.select.value));
-  }
-  /** @param {number} i */
-  move(i) {
-    const lis = $$('li[data-value]', this.list);
-    lis.forEach((li) => li.setAttribute('aria-selected', 'false'));
-    this.active = i;
-    const li = lis[i];
-    if (li) {
-      li.setAttribute('aria-selected', 'true');
-      li.scrollIntoView({ block: 'nearest' });
-      this.input.setAttribute('aria-activedescendant', li.id);
-    } else this.input.removeAttribute('aria-activedescendant');
+    const options = rows.filter((r) => 'value' in r);
+    this.list.show(rows, q.trim() ? 0 : options.findIndex((o) => 'value' in o && o.value === this.select.value));
   }
   /** @param {KeyboardEvent} e */
   onKey(e) {
-    const chosen = this.items[this.active];
+    if (this.list.onKey(e)) return;
+    const chosen = this.list.value;
     switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        if (this.list.hidden) this.open(''); else this.move(Math.min(this.items.length - 1, this.active + 1));
-        break;
-      case 'ArrowUp': e.preventDefault(); this.move(Math.max(0, this.active - 1)); break;
-      case 'Enter': if (!this.list.hidden && chosen !== undefined) { e.preventDefault(); this.choose(chosen); } break;
-      case 'Escape': if (!this.list.hidden) { e.stopPropagation(); this.close(); } break;
+      case 'ArrowDown': e.preventDefault(); this.open(''); break; // closed: open it
+      case 'Escape': if (this.list.open) { e.stopPropagation(); this.close(); } break;
       case 'Tab': // Tab accepts a typed match, then moves on
-        if (!this.list.hidden && this.input.value !== this.label() && chosen !== undefined) this.choose(chosen);
+        if (this.list.open && this.input.value !== this.label() && chosen !== undefined) this.choose(chosen);
         break;
       default:
     }
@@ -157,55 +203,24 @@ export class TypeCombo {
     store.set(this.key, pushRecent(store.get(this.key, []), value));
     this.close();
     if (changed) this.select.dispatchEvent(new Event('change', { bubbles: true }));
-    $('.picker-q', this.picker)?.focus();
+    this.picker.q?.focus();
   }
   close() {
-    this.list.hidden = true;
-    this.input.setAttribute('aria-expanded', 'false');
-    this.input.removeAttribute('aria-activedescendant');
+    this.list.hide();
     this.sync();
   }
-  sync() { if (document.activeElement !== this.input || this.list.hidden) this.input.value = this.label(); }
+  sync() { if (document.activeElement !== this.input || !this.list.open) this.input.value = this.label(); }
 }
 
+/**
+ * Defines <fga-picker>, which sets up the pickers already on the page (and
+ * every one added later), and closes open results on Escape or a click
+ * outside any picker.
+ */
 export function initPickers() {
-  $$('.picker').forEach(pickerHint);
-  $$('.tcombo').forEach((b) => new TypeCombo(b));
+  if (!customElements.get('fga-picker')) customElements.define('fga-picker', FgaPicker);
   onEscape(closeResults);
   document.addEventListener('click', (e) => {
-    const t = /** @type {Element} */ (e.target);
-    const btn = t.closest('.pick');
-    if (btn) { choose(/** @type {HTMLElement} */ (btn)); return; }
-    if (!t.closest('.picker')) closeResults();
-  });
-  document.addEventListener('input', (e) => {
-    const t = /** @type {Element} */ (e.target);
-    if (t.matches('.picker-q')) $('.picker-value', t.closest('.picker')).value = '';
-  });
-  document.addEventListener('change', (e) => {
-    const t = /** @type {Element} */ (e.target);
-    if (!t.matches('.picker-type')) return;
-    const picker = /** @type {HTMLElement} */ (t.closest('.picker'));
-    pickerHint(picker);
-    $('.picker-value', picker).value = '';
-    if ((picker.dataset.field === 'object' || picker.dataset.field === 'user') && $('#relation-select')) refreshRelations();
-    htmx.trigger($('.picker-q', picker), 'input');
-  });
-  // ↑/↓ move through results, Enter chooses, Escape closes.
-  document.addEventListener('keydown', (e) => {
-    if (!(e.target instanceof Element) || !e.target.matches('.picker-q')) return;
-    const picker = /** @type {HTMLElement} */ (e.target.closest('.picker'));
-    const items = $$('.pick', picker);
-    const cur = items.findIndex((b) => b.classList.contains('active'));
-    /** @param {number} i */
-    const move = (i) => {
-      items.forEach((b) => b.classList.remove('active'));
-      if (items[i]) { items[i].classList.add('active'); items[i].scrollIntoView({ block: 'nearest' }); }
-    };
-    if (e.key === 'ArrowDown') { e.preventDefault(); move(Math.min(items.length - 1, cur + 1)); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); move(Math.max(0, cur - 1)); }
-    else if (e.key === 'Escape') { $('.picker-results', picker).innerHTML = ''; e.stopPropagation(); }
-    else if (e.key === 'Enter' && items.length && picker.dataset.mode === 'explore') { e.preventDefault(); choose(items[Math.max(0, cur)]); }
-    else if (e.key === 'Enter' && cur >= 0) { e.preventDefault(); choose(items[cur]); }
+    if (!(e.target instanceof Element) || !e.target.closest('fga-picker')) closeResults();
   });
 }

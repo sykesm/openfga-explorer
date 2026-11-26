@@ -76,6 +76,7 @@
 {{end}}{{template "foot" .}}{{end}}
 
 {{define "check-result"}}{{with .Data}}{{$t := .Trace}}
+<fga-trace>
 <div class="verdict v-{{.Decision}}" data-user="{{$t.Request.User}}" data-relation="{{$t.Request.Relation}}" data-object="{{$t.Request.Object}}" data-context="{{.Context}}" data-contextual="{{.Contextual}}" data-summary="{{.Summary}}" data-done-path="{{.Done.Path}}" data-done-nofocus="{{.Done.NoFocus}}" data-done-other="{{.Done.Other}}">
   <h2 class="big">{{if eq .Decision "allowed"}}✓ Allowed{{else if eq .Decision "denied"}}✗ Denied{{else}}? Undecided{{end}}</h2>
   <p class="headline">{{trimVerdict .Explanation.Headline}}</p>
@@ -159,10 +160,10 @@
     <section id="node-detail" class="node-detail" aria-live="polite" aria-label="Selected node">
       <p class="nd-empty muted sm">Select a node in the graph or a line of the text trace to see what it means and where to go next.</p>
     </section>
-    <div class="itabs rtabs" role="tablist" aria-label="Result views">
-      <button type="button" role="tab" id="rtab-trace" data-rtab="trace" aria-controls="rpanel-trace" aria-selected="true">Text trace</button>
-      <button type="button" role="tab" id="rtab-others" data-rtab="others" aria-controls="rpanel-others" aria-selected="false" tabindex="-1" title="Who else has {{$t.Request.Relation}} on {{display $t.Request.Object}}?">Who else?</button>
-    </div>
+    <fga-tabs class="itabs rtabs" role="tablist" aria-label="Result views" data-remember="resultTab" data-remember-in="local">
+      <button type="button" role="tab" id="rtab-trace" data-tab="trace" aria-controls="rpanel-trace" aria-selected="true">Text trace</button>
+      <button type="button" role="tab" id="rtab-others" data-tab="others" aria-controls="rpanel-others" aria-selected="false" tabindex="-1" title="Who else has {{$t.Request.Relation}} on {{display $t.Request.Object}}?">Who else?</button>
+    </fga-tabs>
     <section class="rpanel trace-text" id="rpanel-trace" role="tabpanel" aria-labelledby="rtab-trace" tabindex="-1">
     <div class="tree" role="tree" aria-label="evaluated paths; use the arrow keys to move and Enter to show details">{{range .Lines}}{{$l := .}}<div tabindex="-1" class="tl o-{{.Outcome}}{{if .Blocking}} blocking{{end}}{{if .Repeat}} repeat{{end}}" data-node="n{{.NodeID}}" role="treeitem"><span class="pfx">{{.Prefix}}</span><span class="ic">{{icon .Outcome}}</span>{{with .Link}}<span class="lk">{{.}}</span>{{end}}<span class="lb">{{display .Label}}</span>{{with .Cond}}<span class="condtag">{{.}}</span>{{end}}{{if .Probe}}<span class="probetag">probe</span>{{end}}{{with .Server}}{{if .Mismatch}}<span class="mm">server: {{if .Allowed}}allowed{{else}}denied{{end}}</span>{{end}}{{end}}{{with .Detail}}<div class="dt"><span class="pfx">{{$l.Cont}}</span>{{.}}</div>{{end}}</div>
 {{end}}</div>
@@ -176,6 +177,7 @@
 </div>
 <script type="application/json" id="trace-data">{{json .Graph}}</script>
 <script type="text/plain" id="trace-plain">{{.Text}}</script>
+</fga-trace>
 {{end}}{{end}}
 
 {{/* A "?" button that shows an option's help (#h-ID) under the options. */}}

@@ -154,8 +154,8 @@ func TestSecurityHeadersAndAssets(t *testing.T) {
 		t.Errorf("module Cache-Control = %q", cc)
 	}
 	// Relative imports resolve under the same version.
-	mustContain(t, "main.js", js, `from './core.js'`)
-	x.get(strings.Replace(m[1], "main.js", "core.js", 1), http.StatusOK)
+	mustContain(t, "main.js", js, `from './pickers.js'`)
+	x.get(strings.Replace(m[1], "main.js", "pickers.js", 1), http.StatusOK)
 	resp, _ = x.get("/static/v/stale/js/main.js", http.StatusOK)
 	if cc := resp.Header.Get("Cache-Control"); cc != "no-cache" {
 		t.Errorf("stale version Cache-Control = %q", cc)

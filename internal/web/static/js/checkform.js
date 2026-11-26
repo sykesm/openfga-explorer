@@ -1,9 +1,10 @@
 // The Check form: per-tab persistence, collapse to a summary after a run,
 // live walk progress and cancel, re-running with other options, and stepping
 // through "who else has this?" users.
-import { $, $$, base, session, stateKey } from './core.js';
-import { openPicker, pickerHint, refreshRelations } from './pickers.js';
+import { $, $$, base, load, session, stateKey } from './core.js';
+import { picker, pickersIn } from './pickers.js';
 import { onKey } from './shortcuts.js';
+import { tabsOf } from './ui.js';
 
 const form = () => /** @type {HTMLFormElement | null} */ ($('#check-form'));
 /** @param {HTMLFormElement} f */
@@ -17,13 +18,6 @@ let relist = null;
 /** @type {EventSource | null} */
 let progress = null;
 
-/** True once after a restored check's result arrives (and resets). */
-export function consumeRestoring() {
-  const r = restoring;
-  restoring = false;
-  return r;
-}
-
 /** @param {{ ran?: boolean }} [opts] */
 export function saveCheck({ ran } = {}) {
   const f = form();
@@ -34,6 +28,22 @@ export function saveCheck({ ran } = {}) {
   for (const el of formFields(f)) fields[el.name] = el.type === 'checkbox' ? el.checked : el.value;
   // Editing the form after a run means the shown result no longer matches it.
   session.set(stateKey('check'), { fields, ran: ran ?? (prev.ran && JSON.stringify(prev.fields) === JSON.stringify(fields)) });
+}
+
+/**
+ * Reloads the relation options for the current user and object types, so
+ * relations the user type can never reach are disabled.
+ * @param {string} [relation] the relation to select (default: the current one)
+ */
+function refreshRelations(relation) {
+  const sel = $('#relation-select');
+  if (!sel) return Promise.resolve();
+  const q = new URLSearchParams({
+    object_type: $('select[name="object_type"]')?.value || '',
+    user_type: $('select[name="user_type"]')?.value || '',
+    relation: relation ?? sel.value,
+  });
+  return load(`${base()}/relations?${q}`, sel);
 }
 
 function restoreCheck() {
@@ -48,7 +58,7 @@ function restoreCheck() {
     if (el.type === 'checkbox') el.checked = !!saved.fields[el.name];
     else if (el.name !== 'relation') el.value = saved.fields[el.name];
   }
-  $$('.picker', f).forEach(pickerHint);
+  pickersIn(f).forEach((p) => p.hint());
   refreshRelations(saved.fields.relation || '').then(() => {
     if (saved.ran) { restoring = true; htmx.trigger(f, 'submit'); }
   });
@@ -103,16 +113,7 @@ function rerun(change) {
 function traceUser(btn) {
   const f = form();
   if (!f) return;
-  const u = btn.dataset.user || '';
-  const colon = u.indexOf(':');
-  const hash = u.lastIndexOf('#');
-  const type = u.slice(0, colon);
-  const want = hash > colon ? `${type}#${u.slice(hash + 1)}` : type;
-  const sel = $('select[name="user_type"]', f);
-  if (sel && [...sel.options].some((o) => o.value === want)) sel.value = want;
-  $('input[name="user"]', f).value = u;
-  $('input[name="user_q"]', f).value = btn.dataset.text;
-  $$('.picker', f).forEach(pickerHint);
+  picker('#check-form', 'user')?.set(btn.dataset.user || '', btn.dataset.text || '');
   relist = $('#rpanel-others select[name="user_type"]')?.value || null;
   saveCheck();
   htmx.trigger(f, 'submit');
@@ -124,7 +125,7 @@ function reopenOthers() {
   if (relist === null) return;
   const list = $('#rpanel-others form.whohas');
   if (list) {
-    $('#rtab-others')?.click();
+    tabsOf('#rtab-others')?.select('others');
     const sel = $('select[name="user_type"]', list);
     if (sel) sel.value = relist;
     htmx.trigger(list, 'submit');
@@ -190,7 +191,10 @@ export function initCheckForm() {
   f.addEventListener('input', () => saveCheck());
   f.addEventListener('change', () => saveCheck());
   document.addEventListener('click', onClick);
+  document.addEventListener('fgax:trace', resultShown);
   document.addEventListener('fgax:picked', (/** @type {any} */ e) => { if (e.detail.mode !== 'explore') saveCheck(); });
+  // Relations the new user or object type can never have are disabled.
+  f.addEventListener('fgax:type-changed', () => refreshRelations());
   document.addEventListener('htmx:configRequest', (/** @type {any} */ e) => { if (e.detail.elt?.id === 'check-form') startProgress(e); });
   document.addEventListener('htmx:afterRequest', (/** @type {any} */ e) => {
     if (e.detail.elt?.id !== 'check-form') return;
@@ -200,14 +204,19 @@ export function initCheckForm() {
   onKey('edit', editCheck);
   onKey('find', () => {
     if (f.classList.contains('collapsed')) collapseForm(false);
-    const q = $('#check-form .picker-q');
-    if (q) openPicker(q);
+    picker('#check-form')?.open();
   });
 }
 
-/** Sets up content htmx has loaded into region t (see main.js). @param {Element} t */
-export function checkLoaded(t) {
-  if (t.id !== 'check-result') return;
-  if ($('.verdict', t)) saveCheck({ ran: true });
+/**
+ * A result arrived (fga-trace, trace.js): remember that the form ran, say
+ * whether this is a restored check (shown as kept, not replayed), and
+ * re-list "who else" if a listed user was just traced.
+ * @param {any} e fgax:trace
+ */
+function resultShown(e) {
+  e.detail.restore = restoring;
+  restoring = false;
+  saveCheck({ ran: true });
   reopenOthers();
 }
