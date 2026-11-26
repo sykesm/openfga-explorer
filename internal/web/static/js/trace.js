@@ -2,7 +2,7 @@
 // granting path, folding of failed branches, the text trace, and exports.
 // The server computes what to show (granting path, folds, node details);
 // this module draws it and handles interaction.
-import { $, $$, baseOpts, color, dagre, esc, fitCapped, labelHeight, labelWidth, mix, pal, reducedMotion, scrollBehavior, store } from './core.js';
+import { $, $$, baseOpts, color, dagre, esc, fitCapped, labelHeight, labelWidth, mix, pal, reducedMotion, scrollBehavior, session, stateKey, store } from './core.js';
 import { onEscape, onKey } from './shortcuts.js';
 import { initResizer, selectTab } from './ui.js';
 
@@ -95,6 +95,15 @@ function traceStyle(p) {
     { selector: 'node.flow', style: {
       'border-width': 3, 'border-color': p.allowed, 'z-index': 20, opacity: 1,
       'underlay-color': p.allowed, 'underlay-padding': 8, 'underlay-opacity': 0, 'underlay-shape': 'round-rectangle',
+    } },
+    // "N granting tuples" pressed: the tuples that grant access, labeled, on every path.
+    { selector: 'edge.grant-on', style: {
+      'line-style': 'solid', width: 6, 'line-color': p.allowed, 'target-arrow-color': p.allowed, 'arrow-scale': 1.3,
+      label: 'data(tuple)', 'font-size': 10, 'font-weight': 700, color: p.fg, 'text-background-color': p.bg, 'text-background-opacity': 1,
+      'text-border-width': 1, 'text-border-color': p.allowed, 'text-border-opacity': 1, 'text-max-width': 360, 'z-index': 40,
+    } },
+    { selector: 'edge.tuple-on', style: {
+      label: 'data(tuple)', 'font-size': 9.5, color: p.fg, 'text-background-color': p.bg, 'text-background-opacity': 1, 'text-max-width': 360, 'z-index': 30,
     } },
     { selector: 'node.visiting', style: { 'overlay-color': p.accent, 'overlay-opacity': 0.25, 'overlay-padding': 8, opacity: 1 } },
     { selector: 'node:selected', style: { 'overlay-color': p.accent, 'overlay-opacity': 0.18, 'overlay-padding': 6 } },
@@ -244,6 +253,9 @@ class PathFlow {
     this.raf = 0;
     this.focus = true;
     this.started = false;
+    // Set once the person takes charge of the view (zooms, pans, fits,
+    // selects, or steps): from then on the view is theirs and is not reframed.
+    this.userView = false;
     this.edges = cy.edges('.flowpath');
     this.nodes = cy.nodes('.flowpath');
   }
@@ -283,6 +295,7 @@ class PathFlow {
   }
   /** Zooms to the granting path so it stays the focus even in wide graphs. */
   frame() {
+    if (this.userView) return;
     const eles = this.nodes.union(this.edges);
     this.cy.stop();
     this.cy.animate({ fit: { eles, padding: 60 }, duration: reducedMotion() ? 0 : 450, easing: 'ease-in-out-cubic',
@@ -316,6 +329,10 @@ class Player {
     this.speed = 6;
     this.current = '';
     /** @type {Map<string, Element[]>} */
+    /** @type {number[] | null} */
+    this.stopEnds = null;
+    // Opening a fold changes which steps look alike.
+    cy.on('remove', 'node.fold', () => { this.stopEnds = null; });
     this.lines = new Map();
     for (const l of $$('.tl', tree)) {
       const k = l.dataset.node;
@@ -339,7 +356,7 @@ class Player {
   }
   /** @param {Step} s */
   apply(s) {
-    const n = this.cy.getElementById(s.node);
+    const n = this.shown(s.node);
     switch (s.phase) {
       case 'enter':
         this.cy.nodes('.visiting').removeClass('visiting');
@@ -362,32 +379,103 @@ class Player {
       default:
     }
   }
-  step() {
-    if (this.i === 0 && !this.tree.classList.contains('animating')) this.reset();
-    if (this.i >= this.steps.length) { this.final(); return false; }
-    this.apply(this.steps[this.i++]);
+  /**
+   * The element a step shows on: the node, or the fold hiding it (a walk into
+   * a folded branch lights the fold rather than an invisible node).
+   * @param {string} id
+   */
+  shown(id) {
+    let n = this.cy.getElementById(id);
+    while (n.nonempty() && n.style('display') === 'none') {
+      const fold = this.cy.nodes('.fold').filter((/** @type {any} */ f) => (f.data('hidden') || []).includes(n.id()))[0];
+      if (!fold) break;
+      n = fold;
+    }
+    return n;
+  }
+  /**
+   * Moves on one visible step: the recorded events (edges followed, nodes
+   * left) up to and including entering the next node, applied together so no
+   * step shows only an arrow. The replay's tick, and Step's.
+   */
+  advance() {
+    const next = this.stops().find((e) => e > this.i);
+    if (next === undefined) { this.final(); return false; }
+    while (this.i < next) this.apply(this.steps[this.i++]);
     this.update();
     return true;
+  }
+  /**
+   * The visible steps: the event index just after each node is entered,
+   * skipping entries that light the same element as the one before (nodes
+   * inside one folded branch all light the fold). Stepping, going back, and
+   * the step count all use these, so every step changes what is shown.
+   * Recomputed when a fold opens.
+   * @returns {number[]}
+   */
+  stops() {
+    if (this.stopEnds) return this.stopEnds;
+    /** @type {number[]} */
+    const out = [];
+    let last = '';
+    this.steps.forEach((s, k) => {
+      if (s.phase !== 'enter') return;
+      const id = this.shown(s.node).id() || s.node;
+      if (id !== last) out.push(k + 1);
+      last = id;
+    });
+    this.stopEnds = out;
+    return out;
+  }
+  /** The number of visible steps shown so far. */
+  shownSteps() {
+    if (this.i >= this.steps.length) return this.stops().length;
+    return this.stops().filter((e) => e <= this.i).length;
+  }
+  /**
+   * One visible step, for the Step button and →, keeping the current node
+   * in view. From the finished result, it starts the walk over.
+   */
+  step() {
+    this.flow.userView = true;
+    if (this.i >= this.steps.length || (this.i === 0 && !this.tree.classList.contains('animating'))) this.reset();
+    if (!this.advance()) return false;
+    this.follow();
+    return true;
+  }
+  /** Keeps the current node (and its text trace line) in view while stepping. */
+  follow() {
+    const n = this.cy.nodes('.visiting')[0];
+    if (n) {
+      const e = this.cy.extent();
+      const p = n.position();
+      if (p.x < e.x1 || p.x > e.x2 || p.y < e.y1 || p.y > e.y2) this.cy.animate({ center: { eles: n }, duration: reducedMotion() ? 0 : 200 });
+    }
+    $('.tl.cur', this.tree)?.scrollIntoView({ block: 'nearest', behavior: scrollBehavior() });
   }
   /** The replay takes a fixed total time (about 8s at the default speed), however many steps. */
   delay() {
     const total = 15000 - this.speed * 1100;
-    return Math.max(12, Math.min(600, total / Math.max(1, this.steps.length)));
+    return Math.max(12, Math.min(600, total / Math.max(1, this.stops().length)));
   }
   play() {
     if (this.timer) { this.pause(); return; }
     if (this.i === 0 || this.i >= this.steps.length) this.reset();
-    const tick = () => { this.timer = this.step() ? window.setTimeout(tick, this.delay()) : null; this.update(); };
+    const tick = () => { this.timer = this.advance() ? window.setTimeout(tick, this.delay()) : null; this.update(); };
     this.timer = window.setTimeout(tick, 120);
     this.update();
   }
   pause() { if (this.timer) clearTimeout(this.timer); this.timer = null; this.update(); }
-  /** Replays silently up to the previous step. */
+  /** Goes back one visible step (←), replaying silently up to it. */
   back() {
-    const target = Math.max(0, Math.min(this.i, this.steps.length) - 1);
+    this.flow.userView = true;
+    // The last step that ends before where the replay is (from the finished
+    // result, that is the last step).
+    const target = this.stops().filter((e) => e < this.i).pop() ?? 0;
     this.reset();
     for (let k = 0; k < target; k++) this.apply(this.steps[k]);
     this.i = target;
+    this.follow();
     this.update();
   }
   final() {
@@ -400,17 +488,18 @@ class Player {
     this.update();
   }
   update() {
-    const n = this.steps.length;
-    const done = this.i >= n;
+    const done = this.i >= this.steps.length;
     const playing = !!this.timer;
+    const n = this.stops().length;
+    const i = this.shownSteps();
     const count = $('.player .step-count');
-    if (count) count.textContent = `step ${this.i} / ${n}`;
+    if (count) count.textContent = `step ${i} / ${n}`;
     const play = $('.player [data-act="play"]');
     if (play) play.textContent = playing ? '❚❚ Pause' : (this.i > 0 && !done ? '▶ Resume' : '▶ Replay walk');
     const status = $('.player-status');
     if (!status) return;
-    if (playing) status.textContent = `Replaying the walk: step ${this.i} of ${n}${this.current ? ` — evaluating ${this.current}` : ''}`;
-    else if (!done && this.i > 0) status.textContent = `Paused at step ${this.i} of ${n}. “Step ›” advances one step; “Resume” continues; “Skip to end” shows the result.`;
+    if (playing) status.textContent = `Replaying the walk: step ${i} of ${n}${this.current ? ` — evaluating ${this.current}` : ''}`;
+    else if (!done && this.i > 0) status.textContent = `Paused at step ${i} of ${n}. “Step ›” advances one step; “Resume” continues; “Skip to end” shows the result.`;
     else if (done) status.textContent = this.doneText();
   }
   /** The server phrases the closing status; this picks the variant for the highlight state. */
@@ -420,6 +509,53 @@ class Player {
     if (this.flow.active) return d.doneNofocus || '';
     return d.doneOther || '';
   }
+}
+
+/**
+ * Highlights (or clears) the tuples on the granting paths: the granting
+ * tuples (edges the server marked "grant", which reach the user) in bold, the
+ * other tuples on the paths labeled; marks their text trace lines; lists
+ * them in the details; and brings them into view.
+ * @param {any} cy @param {Element} tree @param {HTMLButtonElement} btn @param {PathFlow} flow
+ */
+function toggleGrants(cy, tree, btn, flow) {
+  const on = btn.getAttribute('aria-pressed') !== 'true';
+  btn.setAttribute('aria-pressed', String(on));
+  const grants = cy.edges('.grant');
+  const others = cy.edges('.flowpath').filter((/** @type {any} */ e) => e.data('tuple') && !e.hasClass('grant'));
+  cy.batch(() => { grants.toggleClass('grant-on', on); others.toggleClass('tuple-on', on); });
+  const lineIds = (/** @type {any} */ edges) => new Set(edges.map((/** @type {any} */ e) => e.target().id()));
+  const g = lineIds(grants);
+  const o = lineIds(others);
+  for (const l of $$('.tl', tree)) {
+    l.classList.toggle('grant-line', on && g.has(l.dataset.node));
+    l.classList.toggle('tuple-line', on && !g.has(l.dataset.node) && o.has(l.dataset.node));
+  }
+  const box = $('#node-detail');
+  if (!on) { if (box && $('.grant-list', box)) clearDetail(); return; }
+  $('.tl.grant-line', tree)?.scrollIntoView({ block: 'nearest', behavior: scrollBehavior() });
+  // Bring the granting tuples into view (the list finds the others).
+  const shown = grants.union(grants.connectedNodes());
+  flow.userView = true;
+  cy.stop();
+  cy.animate({ fit: { eles: shown, padding: 80 }, duration: reducedMotion() ? 0 : 300,
+    complete: () => { if (cy.zoom() > 1.2) { cy.zoom(1.2); cy.center(shown); } } });
+  if (!box) return;
+  /** @param {any} edges @returns {string} */
+  const list = (edges) => {
+    /** @type {Map<string, string>} tuple → edge id */
+    const m = new Map();
+    edges.forEach((/** @type {any} */ e) => { if (!m.has(e.data('tuple'))) m.set(e.data('tuple'), e.id()); });
+    return `<ul class="grant-list">${[...m].map(([t, id]) => `<li><button type="button" class="linkish" data-edge="${esc(id)}"><code>${esc(t)}</code></button></li>`).join('')}</ul>`;
+  };
+  const n = new Set(grants.map((/** @type {any} */ e) => e.data('tuple'))).size;
+  box.innerHTML = `<button type="button" class="close" aria-label="Clear the selection">×</button>
+    <h3 id="node-detail-title">${n} granting tuple${n === 1 ? '' : 's'}</h3>
+    <p class="muted sm">The tuples that reach the user at the end of a granting path. Select one to find it in the graph.</p>
+    ${list(grants)}
+    ${others.length ? `<h4 class="sm">Also on the granting paths</h4>
+    <p class="muted sm">Tuples the paths go through on the way (parents, group memberships, …).</p>${list(others)}` : ''}`;
+  togglePanel(false);
 }
 
 /** Shows the server-computed detail for a node. @param {any} node */
@@ -480,7 +616,7 @@ function savePNG(cy) {
 /** @type {{ cy: any, player: Player } | null} */
 let view = null;
 
-const fitTrace = () => { if (view) fitCapped(view.cy, undefined, 24, 1.3); };
+const fitTrace = () => { if (view) { view.player.flow.userView = true; fitCapped(view.cy, undefined, 24, 1.3); } };
 
 /**
  * Collapses or opens the side panel (details, text trace, who else).
@@ -494,8 +630,62 @@ function togglePanel(collapse) {
   tv.classList.toggle('panel-collapsed', now);
   for (const b of $$('[data-act="toggle-panel"]')) b.setAttribute('aria-expanded', String(!now));
   store.set('panelCollapsed', now);
-  if (view && now !== was) { view.cy.resize(); fitTrace(); }
+  if (view && now !== was) resizeGraph(view);
 }
+
+/**
+ * Resizes the graph to its box. A view the person set keeps its zoom and the
+ * point at its center; otherwise the graph is framed (or fitted) again.
+ * @param {{ cy: any, player: Player }} v
+ */
+function resizeGraph(v) {
+  const { cy } = v;
+  const { flow } = v.player;
+  if (!flow.userView) {
+    cy.resize();
+    if (flow.started) flow.frame(); else fitCapped(cy, undefined, 24, 1.3);
+    return;
+  }
+  const e = cy.extent();
+  const mid = { x: (e.x1 + e.x2) / 2, y: (e.y1 + e.y2) / 2 };
+  cy.resize();
+  const z = cy.zoom();
+  cy.pan({ x: cy.width() / 2 - mid.x * z, y: cy.height() / 2 - mid.y * z });
+}
+
+/** Sizes the check view to reach the bottom of the window on wide screens (CSS applies it). */
+function sizeTraceViews() {
+  const tv = /** @type {HTMLElement | null} */ ($('.trace-views'));
+  if (!tv) return;
+  const top = tv.getBoundingClientRect().top + window.scrollY;
+  const h = `${Math.max(620, Math.floor(window.innerHeight - top - 16))}px`;
+  if (tv.style.getPropertyValue('--trace-h') === h) return false;
+  tv.style.setProperty('--trace-h', h);
+  return true;
+}
+
+// Resize when the window changes, or when what sits above the graph does
+// (the form collapsing to its summary, “Why” opening).
+let resizeTimer = 0;
+const relayout = () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = window.setTimeout(() => {
+    sizeTraceViews();
+    if (!view || view.cy.destroyed()) return;
+    const box = view.cy.container();
+    if (box && (view.cy.width() !== box.clientWidth || view.cy.height() !== box.clientHeight)) resizeGraph(view);
+  }, 120);
+};
+window.addEventListener('resize', relayout);
+// Also watch the graph's own box, which the layout settles after drawing.
+const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(relayout);
+/** @param {Element} container */
+function observeLayout(container) {
+  observer?.disconnect();
+  observer?.observe(document.body);
+  observer?.observe(container);
+}
+
 
 /** Shows one of the side panel's tabs (text trace, who else). @param {string} name */
 function showResultTab(name) {
@@ -508,6 +698,7 @@ function showResultTab(name) {
 
 /** Selects a node from the text trace or the graph. @param {any} cy @param {any} n @param {{ zoom?: boolean }} [opts] */
 function selectNode(cy, n, { zoom = false } = {}) {
+  if (view?.cy === cy) view.player.flow.userView = true;
   if (n.style('display') === 'none' && reveal(cy, n.id())) traceLayout(cy);
   cy.elements().unselect();
   n.select();
@@ -541,19 +732,74 @@ function initTreeKeys(tree, cy) {
   });
 }
 
+// ---- keeping the view (zoom, pan, opened folds, selection) ----
+// Leaving the Check page (for Model, say) and coming back re-runs the check;
+// the view the person had is kept per tab and put back if the result is the same.
+
+/** @typedef {{ sig: string, zoom: number, pan: { x: number, y: number }, open: string[], sel: string }} SavedView */
+
+const viewKey = () => stateKey('checkView');
+
+/** Identifies a result: the same check with the same graph. @param {string} graph */
+const viewSig = (graph) => `${$('#check-result .verdict')?.dataset.summary || ''}|${graph.length}`;
+
+/** @param {any} cy @param {Fold[]} folds @param {string} sig */
+function keepView(cy, folds, sig) {
+  let timer = 0;
+  const save = () => {
+    clearTimeout(timer);
+    timer = window.setTimeout(() => {
+      if (cy.destroyed()) return;
+      /** @type {SavedView} */
+      const v = { sig, zoom: cy.zoom(), pan: cy.pan(), open: folds.map((f) => f.id).filter((id) => cy.getElementById(id).empty()),
+        sel: cy.$('node:selected').id() || '' };
+      session.set(viewKey(), v);
+    }, 150);
+  };
+  cy.on('viewport select unselect remove', save);
+}
+
+/**
+ * Puts a kept view back: opens the same folds (before layout), then restores
+ * zoom, pan and selection (after the final frame, replacing its fit).
+ * @param {any} cy @param {SavedView} v @param {'folds' | 'viewport'} phase
+ */
+function restoreView(cy, v, phase) {
+  if (phase === 'folds') {
+    for (const id of v.open) { const f = cy.getElementById(id); if (f.nonempty()) expandFold(cy, f); }
+    return;
+  }
+  cy.stop();
+  cy.viewport({ zoom: v.zoom, pan: v.pan });
+  const n = v.sel ? cy.getElementById(v.sel) : null;
+  if (n?.nonempty() && n.visible()) {
+    n.select();
+    $$(`.tl[data-node="${CSS.escape(v.sel)}"]`).forEach((l) => l.classList.add('sel'));
+    if (!$('.trace-views')?.classList.contains('panel-collapsed')) showDetail(n);
+  }
+}
+
 /**
  * Renders the trace in #check-result.
- * @param {{ replay?: boolean }} [opts] replay: animate the walk if the viewer allows it
+ * @param {{ replay?: boolean, restore?: boolean }} [opts] replay: animate the walk if the viewer allows it;
+ *   restore: put back the view kept for this result (coming back to the page)
  */
-export function renderTrace({ replay = true } = {}) {
+export function renderTrace({ replay = true, restore = false } = {}) {
   const dataEl = $('#trace-data');
   const container = $('#trace-canvas');
   if (!dataEl || !container) return;
   /** @type {GraphData} */
   const data = JSON.parse(dataEl.textContent);
+  const sig = viewSig(dataEl.textContent);
+  /** @type {SavedView | null} */
+  const saved = restore ? session.get(viewKey()) : null;
+  const kept = saved?.sig === sig ? saved : null;
   view?.player.flow.stop();
+  sizeTraceViews();
+  observeLayout(container);
   const cy = cytoscape({ container, elements: data.elements, style: traceStyle(pal()), layout: { name: 'null' }, ...baseOpts });
   applyFolds(cy, data.folds || []);
+  if (kept) restoreView(cy, kept, 'folds');
   traceLayout(cy);
   fitCapped(cy, undefined, 24, 1.3);
   // Semantic zoom: short, larger labels when zoomed out.
@@ -562,6 +808,7 @@ export function renderTrace({ replay = true } = {}) {
   farZoom();
   const tree = $('#rpanel-trace .tree');
   const flow = new PathFlow(cy, tree);
+  cy.on('scrollzoom pinchzoom dragpan', () => { flow.userView = true; });
   const player = new Player(cy, data.steps, tree, flow);
   view = { cy, player };
 
@@ -623,7 +870,20 @@ export function renderTrace({ replay = true } = {}) {
     const n = l && cy.getElementById(l.dataset.node);
     if (n?.length) selectNode(cy, n, { zoom: true });
   });
-  $('#node-detail')?.addEventListener('click', (/** @type {any} */ e) => { if (e.target.closest('.close')) clearDetail(); });
+  $('#node-detail')?.addEventListener('click', (/** @type {any} */ e) => {
+    if (e.target.closest('.close')) clearDetail();
+    // A granting tuple from the list: find it in the graph.
+    const item = e.target.closest('[data-edge]');
+    const edge = item && cy.getElementById(item.dataset.edge);
+    if (edge?.nonempty()) {
+      flow.userView = true;
+      cy.elements('.hl').removeClass('hl');
+      edge.addClass('hl');
+      cy.animate({ center: { eles: edge }, zoom: Math.max(cy.zoom(), 0.9), duration: reducedMotion() ? 0 : 220 });
+    }
+  });
+  const grantsBtn = /** @type {HTMLButtonElement | null} */ ($('.verdict [data-act="show-grants"]'));
+  grantsBtn?.addEventListener('click', () => toggleGrants(cy, tree, grantsBtn, flow));
   $('.inspector')?.addEventListener('click', (/** @type {any} */ e) => {
     const t = e.target.closest('[data-rtab]');
     if (t) showResultTab(t.dataset.rtab);
@@ -639,6 +899,9 @@ export function renderTrace({ replay = true } = {}) {
     const r = $('.trace-views').getBoundingClientRect();
     return setTextW(Math.min(r.right - x, r.width * 0.7));
   }, setTextW, 'textWidth', () => cy.resize());
+  // Last, so nothing above (panel width, panel state) refits the restored view.
+  if (kept) { restoreView(cy, kept, 'viewport'); flow.userView = true; }
+  keepView(cy, data.folds || [], sig);
 }
 
 /** Registers the trace's keyboard shortcuts (they act on the trace shown). */

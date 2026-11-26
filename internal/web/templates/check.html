@@ -64,7 +64,7 @@
 <div class="verdict v-{{.Decision}}" data-user="{{$t.Request.User}}" data-relation="{{$t.Request.Relation}}" data-object="{{$t.Request.Object}}" data-context="{{.Context}}" data-contextual="{{.Contextual}}" data-summary="{{.Summary}}" data-done-path="{{.Done.Path}}" data-done-nofocus="{{.Done.NoFocus}}" data-done-other="{{.Done.Other}}">
   <h2 class="big">{{if eq .Decision "allowed"}}✓ Allowed{{else if eq .Decision "denied"}}✗ Denied{{else}}? Undecided{{end}}</h2>
   <p class="headline">{{trimVerdict .Explanation.Headline}}</p>
-  {{with .Explanation.Facts}}<details class="facts"><summary>Why, step by step ({{len .}})</summary><ol>{{range .}}<li>{{.}}</li>{{end}}</ol></details>{{end}}
+  {{with .Explanation.Facts}}<details class="facts"><summary>Why: {{len .}} fact{{if ne (len .) 1}}s{{end}}</summary><ol>{{range .}}<li>{{.}}</li>{{end}}</ol></details>{{end}}
   <div class="stats">
     <span>walker <b class="o-{{.Walker}}">{{.Walker}}</b></span>
     <span>server {{with $t.Root.Server}}{{if .Err}}<b class="o-error" title="{{.Err}}">error</b>{{else if .Allowed}}<b class="o-allowed">allowed</b>{{else}}<b class="o-denied">denied</b>{{end}}{{else}}<b>not verified</b>{{end}}</span>
@@ -72,9 +72,13 @@
     <span>{{$t.Duration.Round 1000000}}</span>
     {{if eq .Decision "allowed"}}
       {{if not $t.Options.AllPaths}}<button type="button" class="ghost sm" data-act="all-paths" title="Re-run the check evaluating every branch, so every way this user gets access is shown. Uses more API calls.">Show all granting paths</button>
-      {{else if not .Gaps}}<span class="paths-note" title="Every branch was examined completely (large edge lists were ruled out by ListObjects probes), so these are all the ways this user gets access">all granting paths · {{.Grants}} granting tuple{{if ne .Grants 1}}s{{end}} · exhaustive</span>
-      {{else if .Grants}}<span class="paths-note partial">{{.Grants}} granting tuple{{if ne .Grants 1}}s{{end}} found · not exhaustive</span>
-      {{else}}<span class="paths-note partial">the server allows access, but the walk found no route within its limits · not exhaustive</span>{{end}}
+      {{else}}
+        {{if .Grants}}<button type="button" class="ghost sm" data-act="show-grants" aria-pressed="false" title="Highlight the tuples that grant access, on every granting path, and list them">{{.Grants}} granting tuple{{if ne .Grants 1}}s{{end}}</button>{{end}}
+        {{if not .Gaps}}<span class="paths-note" title="Every branch was examined completely (large edge lists were ruled out by ListObjects probes), so these are all the ways this user gets access">all granting paths · exhaustive</span>
+        {{else if .Grants}}<span class="paths-note partial">found so far · not exhaustive</span>
+        {{else}}<span class="paths-note partial">the server allows access, but the walk found no route within its limits · not exhaustive</span>{{end}}
+        <button type="button" class="ghost sm" data-act="order" data-order="guided" title="Re-run showing one granting path: the shortest explanation">Show the shortest explanation</button>
+      {{end}}
     {{end}}
     <span class="capture"><button type="button" class="ghost sm" data-act="capture" title="Add this check to your Scenarios draft, with the tuples on its granting path, so it can be re-run in the sandbox">Add to scenario</button>
       <label class="sm" title="Rename every ID consistently (user:anne → user:user-1) so no real names go into the scenario"><input type="checkbox" data-act="capture-mask" checked> rename IDs</label>

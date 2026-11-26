@@ -45,7 +45,7 @@ document.addEventListener('htmx:afterSwap', (/** @type {any} */ e) => {
   if (!t) return;
   $$('.picker', t).forEach(pickerHint);
   exploreSwapped(t);
-  if (t.id === 'check-result') renderTrace({ replay: !consumeRestoring() });
+  if (t.id === 'check-result') { const restoring = consumeRestoring(); renderTrace({ replay: !restoring, restore: restoring }); }
   checkSwapped(t);
 });
 

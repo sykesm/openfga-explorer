@@ -311,6 +311,9 @@ table.edges th { width: 44%; }
 
 h2.sect { margin-top: 2px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 650; }
 .tree { font-family: var(--mono); font-size: 12px; line-height: 1.5; }
+/* As wide as the longest line (never narrower than the pane), so highlights
+   span lines that scroll off to the right. */
+.trace-text .tree { width: max-content; min-width: 100%; }
 .tl { white-space: pre; cursor: pointer; border-radius: 3px; transition: opacity .15s; }
 .tl:hover, .tl.sel { background: var(--soft); }
 .tl .pfx { color: var(--line); }
@@ -577,3 +580,20 @@ table.changes time { font-family: var(--mono); font-size: 12px; white-space: now
 
 .capture { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .capture-msg:empty { display: none; }
+
+/* Wide screens: the check view reaches the bottom of the window (sized by
+   trace.js as --trace-h, never below the old fixed height). */
+@media (min-width: 1001px) {
+  .trace-graph-wrap { height: var(--trace-h, 620px); }
+  .trace-graph-wrap .canvas { min-height: 0; }
+  .trace-views .inspector { max-height: var(--trace-h, 760px); }
+}
+
+/* Granting tuples, highlighted from "N granting tuples". */
+.tl.grant-line { background: color-mix(in srgb, var(--allowed) 16%, transparent); }
+.grant-list { margin: 6px 0 0; padding: 0; list-style: none; }
+.grant-list li { margin: 2px 0; }
+.grant-list button { min-height: 24px; text-align: left; }
+[data-act="show-grants"][aria-pressed="true"] { border-color: var(--allowed); color: var(--allowed); }
+.tl.tuple-line { box-shadow: inset 3px 0 0 var(--allowed), inset 0 0 0 999px color-mix(in srgb, var(--allowed) 7%, transparent); }
+.node-detail h4 { margin: 10px 0 2px; }

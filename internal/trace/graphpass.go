@@ -70,6 +70,8 @@ func (ix *elemIndex) node(id string) *Element {
 // allowed edges reachable from an allowed root, excluding the subtracted side
 // of exclusions (it only ever removes access) and "… more" edges. Path nodes
 // get "depth", their distance from the root, for the travelling highlight.
+// Path edges that are tuples ending at the user (or a wildcard) also get
+// "grant": the granting tuples (see Trace.GrantingTuples).
 func (g *Graph) markGrantingPath() {
 	ix := g.index()
 	root := ix.node(g.Root)
@@ -88,6 +90,9 @@ func (g *Graph) markGrantingPath() {
 			}
 			e.addClass("flowpath")
 			t := e.str("target")
+			if n := ix.node(t); n != nil && e.str("tuple") != "" && n.Data["kind"] == string(KindSubject) {
+				e.addClass("grant")
+			}
 			if _, ok := depth[t]; ok {
 				continue
 			}

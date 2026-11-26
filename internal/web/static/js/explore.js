@@ -9,8 +9,10 @@ import { initResizer, selectTab } from './ui.js';
 
 /** @type {any} */ let schemaCy = null;
 /** @type {any} */ let instCy = null;
-// Whether the next type-panel load should open the instance picker. Loads
-// caused by opening an instance should not pop the list over the panel.
+// Whether the next type-panel load should open the instance picker: only when
+// the person is choosing a type in order to pick an instance (type chips).
+// Browsing types (the type graph, the type finder, a type link) and opening
+// an instance must not pop the list over the panel's details.
 let focusPicker = true;
 // Whether the type graph shows a neighborhood laid out on its own.
 let subLayout = false;
@@ -500,7 +502,7 @@ function onClick(e) {
 export function initExplore() {
   const sc = $('#schema-canvas');
   if (!sc) return;
-  initTypeFinder((t) => { selectType(t); showCanvas('schema'); });
+  initTypeFinder((t) => { selectType(t, { focus: false }); showCanvas('schema'); });
   toggleSide(store.get('sideCollapsed', false));
   $('.canvas-wrap > .panel-rail')?.addEventListener('click', () => toggleSide(false));
   const setSideW = (/** @type {number} */ w) => { document.documentElement.style.setProperty('--side-w', `${Math.round(Math.min(Math.max(w, 320), window.innerWidth * 0.7))}px`); return w; };
@@ -531,7 +533,9 @@ export function initExplore() {
       schemaPrompt(true);
     } else fitCapped(schemaCy);
     if (byModule) colorByModule(true);
-    schemaCy.on('tap', 'node', (/** @type {any} */ e) => { toggleSide(false); selectType(e.target.id()); });
+    // Browsing the type graph shows the type's details; it doesn't open the
+    // instance picker over them (the type chips, "Pick … instance" and "/" do).
+    schemaCy.on('tap', 'node', (/** @type {any} */ e) => { toggleSide(false); selectType(e.target.id(), { focus: false }); });
     // Tapping the background shows every type again, except in large models
     // (it would bring back the unreadable whole).
     schemaCy.on('tap', (/** @type {any} */ e) => { if (e.target === schemaCy && !large) { schemaCy.elements().removeClass('faded sel'); showAllTypes(); } });
@@ -544,7 +548,7 @@ export function initExplore() {
         if (rel) document.getElementById(`rel-${rel}`)?.scrollIntoView({ block: 'center' });
       });
     } else if (tp.dataset.initialType) {
-      selectType(tp.dataset.initialType);
+      selectType(tp.dataset.initialType, { focus: false });
     }
   });
 

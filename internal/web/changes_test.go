@@ -90,3 +90,55 @@ func TestChangesPage(t *testing.T) {
 	_, body = x.get(html.UnescapeString(poll[1]), http.StatusOK)
 	mustContain(t, "live poll", body, "− delete", "user:u07", "every 5s")
 }
+
+// TestChangesByUserType: the change log can be filtered by the user's type
+// (OpenFGA filters only by object type). The filter reads on to fill a page,
+// stops at its scan budget, says so, and the next page carries on from there.
+func TestChangesByUserType(t *testing.T) {
+	srv := fgatest.Start(t)
+	var tuples []*openfgav1.TupleKey
+	for i := range changesScanMax + 50 {
+		tuples = append(tuples, &openfgav1.TupleKey{User: fmt.Sprintf("user:u%04d", i), Relation: "member", Object: "group:g"})
+	}
+	for i := range 3 {
+		tuples = append(tuples, &openfgav1.TupleKey{User: fmt.Sprintf("group:s%d#member", i), Relation: "member", Object: "group:g"})
+	}
+	st, err := srv.CreateStore(context.Background(), "changes-users", "model\n  schema 1.1\ntype user\ntype group\n  relations\n    define member: [user, group#member]\n", tuples)
+	if err != nil {
+		t.Fatal(err)
+	}
+	x := explorerFor(t, st)
+	rows := regexp.MustCompile(`<tr class="op-`)
+
+	// Types with no relations are offered as user types, not object types.
+	_, body := x.get("~/changes", http.StatusOK)
+	mustContain(t, "form", body, `<select name="user_type"><option value="">all types</option><option >group</option><option >user</option>`,
+		`<select name="type"><option value="">all types</option><option >group</option></select>`)
+
+	// The group members come after the scan budget: the first page has none
+	// of them, says why, and links on.
+	_, body = x.get("~/changes?range=1h&tz=0&user_type=group", http.StatusOK)
+	if n := len(rows.FindAllString(body, -1)); n != 0 {
+		t.Errorf("first page has %d rows", n)
+	}
+	mustContain(t, "first page", body, fmt.Sprintf("0 of %d changes read are from group", changesScanMax), "Stopped after reading", "user type group")
+	m := regexp.MustCompile(`href="([^"]*token=[^"]+)"`).FindStringSubmatch(body)
+	if m == nil {
+		t.Fatal("no next page link")
+	}
+	next := html.UnescapeString(m[1])
+	if !strings.Contains(next, "user_type=group") {
+		t.Errorf("next page drops the filter: %s", next)
+	}
+	_, body = x.get(next, http.StatusOK)
+	if n := len(rows.FindAllString(body, -1)); n != 3 || strings.Contains(body, "user:u") || !strings.Contains(body, "End of the range") {
+		t.Errorf("second page: %d rows\n%s", n, body)
+	}
+	mustContain(t, "second page", body, "3 of 53 changes read are from group", "group:s0#member")
+
+	// Filtering by user returns users only, a full page at a time.
+	_, body = x.get("~/changes?range=1h&tz=0&user_type=user", http.StatusOK)
+	if n := len(rows.FindAllString(body, -1)); n < changesPageSize || n >= 2*changesPageSize || strings.Contains(body, "#member") {
+		t.Errorf("user page: %d rows", n)
+	}
+}
