@@ -1,16 +1,21 @@
 decision: allowed (walker allowed)
 Allowed: user:eng-002 has can_view on document:doc-0007 — can_view on document:doc-0007 requires viewer and member from org, and each holds, and the exclusion “but not blocked from org” does not apply.
-  • user:eng-002 has member on group:eng
-  • group:eng#member has viewer on folder:root
-  • folder:engineering's parent is folder:root, so viewer there counts as “viewer from parent” on folder:engineering
-  • folder:platform's parent is folder:engineering, so viewer there counts as “viewer from parent” on folder:platform
-  • folder:design-docs's parent is folder:platform, so viewer there counts as “viewer from parent” on folder:design-docs
-  • document:doc-0007's parent is folder:design-docs, so viewer there counts as “viewer from parent” on document:doc-0007
-  • viewer implies can_view on document:doc-0007
-  • group:eng#member has member on organization:acme
-  • document:doc-0007's org is organization:acme, so member there counts as “member from org” on document:doc-0007
-  • can_view on document:doc-0007 requires viewer and member from org — all hold
-  • the exclusion “but not blocked from org” does not apply
+  • tuple: user:eng-002 has member on group:eng
+  • tuple: group:eng#member has viewer on folder:root
+  • tuple: folder:engineering's parent is folder:root
+  • rule: viewer on folder:root counts as “viewer from parent” on folder:engineering
+  • tuple: folder:platform's parent is folder:engineering
+  • rule: viewer on folder:engineering counts as “viewer from parent” on folder:platform
+  • tuple: folder:design-docs's parent is folder:platform
+  • rule: viewer on folder:platform counts as “viewer from parent” on folder:design-docs
+  • tuple: document:doc-0007's parent is folder:design-docs
+  • rule: viewer on folder:design-docs counts as “viewer from parent” on document:doc-0007
+  • rule: viewer implies can_view on document:doc-0007
+  • tuple: group:eng#member has member on organization:acme
+  • tuple: document:doc-0007's org is organization:acme
+  • rule: member on organization:acme counts as “member from org” on document:doc-0007
+  • rule: can_view on document:doc-0007 requires viewer and member from org — all hold
+  • rule: the exclusion “but not blocked from org” does not apply
 gaps: []
 guided skips: 0
 groups ruled out: 0

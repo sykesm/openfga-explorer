@@ -83,7 +83,11 @@ type doc
 			// The explanation says the groups were taken on the server's word
 			// (in the headline, or in the step-by-step facts when deeper).
 			e := tr.Explanation(nil)
-			if all := e.Headline + "\n" + strings.Join(e.Facts, "\n"); !strings.Contains(all, "per the server's Check; those groups were not walked") {
+			all := e.Headline
+			for _, f := range e.Facts {
+				all += "\n" + f.Text
+			}
+			if !strings.Contains(all, "per the server's Check; those groups were not walked") {
 				t.Errorf("%s: explanation hides the ruled-out groups:\n%s", user, all)
 			}
 		}

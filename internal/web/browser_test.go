@@ -1300,3 +1300,34 @@ func TestBrowserExploreInstanceFocus(t *testing.T) {
 	}
 	b.checkClean("instance focus")
 }
+
+// The "Why" list tells stored tuples apart from what the model concludes.
+func TestBrowserCheckWhyKinds(t *testing.T) {
+	x := newTestExplorer(t)
+	b := newBrowser(t, x)
+	b.open(`~/check?user=user:eng-002&relation=can_view&object=document:doc-0007&context=` +
+		`%7B%22current_time%22%3A%222026-11-24T12%3A00%3A00Z%22%2C%22user_ip%22%3A%2210.1.2.3%22%7D`)
+	b.waitFor("result", `document.querySelector('#check-result .verdict .facts')`)
+	sum := eval[string](b, `document.querySelector('.facts > summary').textContent.trim()`)
+	m := regexp.MustCompile(`^Why: (\d+) tuples?, (\d+) rules?$`).FindStringSubmatch(sum)
+	if m == nil {
+		t.Fatalf("summary %q does not count tuples and rules", sum)
+	}
+	counts := eval[string](b, `['tuple', 'rule'].map((k) => document.querySelectorAll('.facts li.f-' + k).length).join(' ')`)
+	if counts != m[1]+" "+m[2] {
+		t.Errorf("summary %q, list has %s (tuples rules)", sum, counts)
+	}
+	// A tuple-to-userset step is a stored tuple followed by the rule using it.
+	pair := eval[string](b, `(() => { const li = [...document.querySelectorAll('.facts li')];
+		const i = li.findIndex((l) => / counts as /.test(l.textContent));
+		return i > 0 ? li[i - 1].dataset.kind + ' ' + li[i].dataset.kind : ''; })()`)
+	if pair != "tuple rule" {
+		t.Errorf("inherited step reads %q, want a tuple then a rule", pair)
+	}
+	// The kinds look different, not only by their label.
+	weights := eval[string](b, `['tuple', 'rule'].map((k) => getComputedStyle(document.querySelector('.facts li.f-' + k + ' .ft')).fontWeight).join(' ')`)
+	if f := strings.Fields(weights); len(f) != 2 || f[0] == f[1] {
+		t.Errorf("tuple and rule text share a style: %q", weights)
+	}
+	b.checkClean("why kinds")
+}

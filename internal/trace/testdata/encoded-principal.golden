@@ -1,15 +1,18 @@
 decision: allowed (walker allowed)
 Allowed: principal:SVC%3ABUILD%23CI has can_view on document:doc-0001 — can_view on document:doc-0001 requires viewer and member from org, and each holds, and the exclusion “but not blocked from org” does not apply.
-  • principal:SVC%3ABUILD%23CI has member on group:platform
-  • group:platform#member has member on group:eng
-  • group:eng#member has viewer on folder:root
-  • folder:engineering's parent is folder:root, so viewer there counts as “viewer from parent” on folder:engineering
-  • document:doc-0001's parent is folder:engineering, so viewer there counts as “viewer from parent” on document:doc-0001
-  • viewer implies can_view on document:doc-0001
-  • group:eng#member has member on organization:acme
-  • document:doc-0001's org is organization:acme, so member there counts as “member from org” on document:doc-0001
-  • can_view on document:doc-0001 requires viewer and member from org — all hold
-  • the exclusion “but not blocked from org” does not apply
+  • tuple: principal:SVC%3ABUILD%23CI has member on group:platform
+  • tuple: group:platform#member has member on group:eng
+  • tuple: group:eng#member has viewer on folder:root
+  • tuple: folder:engineering's parent is folder:root
+  • rule: viewer on folder:root counts as “viewer from parent” on folder:engineering
+  • tuple: document:doc-0001's parent is folder:engineering
+  • rule: viewer on folder:engineering counts as “viewer from parent” on document:doc-0001
+  • rule: viewer implies can_view on document:doc-0001
+  • tuple: group:eng#member has member on organization:acme
+  • tuple: document:doc-0001's org is organization:acme
+  • rule: member on organization:acme counts as “member from org” on document:doc-0001
+  • rule: can_view on document:doc-0001 requires viewer and member from org — all hold
+  • rule: the exclusion “but not blocked from org” does not apply
 gaps: []
 guided skips: 4
 groups ruled out: 0

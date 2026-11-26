@@ -1,6 +1,6 @@
 decision: denied (walker denied)
 Denied: user:erin does not have can_view on document:offsite-plan — can_view requires viewer and member from org, and viewer does not hold.
-  • viewer: the viewer tuple's condition non_expired_grant is false; no editor; no parent tuples on document:offsite-plan
+  • reason: viewer: the viewer tuple's condition non_expired_grant is false; no editor; no parent tuples on document:offsite-plan
 gaps: []
 guided skips: 1
 groups ruled out: 0

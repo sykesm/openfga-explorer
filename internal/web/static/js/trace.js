@@ -589,7 +589,7 @@ function clearDetail() {
 /** @param {HTMLButtonElement} btn */
 function copyMarkdown(btn) {
   const v = $('.verdict');
-  const facts = $$('.facts li', v).map((li) => li.textContent.trim());
+  const facts = $$('.facts li', v).map((li) => `${li.dataset.kind}: ${$('.ft', li).textContent.trim()}`);
   const md = [
     `**${$('.big', v).textContent.trim()}**: ${$('.headline', v)?.textContent.trim() || ''}`,
     ...(facts.length ? ['', 'Why:', ...facts.map((f, i) => `${i + 1}. ${f}`)] : []),

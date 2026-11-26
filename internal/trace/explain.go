@@ -2,16 +2,81 @@ package trace
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 )
 
 // Explanation is a plain-language account of a decision: one headline
-// sentence plus the facts behind it.
+// sentence plus the reasons behind it.
 type Explanation struct {
 	Headline string
 	// Facts are ordered from the user up to the object for allowed decisions,
-	// and are the blocking reasons for denied ones.
-	Facts []string
+	// and are the blocking reasons for denied ones. Only FactTuple entries are
+	// facts in the strict sense (stored tuples); the rest follow from them.
+	Facts []Fact
+}
+
+// FactKind says where a line of an explanation comes from.
+type FactKind string
+
+const (
+	// FactTuple is a relationship tuple stored in OpenFGA.
+	FactTuple FactKind = "tuple"
+	// FactRule is a conclusion the model draws (a computed relation, a
+	// relation inherited through a parent, an intersection or exclusion).
+	FactRule FactKind = "rule"
+	// FactReason explains why something does not hold (denied decisions).
+	FactReason FactKind = "reason"
+)
+
+// Fact is one line of an explanation.
+type Fact struct {
+	Kind FactKind
+	Text string
+}
+
+func (f Fact) String() string { return f.Text }
+
+func tupleFact(format string, a ...any) Fact {
+	return Fact{FactTuple, fmt.Sprintf(format, a...)}
+}
+
+func ruleFact(format string, a ...any) Fact {
+	return Fact{FactRule, fmt.Sprintf(format, a...)}
+}
+
+func reasonFact(format string, a ...any) Fact {
+	return Fact{FactReason, fmt.Sprintf(format, a...)}
+}
+
+// Kinds lists the kinds of line present, tuples first.
+func (e Explanation) Kinds() []FactKind {
+	var out []FactKind
+	for _, k := range []FactKind{FactTuple, FactRule, FactReason} {
+		if slices.ContainsFunc(e.Facts, func(f Fact) bool { return f.Kind == k }) {
+			out = append(out, k)
+		}
+	}
+	return out
+}
+
+// Summary counts the lines by kind, e.g. "2 tuples, 3 rules".
+func (e Explanation) Summary() string {
+	n := map[FactKind]int{}
+	for _, f := range e.Facts {
+		n[f.Kind]++
+	}
+	var parts []string
+	for _, k := range e.Kinds() {
+		if c := n[k]; c > 0 {
+			s := fmt.Sprintf("%d %s", c, k)
+			if c != 1 {
+				s += "s"
+			}
+			parts = append(parts, s)
+		}
+	}
+	return strings.Join(parts, ", ")
 }
 
 // Explain describes the trace in words. name renders object IDs for people
@@ -48,7 +113,7 @@ func (t *Trace) Explanation(name func(string) string) Explanation {
 		facts := dedupe(x.details)
 		// Say when part of the denial rests on the server's word, not the walk.
 		if t.GroupsRuledOut > 0 {
-			facts = append(facts, fmt.Sprintf("%d group(s) were not walked: the server's Check says %s is not in them (per the server's Check; those groups were not walked — trace one to see why)", t.GroupsRuledOut, name(t.Request.User)))
+			facts = append(facts, reasonFact("%d group(s) were not walked: the server's Check says %s is not in them (per the server's Check; those groups were not walked — trace one to see why)", t.GroupsRuledOut, name(t.Request.User)))
 		}
 		return Explanation{
 			Headline: fmt.Sprintf("Denied: %s does not have %s on %s — %s.", name(t.Request.User), t.Request.Relation, name(t.Request.Object), reason),
@@ -65,7 +130,7 @@ type explainer struct {
 	requires string   // set when an intersection is part of the granting path
 	cleared  []string // exclusions checked on the granting path that did not apply
 	path     []string // objects along the granting path, user side first
-	details  []string
+	details  []Fact
 }
 
 // hops lists the intermediate objects of the granting path, user side first.
@@ -87,7 +152,7 @@ func (x *explainer) via(obj string) {
 
 // grant returns the facts that make an allowed node allowed, ordered from
 // the user upward.
-func (x *explainer) grant(n *Node, seen map[int]bool) []string {
+func (x *explainer) grant(n *Node, seen map[int]bool) []Fact {
 	if n == nil || seen[n.ID] {
 		return nil
 	}
@@ -96,7 +161,7 @@ func (x *explainer) grant(n *Node, seen map[int]bool) []string {
 	if n.Kind == KindUnion || n.Kind == KindIntersection || n.Kind == KindExclusion {
 		op = n.Kind
 	}
-	var out []string
+	var out []Fact
 	switch op {
 	case KindIntersection:
 		for _, l := range n.Children {
@@ -108,7 +173,7 @@ func (x *explainer) grant(n *Node, seen map[int]bool) []string {
 		for _, l := range n.Children {
 			parts = append(parts, x.describeBranch(l))
 		}
-		out = append(out, fmt.Sprintf("%s on %s requires %s — all hold", n.Relation, x.name(n.Object), strings.Join(parts, " and ")))
+		out = append(out, ruleFact("%s on %s requires %s — all hold", n.Relation, x.name(n.Object), strings.Join(parts, " and ")))
 		if x.requires == "" {
 			x.requires = fmt.Sprintf("%s on %s requires %s, and each holds", n.Relation, x.name(n.Object), strings.Join(parts, " and "))
 		}
@@ -119,7 +184,7 @@ func (x *explainer) grant(n *Node, seen map[int]bool) []string {
 				out = append(out, x.grantLink(n, l, seen)...)
 			case l.Role == "subtract":
 				what := strings.TrimPrefix(x.describeBranch(l), "but not ")
-				out = append(out, fmt.Sprintf("the exclusion “but not %s” does not apply", what))
+				out = append(out, ruleFact("the exclusion “but not %s” does not apply", what))
 				x.cleared = append(x.cleared, "“but not "+what+"”")
 			}
 		}
@@ -134,7 +199,7 @@ func (x *explainer) grant(n *Node, seen map[int]bool) []string {
 	return out
 }
 
-func (x *explainer) grantLink(parent *Node, l *Link, seen map[int]bool) []string {
+func (x *explainer) grantLink(parent *Node, l *Link, seen map[int]bool) []Fact {
 	c := l.Node
 	cond := ""
 	if l.Cond != nil {
@@ -143,15 +208,15 @@ func (x *explainer) grantLink(parent *Node, l *Link, seen map[int]bool) []string
 	switch {
 	case c.Kind == KindSubject && l.Tuple != nil:
 		if strings.HasSuffix(c.Label, ":*") {
-			return []string{fmt.Sprintf("everyone (%s) has %s on %s%s", c.Label, l.Tuple.Relation, x.name(l.Tuple.Object), cond)}
+			return []Fact{tupleFact("everyone (%s) has %s on %s%s", c.Label, l.Tuple.Relation, x.name(l.Tuple.Object), cond)}
 		}
 		x.via(l.Tuple.Object)
-		return []string{fmt.Sprintf("%s has %s on %s%s", x.name(l.Tuple.User), l.Tuple.Relation, x.name(l.Tuple.Object), cond)}
+		return []Fact{tupleFact("%s has %s on %s%s", x.name(l.Tuple.User), l.Tuple.Relation, x.name(l.Tuple.Object), cond)}
 	case l.Tuple != nil && c.Kind == KindRelation && strings.Contains(l.Tuple.User, "#"):
 		// Userset edge: members of the group hold the relation.
 		facts := x.grant(c, seen)
 		x.via(l.Tuple.Object)
-		return append(facts, fmt.Sprintf("%s has %s on %s%s", x.name(l.Tuple.User), l.Tuple.Relation, x.name(l.Tuple.Object), cond))
+		return append(facts, tupleFact("%s has %s on %s%s", x.name(l.Tuple.User), l.Tuple.Relation, x.name(l.Tuple.Object), cond))
 	case l.Tuple != nil && c.Kind == KindRelation:
 		// Tuple-to-userset edge: the object inherits through its parent (or org, …).
 		facts := x.grant(c, seen)
@@ -160,11 +225,13 @@ func (x *explainer) grantLink(parent *Node, l *Link, seen map[int]bool) []string
 		if parent.Kind == KindTTU {
 			branch = parent.Label // e.g. "viewer from parent"
 		}
-		return append(facts, fmt.Sprintf("%s's %s is %s, so %s there counts as “%s” on %s%s",
-			x.name(l.Tuple.Object), l.Tuple.Relation, x.name(l.Tuple.User), c.Relation, branch, x.name(l.Tuple.Object), cond))
+		// The stored tuple, then the rule that carries the relation across it.
+		return append(facts,
+			tupleFact("%s's %s is %s%s", x.name(l.Tuple.Object), l.Tuple.Relation, x.name(l.Tuple.User), cond),
+			ruleFact("%s on %s counts as “%s” on %s", c.Relation, x.name(l.Tuple.User), branch, x.name(l.Tuple.Object)))
 	case c.Kind == KindRelation && c.Object == parent.Object && l.Label == "computed":
 		facts := x.grant(c, seen)
-		return append(facts, fmt.Sprintf("%s implies %s on %s", c.Relation, parent.Relation, x.name(parent.Object)))
+		return append(facts, ruleFact("%s implies %s on %s", c.Relation, parent.Relation, x.name(parent.Object)))
 	default:
 		return x.grant(c, seen)
 	}
@@ -224,7 +291,7 @@ func (x *explainer) why(n *Node, depth int, seen map[int]bool) string {
 			if l.Outcome == Denied {
 				missing = append(missing, x.describeBranch(l))
 				if depth < 3 {
-					x.details = append(x.details, fmt.Sprintf("%s: %s", x.describeBranch(l), x.why(l.Node, depth+1, seen)))
+					x.details = append(x.details, reasonFact("%s: %s", x.describeBranch(l), x.why(l.Node, depth+1, seen)))
 				}
 			}
 		}
@@ -312,9 +379,9 @@ func condWord(status string) string {
 	}
 }
 
-func dedupe(in []string) []string {
-	seen := map[string]bool{}
-	var out []string
+func dedupe(in []Fact) []Fact {
+	seen := map[Fact]bool{}
+	var out []Fact
 	for _, s := range in {
 		if !seen[s] {
 			seen[s] = true

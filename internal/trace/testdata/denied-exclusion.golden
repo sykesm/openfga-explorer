@@ -1,7 +1,8 @@
 decision: denied (walker denied)
 Denied: user:mallory does not have can_view on document:doc-0004 — they are excluded by “but not blocked from org” because user:mallory has blocked on organization:acme.
-  • user:mallory has blocked on organization:acme
-  • document:doc-0004's org is organization:acme, so blocked there counts as “blocked from org” on document:doc-0004
+  • tuple: user:mallory has blocked on organization:acme
+  • tuple: document:doc-0004's org is organization:acme
+  • rule: blocked on organization:acme counts as “blocked from org” on document:doc-0004
 gaps: []
 guided skips: 2
 groups ruled out: 0

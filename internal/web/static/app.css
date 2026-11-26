@@ -457,7 +457,16 @@ table.edges td { margin-top: 4px; }
 .headline { font-size: 15px; margin: 4px 0 6px; max-width: 110ch; line-height: 1.5; }
 .facts > summary { cursor: pointer; font-size: 12.5px; color: var(--accent); }
 .facts ol { margin: 4px 0 4px; padding-left: 22px; font-size: 13px; }
-.facts li { margin: 2px 0; }
+.facts li { margin: 3px 0; }
+/* Tuples are the stored facts; rules are what the model concludes from them. */
+.fk { display: inline-block; min-width: 3.4em; text-align: center; font-size: 10.5px; line-height: 15px; font-weight: 600; letter-spacing: .03em;
+  text-transform: uppercase; border-radius: 999px; padding: 0 6px; border: 1px solid currentColor; vertical-align: 1px; }
+.fk.k-tuple { color: var(--panel); background: var(--direct); border-color: var(--direct); }
+.fk.k-rule { color: var(--derived); }
+.fk.k-reason { color: var(--muted); }
+.f-tuple .ft { font-weight: 600; }
+.f-rule .ft, .f-reason .ft { color: var(--muted); }
+.facts-key { margin: 4px 0 2px; font-size: 12px; color: var(--muted); }
 .player .spacer { flex: 1; }
 
 /* ---- instance tabs ---- */
