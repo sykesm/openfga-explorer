@@ -480,8 +480,10 @@ function setExpanding(on) {
   expanding = on;
   for (const b of /** @type {HTMLButtonElement[]} */ ($$('[data-act="expand-hop"]'))) b.disabled = on;
 }
-/** The last expansion, for Undo. @type {{ added: string[], expanded: string[] } | null} */
-let lastExpand = null;
+/** Reverses the last expansion or removal (the status line's Undo). @type {(() => void) | null} */
+let undoLast = null;
+/** @param {number} k @param {string} one @param {string} [many] */
+const plural = (k, one, many = `${one}s`) => `${k} ${k === 1 ? one : many}`;
 
 /** The instance a node stands for ("group:eng" for "group:eng#member"). @param {string} id */
 const objectOf = (id) => {
@@ -508,7 +510,7 @@ function graphNote(text, { undo = false } = {}) {
   const note = $('#instance-note');
   if (!note) return;
   $('.note-text', note).textContent = text;
-  $('[data-act="undo-expand"]', note).hidden = !undo;
+  $('[data-act="undo"]', note).hidden = !undo;
   showNote(note, !!text, instCy);
 }
 
@@ -580,7 +582,7 @@ async function expand(objects, what, more = '') {
   if (expanding) { graphNote('Still expanding; one expansion at a time.'); return; }
   const n = instCy.nodes().length;
   if (n >= MAX_GRAPH_NODES) {
-    graphNote(`The graph has ${n} nodes, the most it expands to. Remove some (right-click a node), or Clear instances.`);
+    graphNote(`The graph has ${n} nodes, the most it expands to. Remove some (Remove leaves, or right-click a node), or Clear.`);
     return;
   }
   graphNote(`Expanding ${what}…`);
@@ -612,12 +614,16 @@ async function expand(objects, what, more = '') {
     }
     g.objects.forEach(markExpanded);
   });
-  lastExpand = { added: ids, expanded: newly };
+  undoLast = () => {
+    instCy.collection(ids.map((id) => instCy.getElementById(id))).remove();
+    for (const o of newly) {
+      instCy.nodes().filter((/** @type {any} */ n) => objectOf(n.id()) === o && !n.data('focus')).removeClass('expanded');
+    }
+  };
   const added = instCy.collection(ids.map((id) => instCy.getElementById(id)));
   placeNear(added.nodes());
   const nodes = added.nodes().filter(isInstance).length;
   const counts = added.nodes().length - nodes;
-  const plural = (/** @type {number} */ k, /** @type {string} */ w) => `${k} ${w}${k === 1 ? '' : 's'}`;
   let text = ids.length ? `Added ${plural(nodes, 'node')} and ${plural(added.edges().length, 'edge')} ${what}.` : `Nothing new ${what}: its edges are already on the graph.`;
   if (counts) text += ` ${plural(counts, 'relation')} with many edges ${counts === 1 ? 'is' : 'are'} shown as a count (click it to choose edges).`;
   if (g.incomplete?.length) {
@@ -692,34 +698,75 @@ function hopFromOpen() {
   graphNote('Open an instance first (click a node, or pick one on the right); +1 hop then expands around it. Shift+click a node to expand just that node.');
 }
 
-/** Undoes the last expansion: removes what it added. */
-function undoExpand() {
-  if (!lastExpand || !instCy) return;
-  const { added, expanded } = lastExpand;
-  lastExpand = null;
-  instCy.batch(() => {
-    instCy.collection(added.map((id) => instCy.getElementById(id))).remove();
-    for (const o of expanded) {
-      instCy.nodes().filter((/** @type {any} */ n) => objectOf(n.id()) === o && !n.data('focus')).removeClass('expanded');
-    }
-  });
+/** Undoes the last expansion or removal. */
+function undo() {
+  if (!undoLast || !instCy) return;
+  const f = undoLast;
+  undoLast = null;
+  instCy.batch(f);
   graphNote('');
   updateCount();
   markEdgeLists();
   saveExplore();
 }
 
-/** Removes a node and its edges, and peers left with no edges (not the open instance). @param {any} n */
-function removeNode(n) {
-  const peers = n.neighborhood().nodes();
-  n.remove();
-  const anchor = $('#instance-panel .instance')?.dataset.object;
-  peers.forEach((/** @type {any} */ p) => { if (p.id() !== anchor && !p.hasClass('current') && p.connectedEdges().length === 0) p.remove(); });
-  lastExpand = null;
-  graphNote('');
+/**
+ * Removes elements from the instance graph, and says so with an Undo.
+ * @param {any} gone nodes and edges
+ * @param {string} text for the status line
+ */
+function removeFromGraph(gone, text) {
+  // Nodes first, so Undo can add the edges back between them.
+  const saved = [...gone.nodes().jsons(), ...gone.edges().jsons()];
+  gone.remove();
+  undoLast = () => { instCy.add(saved); };
+  graphNote(text, { undo: true });
   updateCount();
   markEdgeLists();
   saveExplore();
+}
+
+/** Removes a node and its edges, and peers left with no other edges (not the open instance). @param {any} n */
+function removeNode(n) {
+  const peers = n.neighborhood().nodes().filter((/** @type {any} */ p) => !p.hasClass('current') && p.connectedEdges().not(n.connectedEdges()).length === 0);
+  const gone = n.union(peers);
+  removeFromGraph(gone.union(gone.connectedEdges()), `Removed ${n.data('label')}${peers.length ? ` and ${plural(peers.length, 'node')} left with no edges` : ''}.`);
+}
+
+/**
+ * Removes leaves: instances with at most one edge that are neither expanded
+ * nor open (the fringe an expansion leaves). Again, the next layer.
+ * @param {any} [around] only the leaves next to this node
+ */
+function removeLeaves(around) {
+  if (!instCy) return;
+  const pool = around ? around.neighborhood().nodes() : instCy.nodes();
+  const leaves = pool.filter((/** @type {any} */ n) => isInstance(n) && !isExpanded(n) && !n.hasClass('current') && n.degree(false) <= 1);
+  const where = around ? ` around ${around.data('label')}` : '';
+  if (!leaves.length) {
+    graphNote(`No leaves${where}: every instance there is expanded, open, or has more than one edge.`);
+    return;
+  }
+  removeFromGraph(leaves.union(leaves.connectedEdges()), `Removed ${plural(leaves.length, 'leaf', 'leaves')}${where} (instances with one edge, not expanded).`);
+}
+
+/**
+ * Closes the instance open in the panel: the side panel shows the type
+ * section again; the instance stays on the graph, no longer marked open.
+ */
+function closeInstance() {
+  const panel = $('#instance-panel');
+  if (!panel || !$('.instance', panel)) return;
+  panel.innerHTML = '';
+  instCy?.nodes().removeClass('current');
+  setInstanceFocus(false);
+  const url = new URL(location.href);
+  url.searchParams.delete('id');
+  url.searchParams.delete('relation');
+  history.replaceState(null, '', url);
+  updateEmpty();
+  saveExplore();
+  $('#type-panel .ptitle')?.focus();
 }
 
 // ---- the node menu (right-click or long-press a node) ----
@@ -756,6 +803,7 @@ function nodeAction(act) {
   else if (act === 'expand') expandNode(n);
   else if (act === 'hop') expandHop(n);
   else if (act === 'remove') removeNode(n);
+  else if (act === 'leaves') removeLeaves(n);
 }
 
 function initNodeMenu() {
@@ -936,7 +984,8 @@ function onClick(e) {
   }
   if (t.closest('#schema-empty [data-act="show-all-types"]')) { showAllTypes(); return; }
   if (t.closest('#instance-panel [data-act="expand-hop"]')) { hopFromOpen(); return; }
-  if (t.closest('[data-act="undo-expand"]')) { undoExpand(); return; }
+  if (t.closest('[data-act="undo"]')) { undo(); return; }
+  if (t.closest('#instance-panel [data-act="close-instance"]')) { closeInstance(); return; }
   const act = t.closest('.canvas-bar [data-act]');
   if (act instanceof HTMLElement) {
     const cy = activeCy();
@@ -945,12 +994,13 @@ function onClick(e) {
       case 'relayout': relayout(cy); break;
       case 'clear': // start over from the instance open in the panel, if any
         instCy.elements().remove();
-        lastExpand = null;
+        undoLast = null;
         graphNote('');
         showOpenInstance();
         graphChanged();
         break;
       case 'expand-hop': hopFromOpen(); break;
+      case 'remove-leaves': removeLeaves(); break;
       case 'reset-explore': session.del(stateKey('explore')); location.assign(`${base()}/explore`); break;
       case 'show-all-types': showAllTypes(); break;
       case 'toggle-side': toggleSide(); break;

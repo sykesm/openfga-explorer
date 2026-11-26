@@ -187,6 +187,10 @@ Explain a check from the terminal:
   expanded yet, then the next ring. Nodes already placed stay put; a dashed
   outline marks instances not expanded yet; the line over the graph says what
   was added, offers **Undo**, and says when a limit cut an expansion short.
+  **Remove leaves** takes off the instances with one edge that are not
+  expanded or open (again for the next layer; also per node, from its menu),
+  with an Undo. **Clear** starts the graph over from the instance open in the
+  panel; **Close** (in the panel) leaves that instance, so Clear empties it.
   Expansions are bounded per person by `graph_expansion` (instances per
   expansion, a `max_reads` read budget, a `timeout`, one at a time,
   `per_minute`), with higher limits for admins under `graph_expansion.admin`

@@ -10,9 +10,10 @@
       {{if .Data.Modules}}<label class="sm color-mod" title="Color each type by the module that defines it"><input type="checkbox" data-act="color-modules"> color by module</label>{{end}}
       <button type="button" class="ghost hidden" data-act="show-all-types" title="Show every type, not just the selected type's neighborhood">{{if .Data.Large}}Draw all types{{else}}Show all types{{end}}</button>
       {{if .Data.ExpandMax}}<button type="button" class="ghost" data-act="expand-hop" title="Instance graph: expand the open instance's neighbors that are not expanded yet (up to {{.Data.ExpandMax}}); again for the next ring. Shift+click a node to expand just it, or right-click it for more.">+1 hop</button>{{end}}
+      <button type="button" class="ghost" data-act="remove-leaves" title="Instance graph: remove instances with one edge that are not expanded or open (the fringe +1 hop leaves); again for the next layer">Remove leaves</button>
       <button type="button" class="ghost" data-act="fit">Fit</button>
       <button type="button" class="ghost" data-act="relayout">Re-layout</button>
-      <button type="button" class="ghost" data-act="clear" title="Start the instance graph over: only the instance open in the panel (if any) and its edges">Clear instances</button>
+      <button type="button" class="ghost" data-act="clear" title="Start the instance graph over: only the instance open in the panel (if any) and its edges">Clear</button>
       <button type="button" class="ghost" data-act="reset-explore" title="Start over: clear the graph, selection, and saved view">Reset</button>
       <button type="button" class="ghost" data-act="toggle-side" aria-controls="explore-side" aria-expanded="true" title="Show or hide the side panel: types, the selected type and instance (T)">Panel</button>
     </div>
@@ -29,7 +30,7 @@
     </div>
     <button type="button" class="panel-rail" data-act="toggle-side" aria-controls="explore-side" aria-expanded="true" title="Show the side panel (T)">‹ Types &amp; instances</button>
     <div class="canvas-stack">
-      <p id="instance-note" class="canvas-note" role="status" hidden><span class="note-text"></span> <button type="button" class="linkish sm" data-act="undo-expand" hidden>Undo</button></p>
+      <p id="instance-note" class="canvas-note" role="status" hidden><span class="note-text"></span> <button type="button" class="linkish sm" data-act="undo" hidden>Undo</button></p>
       <div id="instance-canvas" class="canvas" role="tabpanel" hidden aria-labelledby="tab-instances"></div>
       <div id="node-menu" class="node-menu" role="menu" aria-labelledby="node-menu-title" hidden>
         <p class="nm-title" id="node-menu-title"></p>
@@ -38,6 +39,7 @@
         <button type="button" role="menuitem" data-node-act="expand">Expand here <kbd>⇧ click</kbd></button>
         <button type="button" role="menuitem" data-node-act="hop">Expand +1 hop</button>
         {{end}}
+        <button type="button" role="menuitem" data-node-act="leaves">Remove leaves around it</button>
         <button type="button" role="menuitem" data-node-act="remove">Remove from graph</button>
       </div>
       <div id="instance-empty" class="canvas-empty hidden" role="status">
@@ -124,7 +126,7 @@
 
 {{define "type-panel"}}{{$b := .Base}}{{with .Data}}
 <div class="panel" data-selected-type="{{.Type.Name}}">
-  <h2 class="ptitle"><span class="k">type</span> {{.Type.Name}}
+  <h2 class="ptitle" tabindex="-1"><span class="k">type</span> {{.Type.Name}}
     {{with .Type.Source.Module}}<span class="modtag" title="Defined in {{$.Data.Type.Source.File}}">module {{.}}</span>{{end}}</h2>
   <div class="pick-instance">
     <h3>Pick an instance</h3>
@@ -173,6 +175,7 @@
   <div class="actions inst-nav">
     <button type="button" class="ghost sm" data-act="show-type" aria-controls="explore-types" aria-expanded="false" title="Show the type section: its relations, the type list and the instance picker">Type {{.Type.Name}}</button>
     <button type="button" class="ghost sm" data-act="change-instance" title="Pick another instance">Pick another…</button>
+    <button type="button" class="ghost sm" data-act="close-instance" title="Close this instance: the panel shows its type again; the instance stays on the graph">Close</button>
     {{if .ExpandMax}}<button type="button" class="ghost sm" data-act="expand-hop" title="Add this instance's neighbors' edges to the instance graph, without leaving this panel (+1 hop); again for the next ring">Expand neighbors</button>{{end}}
     <a class="btn sm" href="{{$b}}/check?{{query "object" .Object}}">Check access…</a>
   </div>

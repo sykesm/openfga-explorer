@@ -706,6 +706,7 @@ func TestBrowserChanges(t *testing.T) {
 		t.Error("the browser's timezone should be sent")
 	}
 	first := eval[string](b, `document.querySelector('#change-rows tr td:nth-child(3)').textContent`)
+	b.settled() // htmx must have taken over the link, or it navigates
 	b.run(chromedp.Click(`.pager a`, chromedp.ByQuery))
 	b.waitFor("second page", `location.search.includes('token=') && document.querySelector('#change-rows tr td:nth-child(3)').textContent !== `+fmt.Sprintf("%q", first))
 	b.run(chromedp.Click(`.seg-radio input[value="custom"]`, chromedp.ByQuery))
@@ -1245,7 +1246,7 @@ func TestBrowserExploreExpand(t *testing.T) {
 
 	// Undo puts the graph back.
 	if grown > before {
-		b.run(chromedp.Click(`#instance-note [data-act="undo-expand"]`, chromedp.ByQuery))
+		b.run(chromedp.Click(`#instance-note [data-act="undo"]`, chromedp.ByQuery))
 		b.waitFor("undone", count+` === `+fmt.Sprint(before))
 		if eval[bool](b, cy+`.getElementById('`+peer+`').hasClass('expanded')`) {
 			t.Errorf("%s still marked expanded after Undo", peer)
@@ -1300,7 +1301,7 @@ func TestBrowserExploreExpandLimits(t *testing.T) {
 	b.checkClean("expand off")
 }
 
-// TestBrowserExploreClearKeepsOpenInstance: "Clear instances" starts the
+// TestBrowserExploreClearKeepsOpenInstance: "Clear" starts the
 // graph over from the instance open in the panel, and "Expand neighbors"
 // puts it back if it was taken off the graph.
 func TestBrowserExploreClearKeepsOpenInstance(t *testing.T) {
@@ -1374,6 +1375,52 @@ func TestBrowserExploreInstanceGraphKeepsView(t *testing.T) {
 		kept("adding an edge", before)
 	}
 	b.checkClean("instance graph keeps its view")
+}
+
+// TestBrowserExploreLeavesAndClose: "Remove leaves" removes the instances
+// with one edge that are not expanded or open, with an Undo; Close leaves the
+// open instance, after which Clear empties the graph.
+func TestBrowserExploreLeavesAndClose(t *testing.T) {
+	x := newTestExplorer(t)
+	b := newBrowser(t, x)
+	b.open("~/explore?type=document&id=doc-0007")
+	b.waitFor("instance panel", `document.querySelector('#instance-panel .instance[data-object="document:doc-0007"]')`)
+	b.settled()
+	const cy = `document.querySelector('#instance-canvas')._cyreg.cy`
+	const note = `document.querySelector('#instance-note .note-text').textContent`
+	b.run(chromedp.Click(`#instance-panel [data-act="expand-hop"]`, chromedp.ByQuery))
+	b.waitFor("hop", note+`.startsWith('Added')`)
+	leaves := cy + `.nodes().filter((n) => n.data('kind') !== 'count' && !n.hasClass('expanded') && !n.data('focus') && !n.hasClass('current') && n.degree(false) <= 1).length`
+	before, n := eval[int](b, leaves), eval[int](b, cy+`.nodes().length`)
+	if before == 0 {
+		t.Fatal("no leaves after +1 hop")
+	}
+	b.run(chromedp.Click(`.canvas-bar [data-act="remove-leaves"]`, chromedp.ByQuery))
+	b.waitFor("leaves removed", note+`.startsWith('Removed')`)
+	if got := eval[int](b, cy+`.nodes().length`); got != n-before {
+		t.Errorf("%d nodes after removing %d leaves of %d", got, before, n)
+	}
+	if !eval[bool](b, cy+`.getElementById('document:doc-0007').hasClass('current')`) {
+		t.Error("the open instance was removed")
+	}
+	b.run(chromedp.Click(`#instance-note [data-act="undo"]`, chromedp.ByQuery))
+	b.waitFor("undone", cy+`.nodes().length === `+fmt.Sprint(n))
+
+	// Close: the panel shows the type again; the instance stays on the graph.
+	b.run(chromedp.Click(`#instance-panel [data-act="close-instance"]`, chromedp.ByQuery))
+	b.waitFor("closed", `!document.querySelector('#instance-panel .instance')`)
+	if eval[bool](b, cy+`.nodes('.current').length > 0`) || !eval[bool](b, cy+`.getElementById('document:doc-0007').length > 0`) {
+		t.Error("closing should keep the instance on the graph, no longer marked open")
+	}
+	if eval[bool](b, `new URL(location.href).searchParams.has('id')`) {
+		t.Error("the URL still names the closed instance")
+	}
+	if eval[bool](b, `document.querySelector('#explore-side').classList.contains('focus-instance')`) {
+		t.Error("the side panel still hides the type section")
+	}
+	b.run(chromedp.Click(`.canvas-bar [data-act="clear"]`, chromedp.ByQuery))
+	b.waitFor("empty", cy+`.nodes().length === 0`)
+	b.checkClean("leaves and close")
 }
 
 // TestBrowserExploreTypeGraphKeepsZoom: choosing a type (a node, an edge, a
