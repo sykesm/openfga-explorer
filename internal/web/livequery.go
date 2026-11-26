@@ -17,34 +17,44 @@ import (
 // errNotAllowed is returned when live queries are off or the person is not an admin.
 var errNotAllowed = errors.New("queries over real data are for admins, and must be enabled (live_queries.enabled)")
 
-// liveGuard limits runs per person. Its state is a rate limit, not user
-// data: losing it (a restart, another replica) only loosens the limit.
-type liveGuard struct {
+// guard limits runs per person: one at a time, and a number per window.
+// Its state is a rate limit, not user data: losing it (a restart, another
+// replica) only loosens the limit.
+type guard struct {
+	one, many string // what a run is called: "graph expansion", "graph expansions"
+	window    time.Duration
+	unit      string // the window, in words: "hour"
+
 	mu      sync.Mutex
 	running map[string]bool
 	runs    map[string][]time.Time
 }
 
-func newLiveGuard() *liveGuard {
-	return &liveGuard{running: map[string]bool{}, runs: map[string][]time.Time{}}
+func newGuard(one, many string, window time.Duration, unit string) *guard {
+	return &guard{one: one, many: many, window: window, unit: unit, running: map[string]bool{}, runs: map[string][]time.Time{}}
+}
+
+// newLiveGuard limits queries over real data (per hour).
+func newLiveGuard() *guard {
+	return newGuard("query over real data", "queries over real data", time.Hour, "hour")
 }
 
 // start reserves a run for who, or says why not. The returned func ends it.
-func (g *liveGuard) start(who string, perHour int, now time.Time) (func(), error) {
+func (g *guard) start(who string, limit int, now time.Time) (func(), error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	if g.running[who] {
-		return nil, errors.New("you already have a query over real data running; wait for it to finish")
+		return nil, fmt.Errorf("you already have a %s running; wait for it to finish", g.one)
 	}
 	recent := g.runs[who][:0]
 	for _, t := range g.runs[who] {
-		if now.Sub(t) < time.Hour {
+		if now.Sub(t) < g.window {
 			recent = append(recent, t)
 		}
 	}
-	if len(recent) >= perHour {
-		wait := time.Hour - now.Sub(recent[0])
-		return nil, fmt.Errorf("you have run %d queries over real data in the last hour (the limit); try again in %v", len(recent), wait.Round(time.Minute))
+	if len(recent) >= limit {
+		wait := g.window - now.Sub(recent[0])
+		return nil, fmt.Errorf("you have run %d %s in the last %s (the limit); try again in %v", len(recent), g.many, g.unit, wait.Round(g.window/60))
 	}
 	g.runs[who] = append(recent, now)
 	g.running[who] = true

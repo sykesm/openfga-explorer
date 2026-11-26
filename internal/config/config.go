@@ -28,6 +28,8 @@ type Config struct {
 	// LiveQueries are admin-only queries over the store's real tuples
 	// ("what can this user access?", the impact of a model change).
 	LiveQueries LiveQueries `yaml:"live_queries"`
+	// GraphExpansion bounds expanding the Explore instance graph in place.
+	GraphExpansion GraphExpansion `yaml:"graph_expansion"`
 }
 
 // LiveQueries bounds queries over real data. Each run is started by an
@@ -40,6 +42,52 @@ type LiveQueries struct {
 	MaxChecks   int           `yaml:"max_checks"`
 	Timeout     time.Duration `yaml:"timeout"`
 	RunsPerHour int           `yaml:"runs_per_hour"`
+}
+
+// GraphExpansion bounds expanding the Explore instance graph in place (a
+// node, or "+1 hop": the neighbors of a node), which reads the edges of
+// several instances in one request. Everyone gets ExpansionLimits; admins get
+// their own (usually higher, still bounded: an admin should see more, but not
+// be able to overload the store by accident).
+type GraphExpansion struct {
+	Enabled         bool `yaml:"enabled"`
+	ExpansionLimits `yaml:",inline"`
+	Admin           ExpansionLimits `yaml:"admin"`
+}
+
+// ExpansionLimits bound one person's expansions. One runs at a time per
+// person; the rate is counted per replica.
+type ExpansionLimits struct {
+	// MaxInstances is the most instances one expansion reads.
+	MaxInstances int `yaml:"max_instances"`
+	// MaxReads is the most tuple-store reads (edge pages and counts) one
+	// expansion makes; instances it cannot finish are reported as such.
+	MaxReads int           `yaml:"max_reads"`
+	Timeout  time.Duration `yaml:"timeout"`
+	// PerMinute is how many expansions a person may start per minute.
+	PerMinute int `yaml:"per_minute"`
+}
+
+// Hard ceilings for ExpansionLimits, so a configuration cannot lift the bounds.
+const (
+	MaxExpansionInstances = 50
+	MaxExpansionReads     = 5000
+	MaxExpansionTimeout   = 2 * time.Minute
+	MaxExpansionPerMinute = 120
+)
+
+func (l ExpansionLimits) validate() error {
+	switch {
+	case l.MaxInstances < 1 || l.MaxInstances > MaxExpansionInstances:
+		return fmt.Errorf("max_instances must be 1 to %d", MaxExpansionInstances)
+	case l.MaxReads < 1 || l.MaxReads > MaxExpansionReads:
+		return fmt.Errorf("max_reads must be 1 to %d", MaxExpansionReads)
+	case l.Timeout <= 0 || l.Timeout > MaxExpansionTimeout:
+		return fmt.Errorf("timeout must be more than 0 and at most %v", MaxExpansionTimeout)
+	case l.PerMinute < 1 || l.PerMinute > MaxExpansionPerMinute:
+		return fmt.Errorf("per_minute must be 1 to %d", MaxExpansionPerMinute)
+	}
+	return nil
 }
 
 // OpenFGA configures the API connection. Secrets are best supplied via
@@ -101,7 +149,12 @@ func Default() Config {
 		Tuples:      Tuples{Source: "auto"},
 		Trace:       Trace{MaxCalls: 250, MaxFanout: 25, ProbeLimit: 25, Timeout: 15 * time.Second, MaxConcurrent: 8},
 		LiveQueries: LiveQueries{MaxObjects: 20, MaxChecks: 1000, Timeout: 30 * time.Second, RunsPerHour: 10},
-		Types:       ids.Rules{},
+		GraphExpansion: GraphExpansion{
+			Enabled:         true,
+			ExpansionLimits: ExpansionLimits{MaxInstances: 10, MaxReads: 200, Timeout: 10 * time.Second, PerMinute: 20},
+			Admin:           ExpansionLimits{MaxInstances: 20, MaxReads: 1000, Timeout: 30 * time.Second, PerMinute: 60},
+		},
+		Types: ids.Rules{},
 	}
 }
 
@@ -170,6 +223,12 @@ func (c Config) Validate() error {
 	}
 	if c.Auth.RequireIdentity && c.Auth.IdentityHeader == "" {
 		return fmt.Errorf("auth.require_identity needs auth.identity_header")
+	}
+	if err := c.GraphExpansion.validate(); err != nil {
+		return fmt.Errorf("graph_expansion: %w", err)
+	}
+	if err := c.GraphExpansion.Admin.validate(); err != nil {
+		return fmt.Errorf("graph_expansion.admin: %w", err)
 	}
 	return nil
 }

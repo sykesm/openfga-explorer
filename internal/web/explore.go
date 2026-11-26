@@ -3,14 +3,18 @@ package web
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	openfgav1 "github.com/openfga/api/proto/openfga/v1"
+	"github.com/sykesm/openfga-explorer/internal/config"
 	"github.com/sykesm/openfga-explorer/internal/fga"
 	"github.com/sykesm/openfga-explorer/internal/schema"
 	"github.com/sykesm/openfga-explorer/internal/search"
@@ -159,6 +163,9 @@ type edgeSet struct {
 	Inline bool
 	Err    string
 	Token  string
+	// Unread is set when a limit (an expansion's read budget or time
+	// limit) stopped the relation from being read: Err says which.
+	Unread bool
 }
 
 // Empty reports that the relation has no edges at all.
@@ -287,40 +294,7 @@ func (s *Server) handleInstance(w http.ResponseWriter, r *http.Request) {
 	obj := typ + ":" + id
 	p := &instancePanel{Object: obj, Type: t}
 	ctx := r.Context()
-
-	var wg sync.WaitGroup
-	sem := make(chan struct{}, 8)
-	run := func(f func()) {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			sem <- struct{}{}
-			defer func() { <-sem }()
-			f()
-		}()
-	}
-	var tupleable []string
-	for _, rn := range t.RelationNames {
-		rel := t.Relations[rn]
-		o := &outRelation{Rel: rel, Deps: v.Model.Dependencies(rel)}
-		if rel.Kind == schema.Derived {
-			p.Derived = append(p.Derived, o)
-			continue
-		}
-		p.Out = append(p.Out, o)
-		tupleable = append(tupleable, rel.Name)
-	}
-	if bulk, ok := s.sources[0].(tuples.Bulk); ok && len(tupleable) > 0 {
-		// Datastore: one query for every relation's count, one for the small edge lists.
-		s.bulkOut(ctx, bulk, v.StoreID, obj, p)
-	} else {
-		for _, o := range p.Out {
-			run(func() {
-				o.edgeSet = s.readEdges(ctx, tuples.Query{Store: v.StoreID, Dir: tuples.Out, Object: obj, Relation: o.Rel.Name}, obj)
-			})
-		}
-	}
-	wg.Wait()
+	s.readOut(ctx, v, p)
 	for _, o := range p.Derived {
 		o.Explain = s.annotate(v.Model.Explain(o.Rel), p)
 		o.Holders = v.Model.SubjectTypes(o.Rel)
@@ -362,17 +336,86 @@ func (s *Server) handleInstance(w http.ResponseWriter, r *http.Request) {
 	s.render(w, "instance", v)
 }
 
+// readOut fills p's relations: Out (relations that accept tuples, with their
+// edges, or a count when there are many) and Derived (computed; not read).
+func (s *Server) readOut(ctx context.Context, v *view, p *instancePanel) {
+	for _, rn := range p.Type.RelationNames {
+		rel := p.Type.Relations[rn]
+		o := &outRelation{Rel: rel, Deps: v.Model.Dependencies(rel)}
+		if rel.Kind == schema.Derived {
+			p.Derived = append(p.Derived, o)
+		} else {
+			p.Out = append(p.Out, o)
+		}
+	}
+	if len(p.Out) == 0 {
+		return
+	}
+	if bulk, ok := s.sources[0].(tuples.Bulk); ok {
+		// Datastore: one query for every relation's count, one for the small edge lists.
+		s.bulkOut(ctx, bulk, v.StoreID, p.Object, p)
+		return
+	}
+	each(p.Out, 8, func(o *outRelation) {
+		o.edgeSet = s.readEdges(ctx, tuples.Query{Store: v.StoreID, Dir: tuples.Out, Object: p.Object, Relation: o.Rel.Name}, p.Object)
+	})
+}
+
+// readIn fills p.In: the relations whose tuples have p's object as the user,
+// with their edges (or a count), leaving out the empty ones.
+func (s *Server) readIn(ctx context.Context, v *view, p *instancePanel) {
+	typ, _, _ := schema.SplitObject(p.Object)
+	for _, in := range v.Model.IncomingFor(typ) {
+		if in.Wildcard {
+			continue
+		}
+		user := p.Object
+		if in.UsersetRelation != "" {
+			user += "#" + in.UsersetRelation
+		}
+		p.In = append(p.In, &inRelation{In: in, User: user})
+	}
+	each(p.In, 8, func(ir *inRelation) {
+		ir.edgeSet = s.readEdges(ctx, tuples.Query{Store: v.StoreID, Dir: tuples.In, User: ir.User, Relation: ir.In.Relation, ObjectType: ir.In.ObjectType}, p.Object)
+	})
+	p.In = slices.DeleteFunc(p.In, func(ir *inRelation) bool { return ir.Empty() })
+}
+
+// each runs f on every item, at most limit at a time, and waits for them all.
+func each[T any](items []T, limit int, f func(T)) {
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, limit)
+	for _, it := range items {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			f(it)
+		}()
+	}
+	wg.Wait()
+}
+
 // bulkOut fills every relation row of an instance panel with two queries.
 func (s *Server) bulkOut(ctx context.Context, bulk tuples.Bulk, store, obj string, p *instancePanel) {
 	var rels []string
 	for _, o := range p.Out {
 		rels = append(rels, o.Rel.Name)
 	}
+	// fail marks every relation not read; a limit (budget, time) says so.
+	fail := func(err error) {
+		for _, o := range p.Out {
+			o.Err, o.Unread = err.Error(), errors.Is(err, errReadBudget) || ctx.Err() != nil
+		}
+	}
+	if err := spendRead(ctx, 2); err != nil { // the counts, then the small relations' edges
+		fail(err)
+		return
+	}
 	counts, err := bulk.OutCounts(ctx, store, obj, rels, countCap)
 	if err != nil {
-		for _, o := range p.Out {
-			o.Err = err.Error()
-		}
+		fail(err)
 		return
 	}
 	var small []string
@@ -387,16 +430,152 @@ func (s *Server) bulkOut(ctx context.Context, bulk tuples.Bulk, store, obj strin
 		}
 	}
 	edges, err := bulk.OutEdges(ctx, store, obj, small)
+	if err != nil {
+		fail(err)
+		return
+	}
 	for _, o := range p.Out {
-		if err != nil {
-			o.Err = err.Error()
-			continue
-		}
 		for _, k := range edges[o.Rel.Name] {
 			o.Edges = append(o.Edges, s.edgeOf(tuples.Out, k, obj))
 		}
 		o.Inline = !o.More && len(o.Edges) == o.N
 	}
+}
+
+// instanceGraph is the JSON of handleInstanceGraph.
+type instanceGraph struct {
+	// Objects are the instances fully read: every relation, both directions.
+	Objects []string `json:"objects"`
+	// Incomplete are instances a limit kept from being fully read; Limit
+	// says which. Their edges that were read are in Elements.
+	Incomplete []string `json:"incomplete,omitempty"`
+	Limit      string   `json:"limit,omitempty"`
+	// Elements are Cytoscape elements, each once: the instances, their edges
+	// in both directions, their peers, and count nodes for relations with
+	// many edges (as in the instance panel).
+	Elements []map[string]any `json:"elements"`
+	// Errors are relations that could not be read ("object relation: error").
+	Errors []string `json:"errors,omitempty"`
+}
+
+// expansionLimits are the limits for the person making the request: admins
+// get their own (higher, still bounded).
+func (s *Server) expansionLimits(r *http.Request) config.ExpansionLimits {
+	if identity(r).Admin() {
+		return s.cfg.GraphExpansion.Admin
+	}
+	return s.cfg.GraphExpansion.ExpansionLimits
+}
+
+// handleInstanceGraph returns the instance graph around one or more
+// instances (object=type:id, repeated): the edges their instance panels and
+// Incoming tabs show, in both directions, without rendering the panels.
+// Expanding reads several instances at once, so it is bounded per person
+// (graph_expansion): instances per request, a read budget, a time limit, one
+// at a time, and a rate. What a limit cut short is reported, not hidden.
+func (s *Server) handleInstanceGraph(w http.ResponseWriter, r *http.Request) {
+	v, _, err := s.resolve(r)
+	if err != nil {
+		s.failJSON(w, r, http.StatusBadGateway, err)
+		return
+	}
+	if !s.cfg.GraphExpansion.Enabled {
+		s.failJSON(w, r, http.StatusForbidden, errors.New("expanding the instance graph is turned off (graph_expansion.enabled)"))
+		return
+	}
+	lim := s.expansionLimits(r)
+	objs := r.URL.Query()["object"]
+	switch {
+	case len(objs) == 0:
+		s.failJSON(w, r, http.StatusBadRequest, errors.New("choose an instance (object=type:id)"))
+		return
+	case len(objs) > lim.MaxInstances:
+		s.failJSON(w, r, http.StatusBadRequest, fmt.Errorf("at most %d instances at a time", lim.MaxInstances))
+		return
+	}
+	panels := make([]*instancePanel, len(objs))
+	for i, obj := range objs {
+		typ, _, ok := schema.SplitObject(obj)
+		t := v.Model.Types[typ]
+		if !ok || t == nil {
+			s.failJSON(w, r, http.StatusBadRequest, fmt.Errorf("invalid object %q", obj))
+			return
+		}
+		panels[i] = &instancePanel{Object: obj, Type: t}
+	}
+	done, err := s.expand.start(identity(r).Name, lim.PerMinute, time.Now())
+	if err != nil {
+		s.failJSON(w, r, http.StatusTooManyRequests, err)
+		return
+	}
+	defer done()
+	ctx, cancel := context.WithTimeout(r.Context(), lim.Timeout)
+	defer cancel()
+	ctx = context.WithValue(ctx, readBudgetKey{}, &budget{max: int64(lim.MaxReads)})
+	// Each instance reads up to 8 relations at a time; read 4 instances at a
+	// time, in the order asked (nearest first), so the budget goes to those.
+	each(panels, 4, func(p *instancePanel) {
+		s.readOut(ctx, v, p)
+		s.readIn(ctx, v, p)
+	})
+	g := instanceGraph{Objects: []string{}, Elements: []map[string]any{}}
+	seen := map[string]map[string]any{} // element ID → its data
+	for _, p := range panels {
+		complete := true
+		note := func(rel string, es edgeSet) {
+			switch {
+			case es.Unread:
+				complete = false
+			case es.Err != "":
+				g.Errors = append(g.Errors, fmt.Sprintf("%s %s: %s", p.Object, rel, es.Err))
+			}
+		}
+		for _, o := range p.Out {
+			note(o.Rel.Name, o.edgeSet)
+		}
+		for _, in := range p.In {
+			note(in.In.ObjectType+"#"+in.In.Relation, in.edgeSet)
+		}
+		if complete {
+			g.Objects = append(g.Objects, p.Object)
+		} else {
+			g.Incomplete = append(g.Incomplete, p.Object)
+		}
+		patch := s.graphPatch(p)
+		for _, el := range patch["elements"].([]map[string]any) {
+			data := el["data"].(map[string]any)
+			id, _ := data["id"].(string)
+			if !complete && id == p.Object {
+				delete(data, "focus") // not expanded: it was not fully read
+			}
+			if kept, ok := seen[id]; ok {
+				// An expanded instance may first come as another's peer:
+				// keep the mark that it was expanded.
+				if data["focus"] == true {
+					kept["focus"] = true
+				}
+				continue
+			}
+			seen[id] = data
+			g.Elements = append(g.Elements, el)
+		}
+	}
+	if len(g.Incomplete) > 0 {
+		g.Limit = fmt.Sprintf("the read budget (%d reads)", lim.MaxReads)
+		if ctx.Err() != nil {
+			g.Limit = fmt.Sprintf("the time limit (%v)", lim.Timeout)
+		}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(g)
+}
+
+// failJSON reports a failed API request as {"error": "…"}.
+func (s *Server) failJSON(w http.ResponseWriter, r *http.Request, status int, err error) {
+	s.log.Warn("request failed", "path", r.URL.Path, "err", err)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 }
 
 // handleIncoming lists where an instance appears as the user of tuples. It is
@@ -414,36 +593,24 @@ func (s *Server) handleIncoming(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p := &instancePanel{Object: obj, Type: v.Model.Types[typ]}
-	var wg sync.WaitGroup
-	sem := make(chan struct{}, 8)
-	for _, in := range v.Model.IncomingFor(typ) {
-		if in.Wildcard {
-			continue
-		}
-		user := obj
-		if in.UsersetRelation != "" {
-			user += "#" + in.UsersetRelation
-		}
-		ir := &inRelation{In: in, User: user}
-		p.In = append(p.In, ir)
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			sem <- struct{}{}
-			defer func() { <-sem }()
-			ir.edgeSet = s.readEdges(r.Context(), tuples.Query{Store: v.StoreID, Dir: tuples.In, User: user, Relation: in.Relation, ObjectType: in.ObjectType}, obj)
-		}()
-	}
-	wg.Wait()
-	kept := p.In[:0]
-	for _, i := range p.In {
-		if !i.Empty() {
-			kept = append(kept, i)
-		}
-	}
-	p.In = kept
+	s.readIn(r.Context(), v, p)
 	v.Data = p
 	s.render(w, "incoming", v)
+}
+
+// readBudgetKey carries an expansion's read budget in its request context.
+type readBudgetKey struct{}
+
+// errReadBudget says a read was not made: the expansion's budget ran out.
+var errReadBudget = errors.New("not read: the expansion's read budget ran out")
+
+// spendRead reserves n tuple-store reads from the request's read budget, if
+// it has one (expansions do; panels are bounded per relation instead).
+func spendRead(ctx context.Context, n int) error {
+	if b, ok := ctx.Value(readBudgetKey{}).(*budget); ok && b.spend(n) != nil {
+		return errReadBudget
+	}
+	return nil
 }
 
 // readEdges reads the first page of edges around self from the default
@@ -451,9 +618,12 @@ func (s *Server) handleIncoming(w http.ResponseWriter, r *http.Request) {
 func (s *Server) readEdges(ctx context.Context, q tuples.Query, self string) edgeSet {
 	src := s.sources[0]
 	q.Limit = 100
+	if err := spendRead(ctx, 1); err != nil {
+		return edgeSet{Err: err.Error(), Unread: true}
+	}
 	page, err := src.Edges(ctx, q)
 	if err != nil {
-		return edgeSet{Err: err.Error()}
+		return edgeSet{Err: err.Error(), Unread: ctx.Err() != nil}
 	}
 	es := edgeSet{More: page.More}
 	for _, k := range page.Tuples {
@@ -462,10 +632,13 @@ func (s *Server) readEdges(ctx context.Context, q tuples.Query, self string) edg
 	es.Count, es.N = fmt.Sprint(len(es.Edges)), len(es.Edges)
 	if es.More {
 		es.Count, es.N = fmt.Sprintf("%d+", len(es.Edges)), -1
-		if c, err := src.Count(ctx, q, countCap); err == nil && (c.Exact || c.N > len(es.Edges)) {
-			es.Count = c.String()
-			if c.Exact {
-				es.N = c.N
+		// Without budget left for the count, the relation shows as "100+".
+		if spendRead(ctx, 1) == nil {
+			if c, err := src.Count(ctx, q, countCap); err == nil && (c.Exact || c.N > len(es.Edges)) {
+				es.Count = c.String()
+				if c.Exact {
+					es.N = c.N
+				}
 			}
 		}
 	}

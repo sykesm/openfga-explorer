@@ -53,7 +53,8 @@ type Server struct {
 	// sandboxSem bounds concurrent scenario runs (each starts an engine).
 	sandboxSem chan struct{}
 	// live limits queries over real data per person.
-	live   *liveGuard
+	live   *guard
+	expand *guard
 	recent *recent
 	assets map[string]string // static path -> content hash
 
@@ -85,6 +86,7 @@ func New(cfg config.Config, client *fga.Client, searcher search.Searcher, source
 		traceSem:   make(chan struct{}, max(1, cfg.Trace.MaxConcurrent)),
 		sandboxSem: make(chan struct{}, max(1, cfg.Trace.MaxConcurrent)),
 		live:       newLiveGuard(),
+		expand:     newGuard("graph expansion", "graph expansions", time.Minute, "minute"),
 		recent:     newRecent(),
 		models:     map[string]*modelEntry{},
 		latest:     map[string]latestEntry{},
@@ -132,6 +134,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /s/{store}/m/{model}/relations", s.handleRelationOptions)
 	mux.HandleFunc("GET /s/{store}/m/{model}/api/schema", s.handleSchemaJSON)
 	mux.HandleFunc("GET /s/{store}/m/{model}/api/types", s.handleTypeIndex)
+	mux.HandleFunc("GET /s/{store}/m/{model}/api/instance-graph", s.handleInstanceGraph)
 	mux.HandleFunc("GET /s/{store}/m/{model}/check", s.handleCheckPage)
 	mux.HandleFunc("POST /s/{store}/m/{model}/check/run", s.handleCheckRun)
 	mux.HandleFunc("GET /s/{store}/m/{model}/check/progress", s.handleCheckProgress)

@@ -56,6 +56,21 @@ live_queries:
   timeout: 30s
   runs_per_hour: 10     # per person (per replica)
 
+# Expanding the Explore instance graph in place (a node, or "+1 hop"). Each
+# expansion reads several instances' edges; everyone gets these limits, admins
+# the higher ones under admin (still bounded). One at a time per person.
+graph_expansion:
+  enabled: true
+  max_instances: 10     # instances per expansion
+  max_reads: 200        # tuple-store reads per expansion
+  timeout: 10s
+  per_minute: 20        # expansions per person (per replica)
+  admin:
+    max_instances: 20
+    max_reads: 1000
+    timeout: 30s
+    per_minute: 60
+
 trace:
   max_calls: 250        # API calls per walk (verification calls are separate)
   max_fanout: 25        # edges evaluated per node before switching to probes
