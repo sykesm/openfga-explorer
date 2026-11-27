@@ -309,6 +309,10 @@ fga-picker .picker-q { flex: 1; font-family: var(--mono); font-size: 13px; }
 .trace-graph-wrap .canvas { min-height: 540px; }
 .player { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
 .player input[type=range] { width: 90px; vertical-align: middle; }
+/* The play button and step count change text as the replay runs; fixed
+   widths keep the bar (and the graph under it) from reflowing. */
+.player [data-act="play"] { min-width: 8.5em; }
+.player .step-count { min-width: 14ch; font-variant-numeric: tabular-nums; }
 /* ---- side panel (inspector): selected node, then Text trace / Who else? tabs ---- */
 .inspector { display: flex; flex-direction: column; min-height: 0; max-height: 760px; margin-left: 4px;
   background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
@@ -407,7 +411,9 @@ h2.sect { margin-top: 2px; font-size: 12px; text-transform: uppercase; letter-sp
 #relation-select option:disabled { color: var(--skipped); }
 .tl.onpath { box-shadow: inset 3px 0 0 var(--allowed); }
 .tl.onpath > .lb { color: var(--allowed); }
-.player-status { padding: 5px 10px; border-bottom: 1px solid var(--line); color: var(--muted); min-height: 28px; }
+/* Two lines reserved: the finished message is often two lines, and the graph
+   under it should not move when the replay starts or ends. */
+.player-status { padding: 5px 10px; border-bottom: 1px solid var(--line); color: var(--muted); min-height: calc(2lh + 10px); }
 .paths-note { color: var(--allowed); }
 .paths-note.partial { color: var(--unknown); }
 .gaps ul { margin: 4px 0 6px; padding-left: 18px; }

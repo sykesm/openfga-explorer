@@ -339,11 +339,26 @@ class Player {
       if (!this.lines.has(k)) this.lines.set(k, []);
       this.lines.get(k)?.push(l);
     }
+    // Edges by "source>target", so a step finds its edge without scanning them all.
+    /** @type {Map<string, any>} */
+    this.byEnds = new Map();
+    cy.edges().forEach((/** @type {any} */ e) => {
+      const k = `${e.data('source')}>${e.data('target')}`;
+      this.byEnds.set(k, (this.byEnds.get(k) || cy.collection()).union(e));
+    });
+    /** The node lit as being evaluated, and its text trace lines marked current. */
+    this.visiting = cy.collection();
+    /** @type {Element[]} */
+    this.cur = [];
+    /** When the status line was last rewritten (it is a live region: not every tick). */
+    this.said = 0;
   }
   reset() {
     this.pause();
     this.flow.stop();
     this.cy.elements().addClass('pending').removeClass('visiting');
+    this.visiting = this.cy.collection();
+    this.cur = [];
     this.tree.classList.add('animating');
     $$('.tl', this.tree).forEach((l) => l.classList.remove('seen', 'cur'));
     this.i = 0;
@@ -351,16 +366,18 @@ class Player {
   }
   /** @param {string} node @param {string} [cls] */
   mark(node, cls) {
-    if (cls === 'cur') $$('.tl.cur', this.tree).forEach((l) => l.classList.remove('cur'));
-    for (const l of this.lines.get(node) || []) { l.classList.add('seen'); if (cls) l.classList.add(cls); }
+    const lines = this.lines.get(node) || [];
+    if (cls === 'cur') { this.cur.forEach((l) => l.classList.remove('cur')); this.cur = lines; }
+    for (const l of lines) { l.classList.add('seen'); if (cls) l.classList.add(cls); }
   }
   /** @param {Step} s */
   apply(s) {
     const n = this.shown(s.node);
     switch (s.phase) {
       case 'enter':
-        this.cy.nodes('.visiting').removeClass('visiting');
+        this.visiting.removeClass('visiting');
         n.removeClass('pending').addClass('visiting');
+        this.visiting = n;
         this.mark(s.node, 'cur');
         this.current = String(n.data('label') || '').replace(/\n[∪∩∖]$/, '').replace(/\n/g, '');
         break;
@@ -368,7 +385,7 @@ class Player {
         n.removeClass('pending visiting');
         break;
       case 'link':
-        this.cy.edges().filter((/** @type {any} */ e) => e.data('source') === s.from && e.data('target') === s.node).removeClass('pending');
+        this.byEnds.get(`${s.from}>${s.node}`)?.removeClass('pending');
         n.removeClass('pending');
         this.mark(s.node);
         break;
@@ -399,12 +416,13 @@ class Player {
    * step shows only an arrow. The replay's tick, and Step's.
    */
   advance() {
-    const next = this.stops().find((e) => e > this.i);
+    const next = this.nextStop();
     if (next === undefined) { this.final(); return false; }
     while (this.i < next) this.apply(this.steps[this.i++]);
-    this.update();
     return true;
   }
+  /** Where the next visible step ends, or undefined at the end of the walk. */
+  nextStop() { return this.stops().find((e) => e > this.i); }
   /**
    * The visible steps: the event index just after each node is entered,
    * skipping entries that light the same element as the one before (nodes
@@ -441,31 +459,56 @@ class Player {
     if (this.i >= this.steps.length || (this.i === 0 && !this.tree.classList.contains('animating'))) this.reset();
     if (!this.advance()) return false;
     this.follow();
+    this.update();
     return true;
   }
   /** Keeps the current node (and its text trace line) in view while stepping. */
   follow() {
-    const n = this.cy.nodes('.visiting')[0];
-    if (n) {
+    const n = this.visiting[0];
+    if (n && !n.removed()) {
       const e = this.cy.extent();
       const p = n.position();
       if (p.x < e.x1 || p.x > e.x2 || p.y < e.y1 || p.y > e.y2) this.cy.animate({ center: { eles: n }, duration: reducedMotion() ? 0 : 200 });
     }
     $('.tl.cur', this.tree)?.scrollIntoView({ block: 'nearest', behavior: scrollBehavior() });
   }
-  /** The replay takes a fixed total time (about 8s at the default speed), however many steps. */
+  /**
+   * The replay takes a fixed total time (about 8s at the default speed),
+   * however many steps: a long walk moves several steps a frame (see play).
+   */
   delay() {
     const total = 15000 - this.speed * 1100;
-    return Math.max(12, Math.min(600, total / Math.max(1, this.stops().length)));
+    return Math.min(600, total / Math.max(1, this.stops().length));
   }
+  /**
+   * Plays on animation frames: each frame applies the steps that are due, in
+   * one batch, so a long walk (whose steps are due faster than frames) moves
+   * several steps a frame instead of queuing timers it cannot keep up with.
+   */
   play() {
     if (this.timer) { this.pause(); return; }
     if (this.i === 0 || this.i >= this.steps.length) this.reset();
-    const tick = () => { this.timer = this.advance() ? window.setTimeout(tick, this.delay()) : null; this.update(); };
-    this.timer = window.setTimeout(tick, 120);
+    let due = performance.now() + 120;
+    const tick = (/** @type {number} */ now) => {
+      this.timer = null;
+      if (now >= due) {
+        // The last step stays on screen for its turn, like the others; the
+        // walk finishes when the next step would be due.
+        if (this.nextStop() === undefined) { this.final(); return; }
+        this.cy.startBatch();
+        try {
+          while (now >= due && this.nextStop() !== undefined) { this.advance(); due += this.delay(); }
+        } finally {
+          this.cy.endBatch();
+        }
+      }
+      this.timer = requestAnimationFrame(tick);
+      this.update();
+    };
+    this.timer = requestAnimationFrame(tick);
     this.update();
   }
-  pause() { if (this.timer) clearTimeout(this.timer); this.timer = null; this.update(); }
+  pause() { if (this.timer) cancelAnimationFrame(this.timer); this.timer = null; this.update(); }
   /** Goes back one visible step (←), replaying silently up to it. */
   back() {
     this.flow.userView = true;
@@ -483,6 +526,8 @@ class Player {
     this.cy.elements().removeClass('pending visiting');
     this.tree.classList.remove('animating');
     $$('.tl.cur', this.tree).forEach((l) => l.classList.remove('cur'));
+    this.visiting = this.cy.collection();
+    this.cur = [];
     this.i = this.steps.length;
     if (this.flow.focus) this.flow.start();
     this.update();
@@ -492,14 +537,18 @@ class Player {
     const playing = !!this.timer;
     const n = this.stops().length;
     const i = this.shownSteps();
-    const count = $('.player .step-count');
-    if (count) count.textContent = `step ${i} / ${n}`;
-    const play = $('.player [data-act="play"]');
-    if (play) play.textContent = playing ? '❚❚ Pause' : (this.i > 0 && !done ? '▶ Resume' : '▶ Replay walk');
+    // Called every frame while playing: write only what changed.
+    setText($('.player .step-count'), `step ${i} / ${n}`);
+    setText($('.player [data-act="play"]'), playing ? '❚❚ Pause' : (this.i > 0 && !done ? '▶ Resume' : '▶ Replay walk'));
     const status = $('.player-status');
     if (!status) return;
-    if (playing) status.textContent = `Replaying the walk: step ${i} of ${n}${this.current ? ` — evaluating ${this.current}` : ''}`;
-    else if (!done && this.i > 0) status.textContent = `Paused at step ${i} of ${n}. “Step ›” advances one step; “Resume” continues; “Skip to end” shows the result.`;
+    if (playing) {
+      // A live region: rewrite it about once a second, not on every frame.
+      const now = performance.now();
+      if (now - this.said < 1000) return;
+      this.said = now;
+      status.textContent = `Replaying the walk: step ${i} of ${n}${this.current ? ` — evaluating ${this.current}` : ''}`;
+    } else if (!done && this.i > 0) status.textContent = `Paused at step ${i} of ${n}. “Step ›” advances one step; “Resume” continues; “Skip to end” shows the result.`;
     else if (done) status.textContent = this.doneText();
   }
   /** The server phrases the closing status; this picks the variant for the highlight state. */
@@ -509,6 +558,11 @@ class Player {
     if (this.flow.active) return d.doneNofocus || '';
     return d.doneOther || '';
   }
+}
+
+/** Sets an element's text if it differs. @param {Element | null} el @param {string} text */
+function setText(el, text) {
+  if (el && el.textContent !== text) el.textContent = text;
 }
 
 /**
@@ -654,13 +708,23 @@ function resizeGraph(v) {
 }
 
 /** Sizes the check view to reach the bottom of the window on wide screens (CSS applies it). */
+/**
+ * Where the trace views' sizes (--trace-h, --text-w) are set: the result
+ * container, which a re-run keeps while swapping its content, so the new views
+ * take the old sizes in their first frame instead of jumping until this script
+ * runs. The views themselves when there is no such container.
+ * @param {HTMLElement} tv
+ */
+const sizeHolder = (tv) => /** @type {HTMLElement} */ (tv.closest('#check-result') || tv);
+
 function sizeTraceViews() {
   const tv = /** @type {HTMLElement | null} */ ($('.trace-views'));
   if (!tv) return;
   const top = tv.getBoundingClientRect().top + window.scrollY;
   const h = `${Math.max(620, Math.floor(window.innerHeight - top - 16))}px`;
-  if (tv.style.getPropertyValue('--trace-h') === h) return false;
-  tv.style.setProperty('--trace-h', h);
+  const holder = sizeHolder(tv);
+  if (holder.style.getPropertyValue('--trace-h') === h) return false;
+  holder.style.setProperty('--trace-h', h);
   return true;
 }
 
@@ -912,7 +976,7 @@ function renderTrace({ replay = true, restore = false } = {}) {
   initTreeKeys(tree, cy);
   // On phones the panel is a bottom sheet: closed until asked for (or a node is selected).
   togglePanel(store.get('panelCollapsed', matchMedia('(max-width: 700px)').matches));
-  const setTextW = (/** @type {number} */ w) => { $('.trace-views')?.style.setProperty('--text-w', `${Math.round(Math.max(w, 260))}px`); return w; };
+  const setTextW = (/** @type {number} */ w) => { const tv = $('.trace-views'); if (tv) sizeHolder(tv).style.setProperty('--text-w', `${Math.round(Math.max(w, 260))}px`); return w; };
   initResizer($('.trace-views .splitter'), (x) => {
     const r = $('.trace-views').getBoundingClientRect();
     return setTextW(Math.min(r.right - x, r.width * 0.7));

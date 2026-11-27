@@ -1710,6 +1710,48 @@ func TestBrowserExploreInstanceFocus(t *testing.T) {
 	b.checkClean("instance focus")
 }
 
+// Re-running a check (e.g. "Show model order") and replaying it keeps the
+// layout still: the new views take the old sizes in their first frame, and
+// the player bar and status keep their size whether playing or finished.
+func TestBrowserTraceRerunStable(t *testing.T) {
+	x := newTestExplorer(t)
+	b := newBrowser(t, x)
+	b.run(emulation.SetEmulatedMedia().WithFeatures([]*emulation.MediaFeature{{Name: "prefers-reduced-motion", Value: "no-preference"}}))
+	b.open(`~/check?user=user:eng-002&relation=can_view&object=document:doc-0007&context=` +
+		`%7B%22current_time%22%3A%222026-11-24T12%3A00%3A00Z%22%2C%22user_ip%22%3A%2210.1.2.3%22%7D`)
+	b.waitFor("result", `document.querySelector('#check-result .verdict')`)
+	b.run(chromedp.Evaluate(`document.querySelector('.player [data-act="final"]').click()`, nil), chromedp.Sleep(300*time.Millisecond))
+	b.run(chromedp.Evaluate(`window.__shifts = []; window.__sizes = {};
+		new PerformanceObserver((l) => l.getEntries().forEach((e) => { if (!e.hadRecentInput) __shifts.push(e.value.toFixed(3) + ' ' +
+			(e.sources || []).map((s) => s.node?.id || s.node?.className || s.node?.nodeName).join(', ')); })).observe({ type: 'layout-shift' });
+		const watch = () => { for (const sel of ['#rpanel-trace', '.player', '.player-status', '#trace-canvas']) {
+				const el = document.querySelector(sel); if (!el) continue;
+				(__sizes[sel] ||= new Set()).add(Math.round(el.getBoundingClientRect().height)); }
+			if (!window.__stop) requestAnimationFrame(watch); };
+		requestAnimationFrame(watch);
+		document.querySelector('[data-act="order"][data-order="model"]').click();`, nil))
+	b.waitFor("replay", `/step [1-9]/.test(document.querySelector('.player .step-count')?.textContent || '') && document.querySelector('.player [data-act="play"]').textContent.includes('Pause')`)
+	b.run(chromedp.Sleep(300*time.Millisecond), chromedp.Evaluate(`document.querySelector('.player [data-act="final"]').click()`, nil), chromedp.Sleep(400*time.Millisecond))
+	var got struct {
+		Shifts []string
+		Sizes  map[string][]int
+	}
+	b.run(chromedp.Evaluate(`window.__stop = true; ({ Shifts: __shifts, Sizes: Object.fromEntries(Object.entries(__sizes).map(([k, v]) => [k, [...v]])) })`, &got))
+	if len(got.Shifts) > 0 {
+		t.Errorf("layout shifted while re-running and replaying: %q", got.Shifts)
+	}
+	for sel, hs := range got.Sizes {
+		lo, hi := hs[0], hs[0]
+		for _, h := range hs {
+			lo, hi = min(lo, h), max(hi, h)
+		}
+		if hi-lo > 1 {
+			t.Errorf("%s changed height while re-running and replaying: %v", sel, hs)
+		}
+	}
+	b.checkClean("rerun")
+}
+
 // The "Why" list reads from the user up to the object, one step per line,
 // each with the tuples and model rules it rests on.
 func TestBrowserCheckWhyKinds(t *testing.T) {

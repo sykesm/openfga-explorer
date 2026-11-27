@@ -138,7 +138,7 @@
       <button type="button" data-act="fit" class="ghost sm" title="Fit the whole graph in view">Fit all</button>
       <label class="sm" title="How fast the replay runs">speed <input type="range" min="1" max="10" value="6" data-act="speed"></label>
       <label class="sm" title="Start the replay automatically when a result loads"><input type="checkbox" data-act="autoplay"> replay on load</label>
-      <label class="sm" title="When access is allowed: zoom to the path that granted it, dim everything else, and animate the path"><input type="checkbox" data-act="focus" checked> highlight granting path</label>
+      <label class="sm{{if ne (print .Walker) "allowed"}} hidden{{end}}" title="When access is allowed: zoom to the path that granted it, dim everything else, and animate the path"><input type="checkbox" data-act="focus" checked> highlight granting path</label>
       <span class="step-count muted sm"></span>
       <span class="spacer"></span>
       <button type="button" data-act="copy-md" class="ghost sm" title="Copy the explanation and trace as Markdown (for tickets)">Copy</button>
