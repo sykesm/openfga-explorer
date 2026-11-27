@@ -84,8 +84,8 @@ type doc
 			// (in the headline, or in the step-by-step facts when deeper).
 			e := tr.Explanation(nil)
 			all := e.Headline
-			for _, f := range e.Facts {
-				all += "\n" + f.Text
+			for _, s := range e.Steps {
+				all += "\n" + s.Text
 			}
 			if !strings.Contains(all, "per the server's Check; those groups were not walked") {
 				t.Errorf("%s: explanation hides the ruled-out groups:\n%s", user, all)

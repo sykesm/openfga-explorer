@@ -1710,33 +1710,67 @@ func TestBrowserExploreInstanceFocus(t *testing.T) {
 	b.checkClean("instance focus")
 }
 
-// The "Why" list tells stored tuples apart from what the model concludes.
+// The "Why" list reads from the user up to the object, one step per line,
+// each with the tuples and model rules it rests on.
 func TestBrowserCheckWhyKinds(t *testing.T) {
 	x := newTestExplorer(t)
 	b := newBrowser(t, x)
 	b.open(`~/check?user=user:eng-002&relation=can_view&object=document:doc-0007&context=` +
 		`%7B%22current_time%22%3A%222026-11-24T12%3A00%3A00Z%22%2C%22user_ip%22%3A%2210.1.2.3%22%7D`)
 	b.waitFor("result", `document.querySelector('#check-result .verdict .facts')`)
+	b.run(chromedp.Evaluate(`document.querySelector('.facts').open = true`, nil))
 	sum := eval[string](b, `document.querySelector('.facts > summary').textContent.trim()`)
-	m := regexp.MustCompile(`^Why: (\d+) tuples?, (\d+) rules?$`).FindStringSubmatch(sum)
+	m := regexp.MustCompile(`^Why: (\d+) steps?, from (\d+) tuples?$`).FindStringSubmatch(sum)
 	if m == nil {
-		t.Fatalf("summary %q does not count tuples and rules", sum)
+		t.Fatalf("summary %q does not count steps and tuples", sum)
 	}
-	counts := eval[string](b, `['tuple', 'rule'].map((k) => document.querySelectorAll('.facts li.f-' + k).length).join(' ')`)
+	counts := eval[string](b, `document.querySelectorAll('.facts li.step').length + ' ' +
+		new Set([...document.querySelectorAll('.facts .ev-tuple code.tup')].map((c) => c.textContent)).size`)
 	if counts != m[1]+" "+m[2] {
-		t.Errorf("summary %q, list has %s (tuples rules)", sum, counts)
+		t.Errorf("summary %q, list has %s (steps tuples)", sum, counts)
 	}
-	// A tuple-to-userset step is a stored tuple followed by the rule using it.
-	pair := eval[string](b, `(() => { const li = [...document.querySelectorAll('.facts li')];
-		const i = li.findIndex((l) => / counts as /.test(l.textContent));
-		return i > 0 ? li[i - 1].dataset.kind + ' ' + li[i].dataset.kind : ''; })()`)
-	if pair != "tuple rule" {
-		t.Errorf("inherited step reads %q, want a tuple then a rule", pair)
+	steps := eval[[]string](b, `[...document.querySelectorAll('.facts li.step > .ft')].map((e) => e.textContent)`)
+	if len(steps) < 2 || steps[0] != "user:eng-002 has member on group:eng" || !strings.Contains(steps[len(steps)-1], "has can_view on document:doc-0007") {
+		t.Errorf("steps do not run from the user to the object: %q", steps)
 	}
-	// The kinds look different, not only by their label.
-	weights := eval[string](b, `['tuple', 'rule'].map((k) => getComputedStyle(document.querySelector('.facts li.f-' + k + ' .ft')).fontWeight).join(' ')`)
-	if f := strings.Fields(weights); len(f) != 2 || f[0] == f[1] {
-		t.Errorf("tuple and rule text share a style: %q", weights)
+	// step finds the step whose text matches, and runs expr on it (as s).
+	step := func(re, expr string) string {
+		return eval[string](b, `(() => { const s = [...document.querySelectorAll('.facts li.step')]
+			.find((l) => new RegExp(`+"`"+re+"`"+`).test(l.querySelector('.ft').textContent));
+			return s ? String(`+expr+`) : 'no step'; })()`)
+	}
+	// Inheriting through a parent rests on the parent tuple and the rule.
+	if got := step(`has viewer on folder:engineering`, `[...s.querySelectorAll('.ev')].map((e) => e.dataset.kind).join(' ')`); got != "tuple rule" {
+		t.Errorf("inherited step rests on %q, want a tuple and a rule", got)
+	}
+	// A tuple is shown as stored, Zanzibar style.
+	if got := step(`has viewer on folder:root`, `s.querySelector('.ev-tuple code.tup')?.textContent`); got != "folder:root#viewer@group:eng#member" {
+		t.Errorf("tuple shows %q", got)
+	}
+	// The first mention of a relation shows its definition, with the part
+	// used set off; later mentions show only that part.
+	if got := step(`has viewer on document:doc-0007`, `s.querySelector('.ev-rule .fref b')?.textContent`); got != "viewer from parent" {
+		t.Errorf("document#viewer highlights %q", got)
+	}
+	if got := step(`has viewer on folder:design-docs`, `s.querySelector('.ev-rule .fref code')?.textContent`); got != "= … viewer from parent" {
+		t.Errorf("a later folder#viewer mention shows %q", got)
+	}
+	if got := step(`has “member from org” on document:doc-0007`, `s.querySelector('.ev-rule .fref')?.textContent.trim()`); got != "document#can_view = (viewer and member from org) but not blocked from org" {
+		t.Errorf("document#can_view mention shows %q", got)
+	}
+	// Every piece of evidence links to its relation in Explore, and every
+	// chip explains its kind.
+	if n := eval[int](b, `[...document.querySelectorAll('.facts .ev')].filter((e) => !e.querySelector('.fref a[href*="/explore?"]') || !e.querySelector('.fk[title]')).length`); n != 0 {
+		t.Errorf("%d pieces of evidence without a link or chip tooltip", n)
+	}
+	// The step is what you read; the evidence is smaller.
+	if !eval[bool](b, `parseFloat(getComputedStyle(document.querySelector('.facts li.step > .ft')).fontSize) > parseFloat(getComputedStyle(document.querySelector('.facts .ev')).fontSize)`) {
+		t.Error("the evidence should be smaller than its step")
+	}
+	// Every kind's chip is the same width.
+	widths := eval[string](b, `[...new Set([...document.querySelectorAll('.facts .fk')].map((e) => e.getBoundingClientRect().width.toFixed(1)))].join(' ')`)
+	if strings.Contains(widths, " ") || widths == "0.0" {
+		t.Errorf("chips differ in width: %q", widths)
 	}
 	b.checkClean("why kinds")
 }

@@ -3,80 +3,138 @@ package trace
 import (
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 )
 
 // Explanation is a plain-language account of a decision: one headline
-// sentence plus the reasons behind it.
+// sentence plus the steps behind it.
 type Explanation struct {
 	Headline string
-	// Facts are ordered from the user up to the object for allowed decisions,
-	// and are the blocking reasons for denied ones. Only FactTuple entries are
-	// facts in the strict sense (stored tuples); the rest follow from them.
-	Facts []Fact
+	// Steps run from the user up to the object for allowed decisions, each
+	// saying what it establishes for the user; for denied decisions they are
+	// the reasons, from what the object requires down to what is missing.
+	Steps []WhyStep
 }
 
-// FactKind says where a line of an explanation comes from.
-type FactKind string
+// WhyStep is one step of an explanation: a sentence, and the stored tuples and
+// model rules it rests on.
+type WhyStep struct {
+	Text string
+	// Reason marks a step that says why something does not hold.
+	Reason   bool
+	Evidence []Evidence
+	// from holds the text of the steps this one builds on (see cite).
+	from []string
+}
+
+func (s WhyStep) String() string { return s.Text }
+
+// EvidenceKind says what a step rests on.
+type EvidenceKind string
 
 const (
-	// FactTuple is a relationship tuple stored in OpenFGA.
-	FactTuple FactKind = "tuple"
-	// FactRule is a conclusion the model draws (a computed relation, a
-	// relation inherited through a parent, an intersection or exclusion).
-	FactRule FactKind = "rule"
-	// FactReason explains why something does not hold (denied decisions).
-	FactReason FactKind = "reason"
+	// EvidenceTuple is a relationship tuple (stored, or contextual).
+	EvidenceTuple EvidenceKind = "tuple"
+	// EvidenceRule is part of the model: the definition of a relation.
+	EvidenceRule EvidenceKind = "rule"
 )
 
-// Fact is one line of an explanation.
-type Fact struct {
-	Kind FactKind
-	Text string
+// Evidence is a tuple or a model rule a step rests on.
+type Evidence struct {
+	Kind EvidenceKind
+	// Tuple is the tuple, IDs as stored (EvidenceTuple).
+	Tuple Tuple
+	// Ref is the relation the tuple is written under, or the rule's relation.
+	Ref Ref
 }
 
-func (f Fact) String() string { return f.Text }
-
-func tupleFact(format string, a ...any) Fact {
-	return Fact{FactTuple, fmt.Sprintf(format, a...)}
+// Ref names a relation of the model as it applies to one object: the
+// relation is defined on the object's type.
+type Ref struct {
+	Object, Relation string
+	// Via is the part of the relation's definition the step uses, as the
+	// model writes it: a type restriction for a tuple ("group#member",
+	// "user with cond"), a branch for a rule ("viewer from parent"). Empty
+	// when the step rests on the whole definition.
+	Via string
 }
 
-func ruleFact(format string, a ...any) Fact {
-	return Fact{FactRule, fmt.Sprintf(format, a...)}
+// Type is the object's type ("document" for "document:readme").
+func (r Ref) Type() string {
+	t, _, _ := strings.Cut(r.Object, ":")
+	return t
 }
 
-func reasonFact(format string, a ...any) Fact {
-	return Fact{FactReason, fmt.Sprintf(format, a...)}
+// String is "type#relation", or empty for the zero Ref.
+func (r Ref) String() string {
+	if r.Relation == "" {
+		return ""
+	}
+	return r.Type() + "#" + r.Relation
 }
 
-// Kinds lists the kinds of line present, tuples first.
-func (e Explanation) Kinds() []FactKind {
-	var out []FactKind
-	for _, k := range []FactKind{FactTuple, FactRule, FactReason} {
-		if slices.ContainsFunc(e.Facts, func(f Fact) bool { return f.Kind == k }) {
-			out = append(out, k)
+// on is the Ref for the relation a node evaluates, through one part of it.
+func on(n *Node, via string) Ref { return Ref{n.Object, n.Relation, via} }
+
+// userRef is how a type restriction names a tuple's user: "user" for
+// "user:anne", "user:*" for everyone, "group#member" for "group:eng#member".
+func userRef(user string) string {
+	typ, rest, _ := strings.Cut(user, ":")
+	if rest == "*" {
+		return typ + ":*"
+	}
+	if i := strings.LastIndexByte(rest, '#'); i >= 0 {
+		return typ + "#" + rest[i+1:]
+	}
+	return typ
+}
+
+// tupleEv is a link's tuple as evidence, through the type restriction its
+// user matches.
+func tupleEv(l *Link) Evidence {
+	via := userRef(l.Tuple.User)
+	if l.Cond != nil {
+		via += " with " + l.Cond.Name
+	}
+	return Evidence{Kind: EvidenceTuple, Tuple: *l.Tuple, Ref: Ref{l.Tuple.Object, l.Tuple.Relation, via}}
+}
+
+func ruleEv(ref Ref) Evidence { return Evidence{Kind: EvidenceRule, Ref: ref} }
+
+func step(text string, ev ...Evidence) WhyStep { return WhyStep{Text: text, Evidence: ev} }
+
+func reason(ref Ref, format string, a ...any) WhyStep {
+	s := WhyStep{Text: fmt.Sprintf(format, a...), Reason: true}
+	if ref.Relation != "" {
+		s.Evidence = []Evidence{ruleEv(ref)}
+	}
+	return s
+}
+
+// Summary counts the steps and the tuples they rest on, e.g. "4 steps,
+// from 3 tuples".
+func (e Explanation) Summary() string {
+	tuples := map[Tuple]bool{}
+	for _, s := range e.Steps {
+		for _, ev := range s.Evidence {
+			if ev.Kind == EvidenceTuple {
+				tuples[ev.Tuple] = true
+			}
 		}
+	}
+	out := plural(len(e.Steps), "step")
+	if len(tuples) > 0 {
+		out += ", from " + plural(len(tuples), "tuple")
 	}
 	return out
 }
 
-// Summary counts the lines by kind, e.g. "2 tuples, 3 rules".
-func (e Explanation) Summary() string {
-	n := map[FactKind]int{}
-	for _, f := range e.Facts {
-		n[f.Kind]++
+func plural(n int, word string) string {
+	if n == 1 {
+		return "1 " + word
 	}
-	var parts []string
-	for _, k := range e.Kinds() {
-		if c := n[k]; c > 0 {
-			s := fmt.Sprintf("%d %s", c, k)
-			if c != 1 {
-				s += "s"
-			}
-			parts = append(parts, s)
-		}
-	}
-	return strings.Join(parts, ", ")
+	return fmt.Sprintf("%d %ss", n, word)
 }
 
 // Explain describes the trace in words. name renders object IDs for people
@@ -90,8 +148,8 @@ func (t *Trace) Explanation(name func(string) string) Explanation {
 	subject := fmt.Sprintf("%s has %s on %s", name(t.Request.User), t.Request.Relation, name(t.Request.Object))
 	switch root.Outcome {
 	case Allowed:
-		facts := x.grant(root, map[int]bool{})
-		e := Explanation{Facts: dedupe(facts)}
+		steps := cite(dedupe(x.grant(root, map[int]bool{}, false)))
+		e := Explanation{Steps: steps}
 		hops := x.hops()
 		if len(x.cleared) > 0 && x.requires != "" {
 			x.requires += fmt.Sprintf(", and the exclusion %s does not apply", strings.Join(x.cleared, ", "))
@@ -102,22 +160,22 @@ func (t *Trace) Explanation(name func(string) string) Explanation {
 			e.Headline = fmt.Sprintf("Allowed: %s — %s.", subject, x.requires)
 		case len(hops) > 1 || (len(hops) == 1 && hops[0] != name(t.Request.Object)):
 			e.Headline = fmt.Sprintf("Allowed: %s through %s.", subject, strings.Join(hops, " → "))
-		case len(facts) > 0:
-			e.Headline = fmt.Sprintf("Allowed: %s because %s.", subject, facts[0])
+		case len(steps) > 0:
+			e.Headline = fmt.Sprintf("Allowed: %s because %s.", subject, steps[0])
 		default:
 			e.Headline = fmt.Sprintf("Allowed: %s.", subject)
 		}
 		return e
 	case Denied:
-		reason := x.why(root, 0, map[int]bool{})
-		facts := dedupe(x.details)
+		why := x.why(root, 0, map[int]bool{})
+		steps := cite(dedupe(x.details))
 		// Say when part of the denial rests on the server's word, not the walk.
 		if t.GroupsRuledOut > 0 {
-			facts = append(facts, reasonFact("%d group(s) were not walked: the server's Check says %s is not in them (per the server's Check; those groups were not walked — trace one to see why)", t.GroupsRuledOut, name(t.Request.User)))
+			steps = append(steps, reason(Ref{}, "%d group(s) were not walked: the server's Check says %s is not in them (per the server's Check; those groups were not walked — trace one to see why)", t.GroupsRuledOut, name(t.Request.User)))
 		}
 		return Explanation{
-			Headline: fmt.Sprintf("Denied: %s does not have %s on %s — %s.", name(t.Request.User), t.Request.Relation, name(t.Request.Object), reason),
-			Facts:    facts,
+			Headline: fmt.Sprintf("Denied: %s does not have %s on %s — %s.", name(t.Request.User), t.Request.Relation, name(t.Request.Object), why),
+			Steps:    steps,
 		}
 	default:
 		return Explanation{Headline: fmt.Sprintf("Undecided: the walk could not settle whether %s within its limits.", subject)}
@@ -130,7 +188,10 @@ type explainer struct {
 	requires string   // set when an intersection is part of the granting path
 	cleared  []string // exclusions checked on the granting path that did not apply
 	path     []string // objects along the granting path, user side first
-	details  []Fact
+	details  []WhyStep
+	// last is the last step that established each node, so a later step
+	// resting on a node already explained can still cite it.
+	last map[int]string
 }
 
 // hops lists the intermediate objects of the granting path, user side first.
@@ -150,48 +211,80 @@ func (x *explainer) via(obj string) {
 	x.path = append(x.path, obj)
 }
 
-// grant returns the facts that make an allowed node allowed, ordered from
-// the user upward.
-func (x *explainer) grant(n *Node, seen map[int]bool) []Fact {
+// grant returns the steps that make an allowed node allowed, ordered from
+// the user upward. part is set inside an intersection or exclusion, where a
+// branch establishes only part of its relation, so its step must not claim
+// the whole relation.
+func (x *explainer) grant(n *Node, seen map[int]bool, part bool) []WhyStep {
 	if n == nil || seen[n.ID] {
 		return nil
 	}
 	seen[n.ID] = true
+	out := x.grantNode(n, seen, part)
+	if len(out) > 0 {
+		if x.last == nil {
+			x.last = map[int]string{}
+		}
+		x.last[n.ID] = out[len(out)-1].Text
+	}
+	return out
+}
+
+// grantNode is grant for a node not yet explained.
+func (x *explainer) grantNode(n *Node, seen map[int]bool, part bool) []WhyStep {
 	op := n.Op
 	if n.Kind == KindUnion || n.Kind == KindIntersection || n.Kind == KindExclusion {
 		op = n.Kind
 	}
-	var out []Fact
+	who := x.name(x.user)
+	var out []WhyStep
+	var from []string // intersection: the last step of each branch
 	switch op {
 	case KindIntersection:
 		for _, l := range n.Children {
 			if l.Outcome == Allowed {
-				out = append(out, x.grantLink(n, l, seen)...)
+				branch := x.grantLink(n, l, seen, true)
+				if len(branch) > 0 {
+					from = append(from, branch[len(branch)-1].Text)
+				} else if t, ok := x.last[l.Node.ID]; ok {
+					from = append(from, t)
+				}
+				out = append(out, branch...)
 			}
 		}
 		var parts []string
 		for _, l := range n.Children {
-			parts = append(parts, x.describeBranch(l))
+			parts = append(parts, quoted(x.describeBranch(l)))
 		}
-		out = append(out, ruleFact("%s on %s requires %s — all hold", n.Relation, x.name(n.Object), strings.Join(parts, " and ")))
+		all := strings.Join(parts, " and ")
+		if part {
+			out = append(out, WhyStep{Text: fmt.Sprintf("so %s has %s on %s", who, all, x.name(n.Object)), Evidence: []Evidence{ruleEv(on(n, ""))}, from: from})
+		} else {
+			out = append(out, WhyStep{Text: fmt.Sprintf("so %s has %s on %s, which requires %s", who, n.Relation, x.name(n.Object), all), Evidence: []Evidence{ruleEv(on(n, ""))}, from: from})
+		}
 		if x.requires == "" {
-			x.requires = fmt.Sprintf("%s on %s requires %s, and each holds", n.Relation, x.name(n.Object), strings.Join(parts, " and "))
+			x.requires = fmt.Sprintf("%s on %s requires %s, and each holds", n.Relation, x.name(n.Object), all)
 		}
 	case KindExclusion:
 		for _, l := range n.Children {
 			switch {
 			case l.Role == "base" && l.Outcome == Allowed:
-				out = append(out, x.grantLink(n, l, seen)...)
+				out = append(out, x.grantLink(n, l, seen, true)...)
 			case l.Role == "subtract":
 				what := strings.TrimPrefix(x.describeBranch(l), "but not ")
-				out = append(out, ruleFact("the exclusion “but not %s” does not apply", what))
+				ev := ruleEv(on(n, "but not "+what))
+				if part {
+					out = append(out, step(fmt.Sprintf("%s does not have %s, so “but not %s” does not apply", who, quoted(what), what), ev))
+				} else {
+					out = x.after(nil, out, step(fmt.Sprintf("so %s has %s on %s: they do not have %s, so “but not %s” does not apply", who, n.Relation, x.name(n.Object), quoted(what), what), ev))
+				}
 				x.cleared = append(x.cleared, "“but not "+what+"”")
 			}
 		}
 	default:
 		for _, l := range n.Children {
 			if l.Outcome == Allowed && l.Role != "subtract" {
-				out = append(out, x.grantLink(n, l, seen)...)
+				out = append(out, x.grantLink(n, l, seen, part)...)
 				break
 			}
 		}
@@ -199,41 +292,53 @@ func (x *explainer) grant(n *Node, seen map[int]bool) []Fact {
 	return out
 }
 
-func (x *explainer) grantLink(parent *Node, l *Link, seen map[int]bool) []Fact {
+func (x *explainer) grantLink(parent *Node, l *Link, seen map[int]bool, part bool) []WhyStep {
 	c := l.Node
+	who := x.name(x.user)
 	cond := ""
 	if l.Cond != nil {
 		cond = fmt.Sprintf(" (condition %s is met)", l.Cond.Name)
 	}
 	switch {
 	case c.Kind == KindSubject && l.Tuple != nil:
+		rel := l.Tuple.Relation
+		if part {
+			rel = "a direct " + rel + " tuple"
+		}
 		if strings.HasSuffix(c.Label, ":*") {
-			return []Fact{tupleFact("everyone (%s) has %s on %s%s", c.Label, l.Tuple.Relation, x.name(l.Tuple.Object), cond)}
+			return []WhyStep{step(fmt.Sprintf("%s has %s on %s, as everyone (%s) does%s", who, rel, x.name(l.Tuple.Object), c.Label, cond), tupleEv(l))}
 		}
 		x.via(l.Tuple.Object)
-		return []Fact{tupleFact("%s has %s on %s%s", x.name(l.Tuple.User), l.Tuple.Relation, x.name(l.Tuple.Object), cond)}
+		return []WhyStep{step(fmt.Sprintf("%s has %s on %s%s", x.name(l.Tuple.User), rel, x.name(l.Tuple.Object), cond), tupleEv(l))}
 	case l.Tuple != nil && c.Kind == KindRelation && strings.Contains(l.Tuple.User, "#"):
 		// Userset edge: members of the group hold the relation.
-		facts := x.grant(c, seen)
+		steps := x.grant(c, seen, false)
 		x.via(l.Tuple.Object)
-		return append(facts, tupleFact("%s has %s on %s%s", x.name(l.Tuple.User), l.Tuple.Relation, x.name(l.Tuple.Object), cond))
+		rel := l.Tuple.Relation
+		if part {
+			rel = "a direct " + rel + " tuple"
+		}
+		return x.after(c, steps, step(fmt.Sprintf("so %s has %s on %s, granted to %s%s", who, rel, x.name(l.Tuple.Object), x.name(l.Tuple.User), cond), tupleEv(l)))
 	case l.Tuple != nil && c.Kind == KindRelation:
 		// Tuple-to-userset edge: the object inherits through its parent (or org, …).
-		facts := x.grant(c, seen)
+		steps := x.grant(c, seen, false)
 		x.via(l.Tuple.Object)
-		branch := parent.Relation
-		if parent.Kind == KindTTU {
-			branch = parent.Label // e.g. "viewer from parent"
+		branch := c.Relation + " from " + l.Tuple.Relation
+		rel := parent.Relation
+		if part {
+			rel = quoted(branch)
 		}
-		// The stored tuple, then the rule that carries the relation across it.
-		return append(facts,
-			tupleFact("%s's %s is %s%s", x.name(l.Tuple.Object), l.Tuple.Relation, x.name(l.Tuple.User), cond),
-			ruleFact("%s on %s counts as “%s” on %s", c.Relation, x.name(l.Tuple.User), branch, x.name(l.Tuple.Object)))
+		return x.after(c, steps, step(fmt.Sprintf("so %s has %s on %s, through %s on its %s %s%s", who, rel, x.name(l.Tuple.Object), c.Relation, l.Tuple.Relation, x.name(l.Tuple.User), cond),
+			tupleEv(l), ruleEv(on(parent, branch))))
 	case c.Kind == KindRelation && c.Object == parent.Object && l.Label == "computed":
-		facts := x.grant(c, seen)
-		return append(facts, ruleFact("%s implies %s on %s", c.Relation, parent.Relation, x.name(parent.Object)))
+		steps := x.grant(c, seen, false)
+		if part {
+			// The intersection or exclusion step names this branch.
+			return steps
+		}
+		return x.after(c, steps, step(fmt.Sprintf("so %s has %s on %s, as anyone with %s does", who, parent.Relation, x.name(parent.Object), c.Relation), ruleEv(on(parent, c.Relation))))
 	default:
-		return x.grant(c, seen)
+		return x.grant(c, seen, part)
 	}
 }
 
@@ -269,12 +374,12 @@ func (x *explainer) why(n *Node, depth int, seen map[int]bool) string {
 			if l.Role == "subtract" && l.Blocking {
 				// The exclusion applied: explain how the user got the excluded relation.
 				sub := &explainer{name: x.name, user: x.user}
-				facts := sub.grant(l.Node, map[int]bool{})
-				x.details = append(x.details, facts...)
+				steps := sub.grant(l.Node, map[int]bool{}, true)
+				x.details = append(x.details, steps...)
 				what := strings.TrimPrefix(x.describeBranch(l), "but not ")
-				if len(facts) > 0 {
+				if len(steps) > 0 {
 					// The user-side fact is the one people act on (e.g. "is blocked on the org").
-					return fmt.Sprintf("they are excluded by “but not %s” because %s", what, facts[0])
+					return fmt.Sprintf("they are excluded by “but not %s” because %s", what, steps[0])
 				}
 				return fmt.Sprintf("they are excluded by “but not %s”", what)
 			}
@@ -291,7 +396,7 @@ func (x *explainer) why(n *Node, depth int, seen map[int]bool) string {
 			if l.Outcome == Denied {
 				missing = append(missing, x.describeBranch(l))
 				if depth < 3 {
-					x.details = append(x.details, reasonFact("%s: %s", x.describeBranch(l), x.why(l.Node, depth+1, seen)))
+					x.details = append(x.details, reason(on(n, x.describeBranch(l)), "%s: %s", x.describeBranch(l), x.why(l.Node, depth+1, seen)))
 				}
 			}
 		}
@@ -379,14 +484,105 @@ func condWord(status string) string {
 	}
 }
 
-func dedupe(in []Fact) []Fact {
-	seen := map[Fact]bool{}
-	var out []Fact
+func dedupe(in []WhyStep) []WhyStep {
+	seen := map[string]bool{}
+	var out []WhyStep
 	for _, s := range in {
-		if !seen[s] {
-			seen[s] = true
+		if !seen[s.Text] {
+			seen[s.Text] = true
 			out = append(out, s)
 		}
 	}
 	return out
+}
+
+// Format writes the steps as text: each numbered step, then its evidence
+// indented below, one line each ("tuple  object#relation@user  (type#relation
+// via restriction)" or "rule   type#relation via branch"). Reason steps are
+// marked "✗" instead of numbered.
+func (e Explanation) Format() string {
+	var b strings.Builder
+	n := 0
+	for _, s := range e.Steps {
+		if s.Reason {
+			fmt.Fprintf(&b, "  ✗ %s\n", s.Text)
+		} else {
+			n++
+			fmt.Fprintf(&b, "  %d. %s\n", n, s.Text)
+		}
+		for _, ev := range s.Evidence {
+			ref := ev.Ref.String()
+			if ev.Ref.Via != "" {
+				ref += " via " + ev.Ref.Via
+			}
+			switch ev.Kind {
+			case EvidenceTuple:
+				t := ev.Tuple.Object + "#" + ev.Tuple.Relation + "@" + ev.Tuple.User
+				if ev.Tuple.Condition != "" {
+					t += " with " + ev.Tuple.Condition
+				}
+				if ev.Tuple.Contextual {
+					t += " (contextual, not stored)"
+				}
+				fmt.Fprintf(&b, "       tuple  %s  (%s)\n", t, ref)
+			default:
+				fmt.Fprintf(&b, "       rule   %s\n", ref)
+			}
+		}
+	}
+	return b.String()
+}
+
+// quoted sets off a branch of more than one word ("member from org") so it
+// reads as one term in a sentence.
+func quoted(branch string) string {
+	if strings.Contains(branch, " ") && !strings.HasPrefix(branch, "(") {
+		return "“" + branch + "”"
+	}
+	return branch
+}
+
+// after appends a step that builds on the last of steps or, when node c
+// was explained earlier (so steps is empty), on the step that explained it.
+func (x *explainer) after(c *Node, steps []WhyStep, s WhyStep) []WhyStep {
+	if len(steps) > 0 {
+		s.from = []string{steps[len(steps)-1].Text}
+	} else if c != nil {
+		if t, ok := x.last[c.ID]; ok {
+			s.from = []string{t}
+		}
+	}
+	return append(steps, s)
+}
+
+// cite numbers the steps (from 1) and notes "(from step N)" on a step that
+// builds on any step other than the one just before it, so a "so …" is never
+// read as following from the wrong step.
+func cite(steps []WhyStep) []WhyStep {
+	num := map[string]int{}
+	for i := range steps {
+		var refs []int
+		other := false
+		for _, f := range steps[i].from {
+			if k, ok := num[f]; ok && !slices.Contains(refs, k) {
+				refs = append(refs, k)
+				other = other || k != i
+			}
+		}
+		num[steps[i].Text] = i + 1
+		if !other {
+			continue
+		}
+		slices.Sort(refs)
+		words := make([]string, len(refs))
+		for j, k := range refs {
+			words[j] = strconv.Itoa(k)
+		}
+		if len(words) == 1 {
+			steps[i].Text += " (from step " + words[0] + ")"
+		} else {
+			steps[i].Text += " (from steps " + strings.Join(words[:len(words)-1], ", ") + " and " + words[len(words)-1] + ")"
+		}
+	}
+	return steps
 }

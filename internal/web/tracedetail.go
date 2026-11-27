@@ -119,15 +119,9 @@ func detailFor(n *trace.Node, title string, l traceLinks, m *schema.Model) nodeD
 		row("rule", n.Relation+" = "+expr)
 	}
 	// Modular models: which module (and file) defines the relation.
-	if m != nil && m.Modular && n.Object != "" && n.Relation != "" {
+	if n.Object != "" && n.Relation != "" {
 		typ, _, _ := schema.SplitObject(n.Object)
-		if r, ok := m.Relation(typ, n.Relation); ok && !r.Source.IsZero() {
-			src := r.Source.String()
-			if r.Extended {
-				src += ", added to " + typ + " (extend type)"
-			}
-			row("module", src)
-		}
+		row("module", relModule(m, typ, n.Relation))
 	}
 	row("why", n.Reason)
 	row("notes", strings.Join(n.Notes, "\n"))

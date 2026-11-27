@@ -84,8 +84,8 @@ func compareAll(t *testing.T, ctx context.Context, c *fga.Client, m *schema.Mode
 				// Every decided trace must explain itself consistently with its outcome.
 				if ex := tr.Explanation(nil); tr.Root.Outcome == trace.Allowed && !strings.HasPrefix(ex.Headline, "Allowed: ") ||
 					tr.Root.Outcome == trace.Denied && !strings.HasPrefix(ex.Headline, "Denied: ") ||
-					tr.Root.Outcome == trace.Allowed && len(ex.Facts) == 0 {
-					t.Errorf("explanation for %s %s %s (%s): %q %q", u, rel, obj, tr.Root.Outcome, ex.Headline, ex.Facts)
+					tr.Root.Outcome == trace.Allowed && len(ex.Steps) == 0 {
+					t.Errorf("explanation for %s %s %s (%s): %q %q", u, rel, obj, tr.Root.Outcome, ex.Headline, ex.Steps)
 				}
 				got := tr.Root.Outcome
 				want := trace.Denied

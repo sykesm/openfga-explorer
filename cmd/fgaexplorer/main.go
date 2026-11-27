@@ -221,9 +221,7 @@ func runTrace(args []string, out io.Writer) error {
 	ex := tr.Explanation(nil)
 	fmt.Fprintln(out)
 	fmt.Fprintln(out, ex.Headline)
-	for _, f := range ex.Facts {
-		fmt.Fprintf(out, "  • %s: %s\n", f.Kind, f.Text)
-	}
+	fmt.Fprint(out, ex.Format())
 	fmt.Fprintf(out, "\n%s (walker: %s) · %d tuples read · %d walk + %d verify calls · %v", tr.Decision(), tr.Root.Outcome, tr.TuplesRead, tr.Calls, tr.VerifyCalls, tr.Duration.Round(time.Millisecond))
 	if tr.Mismatches > 0 {
 		fmt.Fprintf(out, " · %d MISMATCHES", tr.Mismatches)

@@ -1,6 +1,6 @@
 decision: denied (walker denied)
 Denied: user:nobody does not have viewer on document:roadmap — none of the ways to get it applies: there is no direct tuple, and they are not in any of the 25 group(s) that grant it (per the server's Check; those groups were not walked); no editor; not viewer from parent (on folder:root).
-  • reason: 25 group(s) were not walked: the server's Check says user:nobody is not in them (per the server's Check; those groups were not walked — trace one to see why)
+  ✗ 25 group(s) were not walked: the server's Check says user:nobody is not in them (per the server's Check; those groups were not walked — trace one to see why)
 gaps: []
 guided skips: 0
 groups ruled out: 25

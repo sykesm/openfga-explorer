@@ -257,6 +257,14 @@ then checked with a real server `Check` (in parallel, counted separately), so:
 Click any node and choose **Trace from here** to drill into it with a fresh
 budget.
 
+Under the verdict, **Why** lists the decision as steps. An allowed decision
+reads from the user up to the object, each step saying what it establishes
+("so anne has viewer on folder:eng, through viewer on its parent …"); a denial
+reads from what the object requires down to what is missing. Under each step
+are the tuples it rests on, written `object#relation@user`, and the model rule
+that carries it, with the part of the relation's definition that applied set
+off. The same steps appear in `fgaexplorer trace` output.
+
 The walker/server comparison test checks the walker against the server on every
 (user, relation, object) combination in the sample store, under several
 budgets. It requires zero wrong answers; "undecided" is allowed only when the

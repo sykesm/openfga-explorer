@@ -469,17 +469,29 @@ table.edges td { margin-top: 4px; }
 /* ---- verdict explanation ---- */
 .headline { font-size: 15px; margin: 4px 0 6px; max-width: 110ch; line-height: 1.5; }
 .facts > summary { cursor: pointer; font-size: 12.5px; color: var(--accent); }
-.facts ol { margin: 4px 0 4px; padding-left: 22px; font-size: 13px; }
-.facts li { margin: 3px 0; }
-/* Tuples are the stored facts; rules are what the model concludes from them. */
-.fk { display: inline-block; min-width: 3.4em; text-align: center; font-size: 10.5px; line-height: 15px; font-weight: 600; letter-spacing: .03em;
-  text-transform: uppercase; border-radius: 999px; padding: 0 6px; border: 1px solid currentColor; vertical-align: 1px; }
+/* Steps read from the user up to the object; under each, the tuples and
+   model rules it rests on. The step is what you read; the evidence is
+   smaller supporting detail. */
+.facts ol.steps { margin: 4px 0 4px; padding-left: 24px; font-size: 13px; }
+.facts li.step { margin: 6px 0; }
+.facts li.step.reason { list-style: "✗  "; }
+.facts .evidence { list-style: none; margin: 2px 0 0; padding: 0; font-size: 11px; line-height: 1.45; color: var(--muted); }
+.facts .ev { display: grid; grid-template-columns: auto 1fr; column-gap: .5em; align-items: baseline; margin: 2px 0; }
+.facts .ev > .evbody { overflow-wrap: anywhere; }
+/* Same width for every kind (fits TUPLE), so the evidence reads as a column. */
+.fk { display: inline-block; box-sizing: border-box; min-width: 5em; text-align: center; font-size: 10px; line-height: 14px; font-weight: 600; letter-spacing: .03em;
+  text-transform: uppercase; border-radius: 999px; padding: 0 6px; border: 1px solid currentColor; }
 .fk.k-tuple { color: var(--panel); background: var(--direct); border-color: var(--direct); }
 .fk.k-rule { color: var(--derived); }
-.fk.k-reason { color: var(--muted); }
-.f-tuple .ft { font-weight: 600; }
-.f-rule .ft, .f-reason .ft { color: var(--muted); }
-.facts-key { margin: 4px 0 2px; font-size: 12px; color: var(--muted); }
+.ev code.tup { font-family: var(--mono); color: var(--fg); }
+.ev .fl { font-size: 10.5px; }
+.fref { margin-left: .75em; }
+.ev-rule .fref { margin-left: 0; }
+.fref a, .fref code { font-family: var(--mono); color: var(--muted); }
+.fref a { text-decoration: underline dotted; text-underline-offset: 2px; }
+.fref a:hover, .fref a:focus-visible { color: var(--accent); text-decoration-style: solid; }
+.fref code b { color: var(--fg); font-weight: inherit; background: var(--soft); box-shadow: 0 0 0 1px var(--line); border-radius: 3px; padding: 0 2px; }
+.fref .fmod::before { content: "· "; }
 .player .spacer { flex: 1; }
 
 /* ---- instance tabs ---- */

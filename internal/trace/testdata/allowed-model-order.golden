@@ -1,21 +1,30 @@
 decision: allowed (walker allowed)
-Allowed: user:eng-002 has can_view on document:doc-0007 — can_view on document:doc-0007 requires viewer and member from org, and each holds, and the exclusion “but not blocked from org” does not apply.
-  • tuple: user:eng-002 has member on group:eng
-  • tuple: group:eng#member has viewer on folder:root
-  • tuple: folder:engineering's parent is folder:root
-  • rule: viewer on folder:root counts as “viewer from parent” on folder:engineering
-  • tuple: folder:platform's parent is folder:engineering
-  • rule: viewer on folder:engineering counts as “viewer from parent” on folder:platform
-  • tuple: folder:design-docs's parent is folder:platform
-  • rule: viewer on folder:platform counts as “viewer from parent” on folder:design-docs
-  • tuple: document:doc-0007's parent is folder:design-docs
-  • rule: viewer on folder:design-docs counts as “viewer from parent” on document:doc-0007
-  • rule: viewer implies can_view on document:doc-0007
-  • tuple: group:eng#member has member on organization:acme
-  • tuple: document:doc-0007's org is organization:acme
-  • rule: member on organization:acme counts as “member from org” on document:doc-0007
-  • rule: can_view on document:doc-0007 requires viewer and member from org — all hold
-  • rule: the exclusion “but not blocked from org” does not apply
+Allowed: user:eng-002 has can_view on document:doc-0007 — can_view on document:doc-0007 requires viewer and “member from org”, and each holds, and the exclusion “but not blocked from org” does not apply.
+  1. user:eng-002 has member on group:eng
+       tuple  group:eng#member@user:eng-002  (group#member via user)
+  2. so user:eng-002 has viewer on folder:root, granted to group:eng#member
+       tuple  folder:root#viewer@group:eng#member  (folder#viewer via group#member)
+  3. so user:eng-002 has viewer on folder:engineering, through viewer on its parent folder:root
+       tuple  folder:engineering#parent@folder:root  (folder#parent via folder)
+       rule   folder#viewer via viewer from parent
+  4. so user:eng-002 has viewer on folder:platform, through viewer on its parent folder:engineering
+       tuple  folder:platform#parent@folder:engineering  (folder#parent via folder)
+       rule   folder#viewer via viewer from parent
+  5. so user:eng-002 has viewer on folder:design-docs, through viewer on its parent folder:platform
+       tuple  folder:design-docs#parent@folder:platform  (folder#parent via folder)
+       rule   folder#viewer via viewer from parent
+  6. so user:eng-002 has viewer on document:doc-0007, through viewer on its parent folder:design-docs
+       tuple  document:doc-0007#parent@folder:design-docs  (document#parent via folder)
+       rule   document#viewer via viewer from parent
+  7. so user:eng-002 has member on organization:acme, granted to group:eng#member (from step 1)
+       tuple  organization:acme#member@group:eng#member  (organization#member via group#member)
+  8. so user:eng-002 has “member from org” on document:doc-0007, through member on its org organization:acme
+       tuple  document:doc-0007#org@organization:acme  (document#org via organization)
+       rule   document#can_view via member from org
+  9. so user:eng-002 has viewer and “member from org” on document:doc-0007 (from steps 6 and 8)
+       rule   document#can_view
+  10. so user:eng-002 has can_view on document:doc-0007: they do not have “blocked from org”, so “but not blocked from org” does not apply
+       rule   document#can_view via but not blocked from org
 gaps: []
 guided skips: 0
 groups ruled out: 0
