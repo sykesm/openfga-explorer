@@ -18,14 +18,20 @@ let relist = null;
 /** @type {EventSource | null} */
 let progress = null;
 
+/** The form's fields as saved. @param {HTMLFormElement} f @returns {Record<string, unknown>} */
+function currentFields(f) {
+  /** @type {Record<string, unknown>} */
+  const fields = {};
+  for (const el of formFields(f)) fields[el.name] = el.type === 'checkbox' ? el.checked : el.value;
+  return fields;
+}
+
 /** @param {{ ran?: boolean }} [opts] */
 export function saveCheck({ ran } = {}) {
   const f = form();
   if (!f) return;
   const prev = session.get(stateKey('check')) || {};
-  /** @type {Record<string, unknown>} */
-  const fields = {};
-  for (const el of formFields(f)) fields[el.name] = el.type === 'checkbox' ? el.checked : el.value;
+  const fields = currentFields(f);
   // Editing the form after a run means the shown result no longer matches it.
   session.set(stateKey('check'), { fields, ran: ran ?? (prev.ran && JSON.stringify(prev.fields) === JSON.stringify(fields)) });
 }
@@ -50,8 +56,14 @@ function restoreCheck() {
   const f = form();
   if (!f) return;
   const p = new URLSearchParams(location.search);
-  if (p.get('user') || p.get('object') || p.get('relation')) return; // an explicit link wins
   const saved = session.get(stateKey('check'));
+  if (p.get('user') || p.get('object') || p.get('relation')) {
+    // An explicit link wins. When it is the check last run in this tab (back
+    // from Explore, say, with the page reloaded rather than kept by the
+    // browser), the result it runs is a return: put back the view as it was.
+    if (saved?.ran && JSON.stringify(currentFields(f)) === JSON.stringify(saved.fields)) restoring = true;
+    return;
+  }
   if (!saved?.fields) return;
   for (const el of formFields(f)) {
     if (!(el.name in saved.fields)) continue;

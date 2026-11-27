@@ -4,7 +4,7 @@
 // this module draws it and handles interaction.
 import { $, $$, baseOpts, color, dagre, esc, fitCapped, labelHeight, labelWidth, mix, pal, reducedMotion, scrollBehavior, session, stateKey, store, whenLoaded } from './core.js';
 import { onEscape, onKey } from './shortcuts.js';
-import { initResizer } from './ui.js';
+import { initResizer, tabsOf } from './ui.js';
 
 /**
  * @typedef {{ id: string, parent: string, label: string, hidden: string[] }} Fold
@@ -667,7 +667,7 @@ function savePNG(cy) {
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
 
-/** @type {{ cy: any, player: Player } | null} */
+/** @type {{ cy: any, player: Player, folds: Fold[], sig: string } | null} */
 let view = null;
 
 const fitTrace = () => { if (view) { view.player.flow.userView = true; fitCapped(view.cy, undefined, 24, 1.3); } };
@@ -792,12 +792,23 @@ function initTreeKeys(tree, cy) {
 // Leaving the Check page (for Model, say) and coming back re-runs the check;
 // the view the person had is kept per tab and put back if the result is the same.
 
-/** @typedef {{ sig: string, zoom: number, pan: { x: number, y: number }, open: string[], sel: string }} SavedView */
+/**
+ * The view kept for a result: the graph (zoom, pan, opened folds, selected
+ * node) and, saved when leaving the page, what else was open: "Why", the
+ * side panel tab, and the scroll position.
+ * @typedef {{ sig: string, zoom: number, pan: { x: number, y: number }, open: string[], sel: string, why?: boolean, tab?: string, scroll?: number }} SavedView
+ */
 
 const viewKey = () => stateKey('checkView');
 
 /** Identifies a result: the same check with the same graph. @param {string} graph */
 const viewSig = (graph) => `${$('#check-result .verdict')?.dataset.summary || ''}|${graph.length}`;
+
+/** The graph part of the kept view. @param {any} cy @param {Fold[]} folds @param {string} sig @returns {SavedView} */
+const graphView = (cy, folds, sig) => ({
+  sig, zoom: cy.zoom(), pan: cy.pan(), open: folds.map((f) => f.id).filter((id) => cy.getElementById(id).empty()),
+  sel: cy.$('node:selected').id() || '',
+});
 
 /** @param {any} cy @param {Fold[]} folds @param {string} sig */
 function keepView(cy, folds, sig) {
@@ -806,14 +817,24 @@ function keepView(cy, folds, sig) {
     clearTimeout(timer);
     timer = window.setTimeout(() => {
       if (cy.destroyed()) return;
-      /** @type {SavedView} */
-      const v = { sig, zoom: cy.zoom(), pan: cy.pan(), open: folds.map((f) => f.id).filter((id) => cy.getElementById(id).empty()),
-        sel: cy.$('node:selected').id() || '' };
-      session.set(viewKey(), v);
+      session.set(viewKey(), { ...session.get(viewKey()), ...graphView(cy, folds, sig) });
     }, 150);
   };
   cy.on('viewport select unselect remove', save);
 }
+
+// Leaving the page (following a link to Explore, say) keeps what else was
+// open with the graph view, so coming back shows the result as it was left.
+window.addEventListener('pagehide', () => {
+  if (!view || view.cy.destroyed()) return;
+  const why = /** @type {HTMLDetailsElement | null} */ ($('.verdict .facts'));
+  session.set(viewKey(), {
+    ...graphView(view.cy, view.folds, view.sig),
+    why: !!why?.open,
+    tab: $('#inspector [role="tab"][aria-selected="true"]')?.dataset.tab || '',
+    scroll: Math.round(window.scrollY),
+  });
+});
 
 /**
  * Puts a kept view back: opens the same folds (before layout), then restores
@@ -825,6 +846,9 @@ function restoreView(cy, v, phase) {
     for (const id of v.open) { const f = cy.getElementById(id); if (f.nonempty()) expandFold(cy, f); }
     return;
   }
+  if (v.why) { const why = /** @type {HTMLDetailsElement | null} */ ($('.verdict .facts')); if (why) why.open = true; }
+  if (v.tab) tabsOf(`#rtab-${v.tab}`)?.select(v.tab);
+  if (v.scroll) requestAnimationFrame(() => window.scrollTo({ top: v.scroll }));
   cy.stop();
   cy.viewport({ zoom: v.zoom, pan: v.pan });
   const n = v.sel ? cy.getElementById(v.sel) : null;
@@ -895,7 +919,7 @@ function renderTrace({ replay = true, restore = false } = {}) {
   const flow = new PathFlow(cy, tree);
   cy.on('scrollzoom pinchzoom dragpan', () => { flow.userView = true; });
   const player = new Player(cy, data.steps, tree, flow);
-  view = { cy, player };
+  view = { cy, player, folds: data.folds || [], sig };
 
   const focus = $('.player [data-act="focus"]');
   if (focus) {

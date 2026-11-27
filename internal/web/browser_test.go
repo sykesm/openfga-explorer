@@ -1928,3 +1928,41 @@ func TestBrowserExploreNextInstanceTabMarked(t *testing.T) {
 	}
 	b.checkClean("next instance tab")
 }
+
+// Following a link from a result to Explore and coming back keeps the result
+// as it was left: no replay, "Why" still open, the same side panel tab and
+// zoom. Coming back by the Check tab restores from the tab's session; coming
+// back by Back may reload the result's URL (when the browser does not keep
+// the page), which counts as a return when it is the check last run.
+func TestBrowserCheckReturnKeepsView(t *testing.T) {
+	x := newTestExplorer(t)
+	b := newBrowser(t, x)
+	const check = `~/check?user=user:eng-002&relation=can_view&object=document:doc-0007&context=` +
+		`%7B%22current_time%22%3A%222026-11-24T12%3A00%3A00Z%22%2C%22user_ip%22%3A%2210.1.2.3%22%7D`
+	const state = `JSON.stringify({ why: document.querySelector('.facts')?.open, step: document.querySelector('.player .step-count')?.textContent,
+		play: document.querySelector('.player [data-act="play"]')?.textContent, tab: document.querySelector('#inspector [role="tab"][aria-selected="true"]')?.dataset.tab,
+		zoom: document.querySelector('#trace-canvas')?._cyreg?.cy?.zoom().toFixed(2) })`
+	for _, how := range []string{"reloaded URL", "Check tab"} {
+		b.open(check)
+		b.waitFor("result", `document.querySelector('#check-result .verdict .facts')`)
+		b.run(chromedp.Evaluate(`document.querySelector('.player [data-act="final"]').click(); document.querySelector('.facts').open = true;
+			document.querySelector('#rtab-others').click(); document.querySelector('#trace-canvas')._cyreg.cy.zoom(1.37); void 0`, nil), chromedp.Sleep(500*time.Millisecond))
+		var before, after, href string
+		b.run(chromedp.Evaluate(state, &before), chromedp.Evaluate(`location.href`, &href))
+		b.run(chromedp.Click(`.facts .fref a`, chromedp.ByQuery))
+		b.run(chromedp.Sleep(1500*time.Millisecond), chromedp.WaitReady(`html[data-ready="true"]`, chromedp.ByQuery))
+		if how == "reloaded URL" {
+			b.run(chromedp.Navigate(href))
+		} else {
+			b.run(chromedp.Click(`a[href$="/check"]:not([href*="?"])`, chromedp.ByQuery))
+		}
+		b.run(chromedp.Sleep(1000*time.Millisecond), chromedp.WaitReady(`html[data-ready="true"]`, chromedp.ByQuery))
+		b.waitFor("result back", `document.querySelector('#check-result .verdict .facts') && document.querySelector('#trace-canvas')?._cyreg?.cy`)
+		b.run(chromedp.Sleep(1500 * time.Millisecond))
+		b.run(chromedp.Evaluate(state, &after))
+		if after != before {
+			t.Errorf("%s: came back to %s, left %s", how, after, before)
+		}
+	}
+	b.checkClean("return keeps view")
+}
