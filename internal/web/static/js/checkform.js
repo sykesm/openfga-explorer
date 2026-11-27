@@ -167,7 +167,11 @@ function onClick(e) {
       stopProgress();
       $('#check-result')?.insertAdjacentHTML('afterbegin', '<div class="alert warn" role="status">Walk canceled.</div>');
       break;
-    case 'order': rerun((f) => { $('select[name="order"]', f).value = act.dataset.order; }); break;
+    case 'order':
+      // The order switch shows the current order pressed: choosing it again is a no-op.
+      if (act.getAttribute('aria-pressed') === 'true') break;
+      rerun((f) => { $('select[name="order"]', f).value = act.dataset.order; });
+      break;
     case 'all-paths': rerun((f) => { $('select[name="order"]', f).value = 'all'; }); break;
     case 'bigger':
       rerun((f) => {

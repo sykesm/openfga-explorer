@@ -80,54 +80,73 @@
 <div class="verdict v-{{.Decision}}" data-user="{{$t.Request.User}}" data-relation="{{$t.Request.Relation}}" data-object="{{$t.Request.Object}}" data-context="{{.Context}}" data-contextual="{{.Contextual}}" data-summary="{{.Summary}}" data-done-path="{{.Done.Path}}" data-done-nofocus="{{.Done.NoFocus}}" data-done-other="{{.Done.Other}}">
   <h2 class="big">{{if eq .Decision "allowed"}}✓ Allowed{{else if eq .Decision "denied"}}✗ Denied{{else}}? Undecided{{end}}</h2>
   <p class="headline">{{trimVerdict .Explanation.Headline}}</p>
+  <p class="jump sm">Jump to <a href="#trace-graph">graph</a> · <a href="#inspector">details</a></p>
   {{with .Explanation}}{{if .Steps}}<details class="facts"><summary>Why: {{.Summary}}</summary><ol class="steps">{{range $.Data.Why}}<li class="step{{if .Reason}} reason{{end}}"><span class="ft">{{.Text}}</span>
     {{- with .Evidence}}<ul class="evidence">{{range .}}<li class="ev ev-{{.Kind}}" data-kind="{{.Kind}}"><span class="fk k-{{.Kind}}" title="{{if eq .Kind "tuple"}}{{if .Tuple.Contextual}}Tuple: sent with this check as a contextual tuple, not stored{{else}}Tuple: a relationship stored in OpenFGA{{end}}{{else}}Rule: part of the model, the definition of a relation{{end}}">{{.Kind}}</span><span class="evbody">
       {{- if eq .Kind "tuple"}}<code class="tup" title="The tuple as stored (object#relation@user), IDs unchanged">{{.TupleText}}</code>{{with .Tuple.Condition}} <span class="fl">with condition</span> <code class="tup">{{.}}</code>{{end}}{{if .Tuple.Contextual}} <span class="fl">contextual, not stored</span>{{end}}{{end}}
       {{- if .Rel}}<span class="fref"><a href="{{.Href}}" title="{{.Ref.Relation}} on {{display .Ref.Object}} in Explore">{{.Rel}}</a>{{if .ShowDef}} <code title="{{.Rel}} = {{.Def}}">= {{.Pre}}{{with .Hit}}<b>{{.}}</b>{{end}}{{.Post}}</code>{{end}}{{with .Module}} <span class="fmod" title="module that defines it">{{.}}</span>{{end}}</span>{{end}}</span></li>{{end}}</ul>{{end}}</li>{{end}}</ol></details>{{end}}{{end}}
-  <div class="stats">
-    <span>walker <b class="o-{{.Walker}}">{{.Walker}}</b></span>
-    <span>server {{with $t.Root.Server}}{{if .Err}}<b class="o-error" title="{{.Err}}">error</b>{{else if .Allowed}}<b class="o-allowed">allowed</b>{{else}}<b class="o-denied">denied</b>{{end}}{{else}}<b>not verified</b>{{end}}</span>
-    <span>{{$t.TuplesRead}} tuple{{if ne $t.TuplesRead 1}}s{{end}} read{{with $t.TuplesCached}} ({{.}} from the explorer's cache){{end}} · {{$t.Calls}} walk + {{$t.VerifyCalls}} verify calls {{template "opt-q" (dict "ID" "calls" "Name" "tuples read and calls")}}</span>
-    <span>{{$t.Duration.Round 1000000}}</span>
-    {{if eq .Decision "allowed"}}
-      {{if not $t.Options.AllPaths}}<button type="button" class="ghost sm" data-act="all-paths" title="Re-run the check evaluating every branch, so every way this user gets access is shown. Uses more API calls.">Show all granting paths</button>
-      {{else}}
+  <div class="vgroups">
+  <div class="vrow" role="group" aria-labelledby="vl-result">
+    <span class="vlabel" id="vl-result">Result</span>
+    <div class="vbody">
+      <div class="stats">
+        <span>walker <b class="o-{{.Walker}}">{{.Walker}}</b></span>
+        <span>server {{with $t.Root.Server}}{{if .Err}}<b class="o-error" title="{{.Err}}">error</b>{{else if .Allowed}}<b class="o-allowed">allowed</b>{{else}}<b class="o-denied">denied</b>{{end}}{{else}}<b>not verified</b>{{end}}</span>
+        <span>{{$t.TuplesRead}} tuple{{if ne $t.TuplesRead 1}}s{{end}} read{{with $t.TuplesCached}} ({{.}} from the explorer's cache){{end}} · {{$t.Calls}} walk + {{$t.VerifyCalls}} verify calls {{template "opt-q" (dict "ID" "calls" "Name" "tuples read and calls")}}</span>
+        <span>{{$t.Duration.Round 1000000}}</span>
+      </div>
+      <p class="opt-help" id="h-calls" hidden><b>Tuples read and calls</b>: the walk made {{$t.ReadCalls}} Read call{{if ne $t.ReadCalls 1}}s{{end}}, which returned {{$t.TuplesRead}} tuple{{if ne $t.TuplesRead 1}}s{{end}}{{if $t.CachedReads}}.
+        {{$t.CachedReads}} of those calls ({{$t.TuplesCached}} tuple{{if ne $t.TuplesCached 1}}s{{end}}) were answered by the explorer's own read cache, which keeps a page for {{.CacheTTL}} so that related checks don't re-read the same tuples;
+        {{sub $t.TuplesRead $t.TuplesCached}} came from the store. Choose “higher consistency” to skip the cache.
+        The walk also made{{else}} from the store;{{end}}
+        {{$t.CheckCalls}} Check call{{if ne $t.CheckCalls 1}}s{{end}} to the server (the shortest explanation uses them to choose branches and rule out groups; the other orders make none); and {{$t.ListCalls}} ListObjects call{{if ne $t.ListCalls 1}}s{{end}} (probes of large edge lists).
+        Verification made {{$t.VerifyCalls}} more Check call{{if ne $t.VerifyCalls 1}}s{{end}}.
+        Computed relations (like <code>viewer</code> from <code>editor</code>) read nothing themselves: they are steps in the walk, not tuples.
+        The tuples OpenFGA reads inside its own Check and ListObjects calls are not reported by the server, so they are not counted here.</p>
+      {{if $t.Mismatches}}<div class="alert err">{{$t.Mismatches}} step{{if gt $t.Mismatches 1}}s{{end}} disagree with the server (outlined in magenta). This usually means a tuple changed during the walk, a consistency difference, or a walker bug worth reporting.</div>{{end}}
+      {{with $t.Root.Server}}{{if .Err}}<div class="alert err">Server check failed: {{.Err}}</div>{{end}}{{end}}
+    </div>
+  </div>
+  {{$order := print $t.Options.Order}}
+  <div class="vrow" role="group" aria-labelledby="vl-expl">
+    <span class="vlabel" id="vl-expl">Explanation</span>
+    <div class="vbody">
+      <div class="seg order-seg" role="group" aria-label="How the walk chooses branches (re-runs the check)">
+        <button type="button" class="sm" data-act="order" data-order="guided" aria-pressed="{{eq $order "guided"}}" title="Let the server's Check pick the deciding branch: the shortest explanation, fewest calls">Shortest</button>
+        <button type="button" class="sm" data-act="order" data-order="model" aria-pressed="{{eq $order "model"}}" title="Try branches in the order the model lists them, stopping at the first that decides, as a step-by-step evaluator would">Model order</button>
+        <button type="button" class="sm" data-act="order" data-order="all" aria-pressed="{{eq $order "all"}}" title="Evaluate every branch, so every way {{if eq .Decision "allowed"}}this user gets access{{else}}access could be granted{{end}} is shown. Uses more calls">Every path</button>
+      </div>
+      <p class="order-note muted sm">{{if eq $order "guided"}}{{with $t.GroupsRuledOut}}<b>{{.}} group{{if ne . 1}}s{{end}} {{if eq . 1}}was{{else}}were{{end}} not walked</b>: the server's Check says {{$t.Request.User}} is not in {{if eq . 1}}it{{else}}them{{end}}. Click one to trace why, or <button type="button" class="linkish" data-act="order" data-order="model" title="Re-run walking every group (uses more calls; large group trees may run out of budget)">walk every group</button>. {{end}}Showing the shortest explanation, not a replay of the server's evaluation{{if $t.GuidedSkips}}: {{$t.GuidedSkips}} branch{{if ne $t.GuidedSkips 1}}es were{{else}} was{{end}} skipped after the server's Check showed which branch decides. Skipped branches show the server's verdict; click one to trace it{{end}}.
+      {{- else if eq $order "model"}}Branches were tried in the order the model lists them, stopping at the first that decides.
+      {{- else}}Every branch was evaluated; nothing was skipped.{{end}}</p>
+      {{if and (eq .Decision "allowed") $t.Options.AllPaths}}<div class="paths">
         {{if .Grants}}<button type="button" class="ghost sm" data-act="show-grants" aria-pressed="false" title="Highlight the tuples that grant access, on every granting path, and list them">{{.Grants}} granting tuple{{if ne .Grants 1}}s{{end}}</button>{{end}}
-        {{if not .Gaps}}<span class="paths-note" title="Every branch was examined completely (large edge lists were ruled out by ListObjects probes), so these are all the ways this user gets access">all granting paths · exhaustive</span>
-        {{else if .Grants}}<span class="paths-note partial">found so far · not exhaustive</span>
-        {{else}}<span class="paths-note partial">the server allows access, but the walk found no route within its limits · not exhaustive</span>{{end}}
-        <button type="button" class="ghost sm" data-act="order" data-order="guided" title="Re-run showing one granting path: the shortest explanation">Show the shortest explanation</button>
-      {{end}}
-    {{end}}
-    <span class="capture"><button type="button" class="ghost sm" data-act="capture" title="Add this check to your Scenarios draft, with the tuples on its granting path, so it can be re-run in the sandbox">Add to scenario</button>
-      <label class="sm" title="Rename every ID consistently (user:anne → user:user-1) so no real names go into the scenario"><input type="checkbox" data-act="capture-mask" checked> rename IDs</label>
-      <span class="capture-msg sm" role="status"></span></span>
-    <a href="{{.Link}}" class="permalink">permalink</a>
-    <span class="jump">Jump to <a href="#trace-graph">graph</a> · <a href="#inspector">details</a></span>
+        {{if not .Gaps}}<span class="paths-note sm" title="Every branch was examined completely (large edge lists were ruled out by ListObjects probes), so these are all the ways this user gets access">all granting paths · exhaustive</span>
+        {{else if .Grants}}<span class="paths-note partial sm">found so far · not exhaustive</span>
+        {{else}}<span class="paths-note partial sm">the server allows access, but the walk found no route within its limits · not exhaustive</span>{{end}}
+      </div>{{end}}
+      {{if and $t.Options.AllPaths .Gaps}}
+      <div class="alert warn gaps">
+        <b>Not every path was examined{{if eq .Decision "allowed"}}, so this user may have more ways in than are shown{{end}}.</b> The walk was cut short:
+        <ul>{{range .Gaps}}<li>{{.}}</li>{{end}}</ul>
+        <button type="button" class="sm" data-act="bigger" title="Re-run with 4× the call budget, edges per step, and probe lookups">Re-run with 4× limits</button>
+        <span class="muted sm">({{$t.Options.MaxCalls}} calls, {{$t.Options.MaxFanout}} edges per step, {{$t.Options.ProbeLimit}} probe lookups this run)</span>
+      </div>
+      {{else if $t.Exhausted}}<div class="alert warn">The walk budget ran out, so some branches are undecided (amber). Their server verdicts are shown where verified. Raise the call budget, or select an undecided node and choose <i>Trace from here</i>.</div>{{end}}
+    </div>
   </div>
-  <p class="opt-help" id="h-calls" hidden><b>Tuples read and calls</b>: the walk made {{$t.ReadCalls}} Read call{{if ne $t.ReadCalls 1}}s{{end}}, which returned {{$t.TuplesRead}} tuple{{if ne $t.TuplesRead 1}}s{{end}}{{if $t.CachedReads}}.
-    {{$t.CachedReads}} of those calls ({{$t.TuplesCached}} tuple{{if ne $t.TuplesCached 1}}s{{end}}) were answered by the explorer's own read cache, which keeps a page for {{.CacheTTL}} so that related checks don't re-read the same tuples;
-    {{sub $t.TuplesRead $t.TuplesCached}} came from the store. Choose “higher consistency” to skip the cache.
-    The walk also made{{else}} from the store;{{end}}
-    {{$t.CheckCalls}} Check call{{if ne $t.CheckCalls 1}}s{{end}} to the server (the shortest explanation uses them to choose branches and rule out groups; the other orders make none); and {{$t.ListCalls}} ListObjects call{{if ne $t.ListCalls 1}}s{{end}} (probes of large edge lists).
-    Verification made {{$t.VerifyCalls}} more Check call{{if ne $t.VerifyCalls 1}}s{{end}}.
-    Computed relations (like <code>viewer</code> from <code>editor</code>) read nothing themselves: they are steps in the walk, not tuples.
-    The tuples OpenFGA reads inside its own Check and ListObjects calls are not reported by the server, so they are not counted here.</p>
-  <p class="order-note muted sm">{{if eq $t.Options.Order "guided"}}{{with $t.GroupsRuledOut}}<b>{{.}} group{{if ne . 1}}s{{end}} {{if eq . 1}}was{{else}}were{{end}} not walked</b>: the server's Check says {{$t.Request.User}} is not in {{if eq . 1}}it{{else}}them{{end}}. Click one to trace why, or <button type="button" class="linkish" data-act="order" data-order="model" title="Re-run walking every group (uses more calls; large group trees may run out of budget)">walk every group</button>. {{end}}Showing the shortest explanation, not a replay of the server's evaluation{{if $t.GuidedSkips}}: {{$t.GuidedSkips}} branch{{if ne $t.GuidedSkips 1}}es were{{else}} was{{end}} skipped after the server's Check showed which branch decides. Skipped branches show the server's verdict; click one to trace it{{end}}.
-    <button type="button" class="linkish" data-act="order" data-order="model" title="Re-run trying branches in the order the model lists them">Show model order</button>
-  {{else if eq $t.Options.Order "model"}}Branches were tried in the order the model lists them, stopping at the first that decides.
-    <button type="button" class="linkish" data-act="order" data-order="guided" title="Re-run letting the server's Check pick the deciding branch">Show shortest explanation</button>
-  {{else}}Every branch was evaluated; nothing was skipped.{{end}}</p>
-  {{if $t.Mismatches}}<div class="alert err">{{$t.Mismatches}} step{{if gt $t.Mismatches 1}}s{{end}} disagree with the server (outlined in magenta). This usually means a tuple changed during the walk, a consistency difference, or a walker bug worth reporting.</div>{{end}}
-  {{if and $t.Options.AllPaths .Gaps}}
-  <div class="alert warn gaps">
-    <b>Not every path was examined{{if eq .Decision "allowed"}}, so this user may have more ways in than are shown{{end}}.</b> The walk was cut short:
-    <ul>{{range .Gaps}}<li>{{.}}</li>{{end}}</ul>
-    <button type="button" class="sm" data-act="bigger" title="Re-run with 4× the call budget, edges per step, and probe lookups">Re-run with 4× limits</button>
-    <span class="muted sm">({{$t.Options.MaxCalls}} calls, {{$t.Options.MaxFanout}} edges per step, {{$t.Options.ProbeLimit}} probe lookups this run)</span>
+  <div class="vrow" role="group" aria-labelledby="vl-save">
+    <div class="vhead"><span class="vlabel" id="vl-save">Save</span><a href="{{.Link}}" class="permalink sm" title="A link that re-runs this check with the same options">Permalink</a></div>
+    <div class="vbody">
+      <div class="capture" role="group" aria-label="Add to scenario">
+        <div class="capture-row"><button type="button" class="ghost sm" data-act="capture">Add to scenario</button>
+          <label class="sm"><input type="checkbox" data-act="capture-mask" checked> rename IDs <span class="muted">(user:anne → user:user-1)</span></label></div>
+        <p class="sm muted capture-help" title="Adds this check, with the tuples on its granting path, to your Scenarios draft so it can be re-run in the sandbox. Renaming IDs keeps real names out of the scenario.">Adds this check and its tuples to your Scenarios draft.</p>
+        <span class="capture-msg sm" role="status"></span>
+      </div>
+    </div>
   </div>
-  {{else if $t.Exhausted}}<div class="alert warn">The walk budget ran out, so some branches are undecided (amber). Their server verdicts are shown where verified. Raise the call budget, or select an undecided node and choose <i>Trace from here</i>.</div>{{end}}
-  {{with $t.Root.Server}}{{if .Err}}<div class="alert err">Server check failed: {{.Err}}</div>{{end}}{{end}}
+  </div>
 </div>
 <div class="trace-views">
   <section class="trace-graph-wrap" id="trace-graph" aria-label="Evaluation graph" tabindex="-1">

@@ -260,9 +260,30 @@ func TestBrowserCheck(t *testing.T) {
 		t.Error("no closing status")
 	}
 
-	// "Show model order" re-runs in the other evaluation order.
-	b.run(chromedp.Click(`.order-note [data-act="order"]`, chromedp.ByQuery))
+	// Under the verdict, the controls are in labeled groups; "Add to
+	// scenario" and its option are one unit.
+	if got := eval[string](b, `[...document.querySelectorAll('.verdict .vrow[role=group]')].map((g) => document.getElementById(g.getAttribute('aria-labelledby')).textContent).join(' ')`); got != "Result Explanation Save" {
+		t.Errorf("verdict groups: %q", got)
+	}
+	if !eval[bool](b, `!!document.querySelector('.capture [data-act="capture"]') && !!document.querySelector('.capture [data-act="capture-mask"]')`) {
+		t.Error("the scenario option is not grouped with its button")
+	}
+	// The order switch shows the current order; choosing it again does nothing.
+	const pressed = `document.querySelector('.order-seg [aria-pressed="true"]')?.dataset.order`
+	if got := eval[string](b, pressed); got != "guided" {
+		t.Errorf("order switch shows %q, want guided", got)
+	}
+	b.run(chromedp.Evaluate(`document.querySelector('.verdict').dataset.stale = '1'`, nil),
+		chromedp.Click(`.order-seg [data-order="guided"]`, chromedp.ByQuery), chromedp.Sleep(300*time.Millisecond))
+	if eval[string](b, `document.querySelector('.verdict').dataset.stale || ''`) != "1" {
+		t.Error("choosing the current order re-ran the check")
+	}
+	// Model order re-runs in the other evaluation order.
+	b.run(chromedp.Click(`.order-seg [data-order="model"]`, chromedp.ByQuery))
 	b.waitFor("model order", `document.querySelector('.order-note')?.textContent.includes('order the model lists')`)
+	if got := eval[string](b, pressed); got != "model" {
+		t.Errorf("order switch shows %q, want model", got)
+	}
 	if !strings.Contains(eval[string](b, `location.search`), "order=model") {
 		t.Error("URL does not record the order")
 	}
@@ -1054,7 +1075,7 @@ func TestBrowserGrantingTuples(t *testing.T) {
 
 	// Back to the shortest explanation.
 	b.run(chromedp.Click(`.verdict [data-act="order"][data-order="guided"]`, chromedp.ByQuery))
-	b.waitFor("shortest explanation", `document.querySelector('.verdict [data-act="all-paths"]')`)
+	b.waitFor("shortest explanation", `document.querySelector('.order-seg [data-order="guided"]')?.getAttribute('aria-pressed') === 'true'`)
 	if !strings.Contains(eval[string](b, `location.search`), "order=guided") {
 		t.Error("URL does not record the order")
 	}

@@ -300,7 +300,37 @@ fga-picker .picker-q { flex: 1; font-family: var(--mono); font-size: 13px; }
 .o-denied { color: var(--denied) !important; }
 .o-unknown { color: var(--unknown) !important; }
 .o-error { color: var(--error) !important; }
-.permalink { margin-left: auto; }
+/* Under the verdict, controls are grouped by purpose, one labeled column each
+   (stacked on narrow screens): what the run found, how the explanation was
+   made (and how else it can be), and ways to keep it. Side by side, they
+   take little height from the graph below. */
+.vgroups { display: grid; grid-template-columns: minmax(16rem, 1fr) minmax(20rem, 1.4fr) minmax(18rem, 1fr); margin-top: 10px; border-top: 1px solid var(--line); }
+.vrow { padding: 8px 14px 0; border-left: 1px solid var(--line); min-width: 0; }
+.vrow:first-child { border-left: 0; padding-left: 0; }
+.vlabel { display: block; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+.vgroups .stats { gap: 2px 12px; }
+.vhead { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.vhead .vlabel { margin-bottom: 5px; }
+.vhead .permalink { line-height: 1.2; }
+@media (max-width: 1100px) {
+  .vgroups { grid-template-columns: 1fr; }
+  .vrow, .vrow:first-child { border-left: 0; padding: 8px 0 0; }
+  .vrow + .vrow { border-top: 1px solid var(--line); margin-top: 8px; }
+}
+.vbody > * + * { margin-top: 6px; }
+.vbody p { margin-bottom: 0; }
+.order-seg [aria-pressed="true"] { background: var(--soft); font-weight: 600; }
+.order-seg button + button { border-left: 1px solid var(--line); }
+.vbody .paths { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+/* "Add to scenario" and its option are one unit, set apart. */
+.capture { display: block; border: 1px solid var(--line); border-radius: 7px; padding: 6px 10px; }
+.capture-row { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+.capture-help { margin: 4px 0 0; }
+.capture-msg { display: block; margin-top: 4px; }
+ (max-width: 700px) {
+  .vrow { grid-template-columns: 1fr; }
+  .vlabel { padding-top: 0; }
+}
 
 .trace-views { display: grid; grid-template-columns: minmax(0, 1fr) 8px var(--text-w, 38%); gap: 0; margin-top: 12px; }
 .trace-views.panel-collapsed { grid-template-columns: minmax(0, 1fr); }
@@ -369,7 +399,7 @@ h2.sect { margin-top: 2px; font-size: 12px; text-transform: uppercase; letter-sp
 .jump { display: none; }
 @media (max-width: 700px) {
   /* Phones: the result header is long, so offer a way straight to the graph. */
-  .jump { display: inline; }
+  .jump { display: block; margin: 0 0 6px; }
   .jump a { display: inline-block; padding: 4px 2px; min-height: 24px; }
   .check-layout { padding: 10px 10px 32px; }
   .trace-graph-wrap { min-height: 0; }
@@ -656,7 +686,6 @@ table.changes time { font-family: var(--mono); font-size: 12px; white-space: now
 .access-result summary { cursor: pointer; padding: 4px 0; }
 .access-objects { max-height: 18em; overflow-y: auto; margin: 4px 0 8px; padding-left: 18px; columns: 2; font-size: 12.5px; }
 
-.capture { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .capture-msg:empty { display: none; }
 
 /* Wide screens: the check view reaches the bottom of the window (sized by
