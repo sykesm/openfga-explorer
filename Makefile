@@ -42,11 +42,13 @@ cover:
 	FGA_TEST_DATASTORE_URI='$(DATASTORE_URI)' FGA_TEST_STORE=$(STORE) \
 	go test -count=1 -coverpkg=./... -coverprofile=cover.out ./... && go tool cover -func=cover.out | tail -1
 
-# Static checks (staticcheck and modernize, pinned in tools.mod and run with
-# go tool): bugs and dead code, and code the current Go version or standard
-# library writes more simply. Fails on any finding; `$(MODERNIZE) -fix ./...`
+# Formatting (gofmt; `gofmt -w .` fixes it), then static checks (staticcheck
+# and modernize, pinned in tools.mod and run with go tool): bugs and dead
+# code, and code the current Go version or standard library writes more
+# simply. Fails on any finding; `$(MODERNIZE) -fix ./...`
 # applies modernize's suggestions.
 lint:
+	@out=$$(gofmt -l .); if [ -n "$$out" ]; then echo "gofmt needed (run gofmt -w .):"; echo "$$out"; exit 1; fi
 	go vet ./...
 	$(STATICCHECK) ./...
 	$(MODERNIZE) ./...
