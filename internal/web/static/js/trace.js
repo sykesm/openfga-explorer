@@ -6,7 +6,7 @@
 // module draws it and handles interaction.
 import { $, $$, baseOpts, color, esc, fitCapped, pal, reducedMotion, scrollBehavior, session, stateKey, store, whenLoaded } from './core.js';
 import { onEscape, onKey } from './shortcuts.js';
-import { applyFolds, expandFold, reveal, traceLayout, traceStyle } from './tracegraph.js';
+import { applyFolds, expandFold, frameReadable, reveal, traceLayout, traceStyle } from './tracegraph.js';
 import { PathFlow, Player } from './traceplayer.js';
 import { initResizer, tabsOf } from './ui.js';
 
@@ -147,7 +147,7 @@ function resizeGraph(v) {
   const { flow } = v.player;
   if (!flow.userView) {
     cy.resize();
-    if (flow.started) flow.frame(); else fitCapped(cy, undefined, 24, 1.3);
+    if (flow.started) flow.frame(); else frameReadable(cy);
     return;
   }
   const e = cy.extent();
@@ -166,12 +166,16 @@ function resizeGraph(v) {
  */
 const sizeHolder = (tv) => /** @type {HTMLElement} */ (tv.closest('#check-result') || tv);
 
-/** Sizes the check view to reach the bottom of the window on wide screens (CSS applies it). @param {FgaTrace} t */
+/**
+ * Sizes the reading pane and graph to the window on wide screens (CSS
+ * applies it): scrolled past the verdict, they fill it, however tall the
+ * verdict is. Never below 480px.
+ * @param {FgaTrace} t
+ */
 function sizeTraceViews(t) {
   const tv = /** @type {HTMLElement | null} */ ($('.trace-views', t));
   if (!tv) return;
-  const top = tv.getBoundingClientRect().top + window.scrollY;
-  const h = `${Math.max(620, Math.floor(window.innerHeight - top - 16))}px`;
+  const h = `${Math.max(480, Math.floor(window.innerHeight - 24))}px`;
   const holder = sizeHolder(tv);
   if (holder.style.getPropertyValue('--trace-h') !== h) holder.style.setProperty('--trace-h', h);
 }
@@ -501,7 +505,7 @@ function renderTrace(t, { replay = true, restore = false } = {}) {
   applyFolds(cy, data.folds || []);
   if (kept) restoreView(t, cy, kept, 'folds');
   traceLayout(cy);
-  fitCapped(cy, undefined, 24, 1.3);
+  frameReadable(cy);
   // Semantic zoom: short, larger labels when zoomed out.
   const farZoom = () => cy.elements().toggleClass('far', cy.zoom() < 0.55);
   cy.on('zoom', farZoom);

@@ -380,7 +380,7 @@ func TestBrowserCheckStep(t *testing.T) {
 }
 
 // TestBrowserCheckFillsWindow: on a large screen the graph and side panel
-// reach the bottom of the window, also after the form above collapses, and
+// are as tall as the window (filling it once scrolled to), and
 // resizing the window (or the side panel) keeps a zoom the person set.
 func TestBrowserCheckFillsWindow(t *testing.T) {
 	x := newTestExplorer(t)
@@ -390,8 +390,9 @@ func TestBrowserCheckFillsWindow(t *testing.T) {
 		`%7B%22current_time%22%3A%222026-11-24T12%3A00%3A00Z%22%2C%22user_ip%22%3A%2210.1.2.3%22%7D`)
 	b.waitFor("graph", `document.querySelector('#trace-canvas')?._cyreg?.cy?.nodes().length > 0`)
 	b.waitFor("collapsed form", `document.querySelector('#check-form').classList.contains('collapsed')`)
-	const gap = `(innerHeight - document.querySelector('#trace-graph').getBoundingClientRect().bottom)`
-	b.waitFor("graph reaching the window bottom", gap+` >= 0 && `+gap+` <= 24`)
+	// As tall as the window (less a margin), so scrolled to it fills the window.
+	const fills = `Math.abs(document.querySelector('#trace-graph').getBoundingClientRect().height - (innerHeight - 24)) <= 2`
+	b.waitFor("graph as tall as the window", fills)
 	if d := eval[float64](b, `Math.abs(document.querySelector('#trace-graph').getBoundingClientRect().bottom - document.querySelector('#inspector').getBoundingClientRect().bottom)`); d > 2 {
 		t.Errorf("side panel and graph end %vpx apart", d)
 	}
@@ -401,7 +402,7 @@ func TestBrowserCheckFillsWindow(t *testing.T) {
 	// Take charge of the view, then resize the window and toggle the panel.
 	b.run(chromedp.Click(`.player [data-act="step"]`, chromedp.ByQuery), chromedp.Evaluate(`void `+cy+`.zoom(1.7)`, nil))
 	b.run(emulation.SetDeviceMetricsOverride(2000, 1100, 1, false))
-	b.waitFor("graph resized", gap+` >= 0 && `+gap+` <= 24`)
+	b.waitFor("graph resized", fills)
 	b.run(chromedp.Click(`.insp-head [data-act="toggle-panel"]`, chromedp.ByQuery))
 	b.waitFor("panel collapsed", `document.querySelector('.trace-views').classList.contains('panel-collapsed')`)
 	if z := eval[float64](b, cy+`.zoom()`); z != 1.7 {
@@ -1018,4 +1019,34 @@ func TestBrowserCheckPhone(t *testing.T) {
 		t.Errorf("the graph is %.0f%% of the screen's height, want at least 60%%", h*100)
 	}
 	b.checkClean("check phone")
+}
+
+// TestBrowserCheckReadableZoom: a granting path too long to show readably in
+// the graph is shown from its top (the object) at a readable zoom rather
+// than shrunk to fit; "Fit all" still shows everything.
+func TestBrowserCheckReadableZoom(t *testing.T) {
+	x := newTestExplorer(t)
+	b := newBrowser(t, x)
+	b.run(emulation.SetDeviceMetricsOverride(1280, 720, 1, false))
+	b.open(`~/check?user=user:eng-002&relation=can_view&object=document:doc-0007&context=` +
+		`%7B%22current_time%22%3A%222026-11-24T12%3A00%3A00Z%22%2C%22user_ip%22%3A%2210.1.2.3%22%7D`)
+	b.waitFor("graph", `document.querySelector('#trace-canvas')?._cyreg?.cy?.nodes().length > 0`)
+	b.settled()
+	b.run(chromedp.Evaluate(`document.querySelector('.player [data-act="final"]').click()`, nil), chromedp.Sleep(700*time.Millisecond))
+	const cy = `document.querySelector('#trace-canvas')._cyreg.cy`
+	// The path does not fit readably here (else this test checks nothing).
+	if fit := eval[float64](b, `(() => { const c = `+cy+`, bb = c.elements('.flowpath').boundingBox(); return Math.min((c.width() - 120) / bb.w, (c.height() - 120) / bb.h); })()`); fit >= 0.8 {
+		t.Fatalf("the granting path fits at zoom %.2f; make the screen smaller", fit)
+	}
+	got := eval[string](b, `(() => { const c = `+cy+`, r = c.nodes('.root').renderedBoundingBox();
+		return [c.zoom() >= 0.8 - 1e-6, r.y1 >= 0 && r.y2 <= c.height() / 3, r.x1 >= 0 && r.x2 <= c.width()].join(' '); })()`)
+	if got != "true true true" {
+		t.Errorf("readable framing: %q (zoom ≥ 0.8 | object near the top | object in view)", got)
+	}
+	// Fit all: everything in view, whatever the zoom.
+	b.run(chromedp.Click(`.player [data-act="fit"]`, chromedp.ByQuery))
+	if !eval[bool](b, `(() => { const c = `+cy+`, bb = c.elements(':visible').renderedBoundingBox(); return bb.y1 >= -1 && bb.y2 <= c.height() + 1 && c.zoom() < 0.8; })()`) {
+		t.Error("Fit all should show the whole graph")
+	}
+	b.checkClean("readable zoom")
 }

@@ -719,8 +719,8 @@ table.changes time { font-family: var(--mono); font-size: 12px; white-space: now
 
 .capture-msg:empty { display: none; }
 
-/* Wide screens: the check view reaches the bottom of the window (sized by
-   trace.js as --trace-h, never below the old fixed height). */
+/* Wide screens: the reading pane and graph are as tall as the window
+   (sized by trace.js as --trace-h), filling it once scrolled to. */
 @media (min-width: 1001px) {
   .trace-graph-wrap { height: var(--trace-h, 620px); }
   .trace-graph-wrap .canvas { min-height: 0; }

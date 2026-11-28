@@ -242,3 +242,38 @@ export function traceLayout(cy) {
     }
   });
 }
+
+/** The least zoom the trace is framed at: labels stay readable (about 9px). */
+export const READABLE_ZOOM = 0.8;
+
+/**
+ * Where to put the view to show eles: fitted when that is readable (zoom no
+ * more than cap); otherwise at READABLE_ZOOM, with the top of eles (the
+ * object, where the walk starts) at the top of the graph and the root
+ * centered across, so the path reads down from there. "Fit all" shows
+ * everything.
+ * @param {any} cy @param {any} eles @param {number} [pad] @param {number} [cap]
+ * @returns {{ zoom: number, pan: { x: number, y: number } }}
+ */
+export function readableView(cy, eles, pad = 24, cap = 1.3) {
+  const bb = eles.boundingBox();
+  const w = Math.max(1, cy.width() - 2 * pad);
+  const h = Math.max(1, cy.height() - 2 * pad);
+  const fit = Math.min(w / Math.max(1, bb.w), h / Math.max(1, bb.h));
+  const zoom = Math.max(READABLE_ZOOM, Math.min(cap, fit));
+  if (zoom === Math.min(cap, fit)) {
+    // It fits: centered.
+    return { zoom, pan: { x: cy.width() / 2 - ((bb.x1 + bb.x2) / 2) * zoom, y: cy.height() / 2 - ((bb.y1 + bb.y2) / 2) * zoom } };
+  }
+  const root = eles.nodes('.root');
+  const x = root.length ? root.position('x') : (bb.x1 + bb.x2) / 2;
+  // Across: the root in the middle, unless the whole width fits.
+  const across = bb.w * zoom <= w ? (bb.x1 + bb.x2) / 2 : x;
+  return { zoom, pan: { x: cy.width() / 2 - across * zoom, y: pad - bb.y1 * zoom } };
+}
+
+/** Shows eles at once, as readableView says. @param {any} cy @param {any} [eles] all elements when omitted */
+export function frameReadable(cy, eles) {
+  const v = readableView(cy, eles || cy.elements(':visible'));
+  cy.viewport(v);
+}

@@ -3,6 +3,7 @@
 // text trace (Player), and the flowing highlight of the granting path that
 // follows it (PathFlow).
 import { $, $$, reducedMotion, scrollBehavior } from './core.js';
+import { readableView } from './tracegraph.js';
 
 /** @typedef {import('./tracegraph.js').Step} Step */
 
@@ -60,13 +61,15 @@ export class PathFlow {
     };
     this.raf = requestAnimationFrame(tick);
   }
-  /** Zooms to the granting path so it stays the focus even in wide graphs. */
+  /**
+   * Zooms to the granting path so it stays the focus even in wide graphs; a
+   * path too long to show readably is shown from its top (readableView).
+   */
   frame() {
     if (this.userView) return;
     const eles = this.nodes.union(this.edges);
     this.cy.stop();
-    this.cy.animate({ fit: { eles, padding: 60 }, duration: reducedMotion() ? 0 : 450, easing: 'ease-in-out-cubic',
-      complete: () => { if (this.cy.zoom() > 1.4) { this.cy.zoom(1.4); this.cy.center(eles); } } });
+    this.cy.animate({ ...readableView(this.cy, eles, 60, 1.4), duration: reducedMotion() ? 0 : 450, easing: 'ease-in-out-cubic' });
   }
   stop() {
     cancelAnimationFrame(this.raf);
