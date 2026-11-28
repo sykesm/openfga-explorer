@@ -414,10 +414,8 @@ func (m *Model) HubTypes(n int) []string {
 }
 
 func appendUnique(s []string, v string) []string {
-	for _, x := range s {
-		if x == v {
-			return s
-		}
+	if slices.Contains(s, v) {
+		return s
 	}
 	return append(s, v)
 }
@@ -438,10 +436,7 @@ type Subject struct {
 
 // ParseSubject parses a user string.
 func ParseSubject(s string) (Subject, error) {
-	obj, rel := s, ""
-	if i := strings.LastIndexByte(s, '#'); i >= 0 {
-		obj, rel = s[:i], s[i+1:]
-	}
+	obj, rel, _ := strings.CutLast(s, "#")
 	t, id, ok := SplitObject(obj)
 	if !ok || id == "" {
 		return Subject{}, fmt.Errorf("invalid user %q: expected type:id, type:*, or type:id#relation", s)
@@ -618,11 +613,8 @@ func (m *Model) Reachable(objType, userType string) map[string]bool {
 	out := make(map[string]bool, len(t.RelationNames))
 	for _, rn := range t.RelationNames {
 		r := t.Relations[rn]
-		for _, st := range m.SubjectTypes(r) {
-			if st == userType {
-				out[rn] = true
-				break
-			}
+		if slices.Contains(m.SubjectTypes(r), userType) {
+			out[rn] = true
 		}
 		// A userset trivially holds its own relation (Check(group:x#member, member, group:x) is true).
 		if userType == objType+"#"+rn {

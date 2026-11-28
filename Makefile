@@ -5,9 +5,11 @@ STORE_ID = jq -r '(.store // .stores[-1]).id // empty'
 STORE ?= $(shell fga store list --name explorer-demo --api-url http://localhost:8080 2>/dev/null | $(STORE_ID))
 # Development tools live in tools.mod, apart from the explorer's dependencies.
 GITLEAKS = go tool -modfile=tools.mod gitleaks
+STATICCHECK = go tool -modfile=tools.mod staticcheck
+MODERNIZE = go tool -modfile=tools.mod modernize
 DATASTORE_URI ?= postgres://openfga:openfga@localhost:5433/openfga?sslmode=disable
 
-.PHONY: build test test-short test-js test-integration cover leaks seed-data run up seed seed-modular
+.PHONY: build test test-short test-js test-integration cover lint leaks seed-data run up seed seed-modular
 build:
 	go build -o bin/fgaexplorer ./cmd/fgaexplorer
 
@@ -38,6 +40,15 @@ test-integration:
 cover:
 	FGA_TEST_DATASTORE_URI='$(DATASTORE_URI)' FGA_TEST_STORE=$(STORE) \
 	go test -count=1 -coverpkg=./... -coverprofile=cover.out ./... && go tool cover -func=cover.out | tail -1
+
+# Static checks (staticcheck and modernize, pinned in tools.mod and run with
+# go tool): bugs and dead code, and code the current Go version or standard
+# library writes more simply. Fails on any finding; `$(MODERNIZE) -fix ./...`
+# applies modernize's suggestions.
+lint:
+	go vet ./...
+	$(STATICCHECK) ./...
+	$(MODERNIZE) ./...
 
 # Secret scan (gitleaks, pinned in tools.mod and run with go tool: nothing to
 # install): the commit history, then the working tree (honoring .gitignore).

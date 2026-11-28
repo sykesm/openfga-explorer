@@ -166,7 +166,7 @@ func (s *Server) sampleObjects(ctx context.Context, b *budget, store, typ string
 	seen := map[string]bool{}
 	var all []string
 	token := ""
-	for page := 0; page < changeLogScanPages; page++ {
+	for range changeLogScanPages {
 		if err := b.spend(1); err != nil {
 			break
 		}
@@ -190,7 +190,7 @@ func (s *Server) sampleObjects(ctx context.Context, b *budget, store, typ string
 	}
 	// Spread the picks evenly over what was found.
 	out := make([]string, 0, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		out = append(out, all[i*len(all)/n])
 	}
 	return out, nil

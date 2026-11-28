@@ -89,8 +89,8 @@ func userRef(user string) string {
 	if rest == "*" {
 		return typ + ":*"
 	}
-	if i := strings.LastIndexByte(rest, '#'); i >= 0 {
-		return typ + "#" + rest[i+1:]
+	if _, after, ok := strings.CutLast(rest, "#"); ok {
+		return typ + "#" + after
 	}
 	return typ
 }
@@ -655,7 +655,7 @@ func (e Explanation) Down() []DownStep {
 		return d
 	}
 	var out []DownStep
-	for i := len(e.Steps) - 1; i >= 0; i-- {
+	for i := range slices.Backward(e.Steps) {
 		if !used[i] {
 			out = append(out, build(i))
 		}

@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"slices"
 	"sort"
 	"strings"
 
@@ -276,21 +277,13 @@ func unionNames(lists ...[]string) []string {
 
 // setDiff returns what b has that a lacks, and what a has that b lacks.
 func setDiff(a, b []string) (gained, lost []string) {
-	in := func(l []string, s string) bool {
-		for _, x := range l {
-			if x == s {
-				return true
-			}
-		}
-		return false
-	}
 	for _, s := range b {
-		if !in(a, s) {
+		if !slices.Contains(a, s) {
 			gained = append(gained, s)
 		}
 	}
 	for _, s := range a {
-		if !in(b, s) {
+		if !slices.Contains(b, s) {
 			lost = append(lost, s)
 		}
 	}

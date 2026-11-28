@@ -14,6 +14,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -822,15 +823,11 @@ func branchName(u *openfgav1.Userset, rel *schema.Relation) string {
 }
 
 func combineUndecided(outs []Outcome) Outcome {
-	for _, o := range outs {
-		if o == Unknown {
-			return Unknown
-		}
+	if slices.Contains(outs, Unknown) {
+		return Unknown
 	}
-	for _, o := range outs {
-		if o == Errored {
-			return Errored
-		}
+	if slices.Contains(outs, Errored) {
+		return Errored
 	}
 	return Denied
 }

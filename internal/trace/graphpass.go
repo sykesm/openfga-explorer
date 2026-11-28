@@ -177,10 +177,11 @@ func (g *Graph) folds(min int) []Fold {
 				}
 			}
 		}
-		f := &found{Fold: Fold{
+		f := &found{
 			ID: "fold-" + parent, Parent: parent,
 			Label: fmt.Sprintf("%d other branches checked — none grant access\n(click to expand)", len(failed)),
-		}, orig: map[string]bool{}}
+			orig:  map[string]bool{},
+		}
 		for _, id := range order {
 			if el := g.element(ix, id); el != nil && !el.HasClass("flowpath") {
 				f.orig[id] = true

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/url"
 	"slices"
@@ -412,13 +413,11 @@ func each[T any](items []T, limit int, f func(T)) {
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, limit)
 	for _, it := range items {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			sem <- struct{}{}
 			defer func() { <-sem }()
 			f(it)
-		}()
+		})
 	}
 	wg.Wait()
 }
@@ -818,10 +817,7 @@ func (s *Server) handleListUsers(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	typ, id, _ := schema.SplitObject(q.Get("object"))
 	filter := q.Get("user_type")
-	ft, frel := filter, ""
-	if i := strings.IndexByte(filter, '#'); i >= 0 {
-		ft, frel = filter[:i], filter[i+1:]
-	}
+	ft, frel, _ := strings.Cut(filter, "#")
 	req := &openfgav1.ListUsersRequest{
 		StoreId: v.StoreID, AuthorizationModelId: v.ModelID,
 		Object:      &openfgav1.Object{Type: typ, Id: id},
@@ -957,10 +953,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		s.render(w, "search-results", v)
 		return
 	}
-	typed := q.Get(field + "_q")
-	if strings.HasPrefix(typed, typ+":") {
-		typed = strings.TrimPrefix(typed, typ+":")
-	}
+	typed, _ := strings.CutPrefix(q.Get(field+"_q"), typ+":")
 	res := &searchResults{Field: field, Mode: q.Get("mode"), Type: typ, Suffix: suffix, Typed: typed, Normalized: s.rule(typ).Normalize(typed)}
 	ctx := r.Context()
 	t := v.Model.Types[typ]
@@ -1020,10 +1013,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if res.Page != nil && !res.Page.Complete {
-		mq := url.Values{}
-		for k, vs := range q {
-			mq[k] = vs
-		}
+		mq := maps.Clone(q)
 		mq.Set("cursor", res.Page.Cursor)
 		res.MoreQuery = mq.Encode()
 	}

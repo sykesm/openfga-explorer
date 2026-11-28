@@ -382,6 +382,7 @@ make test-short        # quick: skips the walker/server comparison and browser t
 make test-js           # JS unit tests (Node 18+, nothing to install)
 make test-integration  # the Postgres datastore and search tests, against `make up seed`
 make cover             # coverage across packages
+make lint              # go vet, staticcheck, and modernize (via go tool)
 make leaks             # secret scan of history and working tree (gitleaks, via go tool)
 make seed-data         # regenerate deploy/seed/*.json (go run ./deploy/seed/gen)
 ```

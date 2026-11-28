@@ -39,9 +39,10 @@ type checkForm struct {
 func userTypes(m *schema.Model, rules func(string) string) []pickerType {
 	var out []pickerType
 	for _, u := range m.UserTypes() {
-		t, label := u, u
-		if i := strings.IndexByte(u, '#'); i >= 0 {
-			t, label = u[:i], u+" (userset)"
+		t, _, userset := strings.Cut(u, "#")
+		label := u
+		if userset {
+			label += " (userset)"
 		}
 		pt := pickerType{Value: u, Label: label, Hint: rules(t)}
 		if ty := m.Types[t]; ty != nil && !strings.Contains(u, "#") {

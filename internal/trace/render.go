@@ -285,13 +285,6 @@ func (t *Trace) Graph() *Graph {
 	return g
 }
 
-func firstNonEmpty(a, b string) string {
-	if a != "" {
-		return a
-	}
-	return b
-}
-
 // GrantingTuples counts the distinct tuples that end a granting path: tuples
 // that reach the user (or a wildcard) along allowed links from the root,
 // excluding the subtracted side of exclusions.

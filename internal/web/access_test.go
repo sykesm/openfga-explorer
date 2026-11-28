@@ -41,8 +41,10 @@ func TestLiveGuard(t *testing.T) {
 		d()
 	}
 	b := &budget{max: 2}
-	if b.spend(1) != nil || b.spend(1) != nil || b.spend(1) == nil {
-		t.Error("budget of 2 should allow two calls")
+	for i, wantErr := range []bool{false, false, true} {
+		if err := b.spend(1); (err != nil) != wantErr {
+			t.Errorf("budget of 2, call %d: err %v", i+1, err)
+		}
 	}
 }
 

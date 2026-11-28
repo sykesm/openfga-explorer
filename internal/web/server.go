@@ -431,7 +431,7 @@ func (s *Server) funcs() template.FuncMap {
 		},
 		"split":    strings.Split,
 		"join":     strings.Join,
-		"contains": func(l []string, s string) bool { return contains(l, s) },
+		"contains": slices.Contains[[]string],
 		// manyTypes is the type count above which type choosers get a find box.
 		"manyTypes": func() int { return manyTypes },
 		"short": func(s string, n int) string {

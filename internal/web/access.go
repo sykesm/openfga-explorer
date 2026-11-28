@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -91,7 +92,7 @@ func (s *Server) handleAccess(w http.ResponseWriter, r *http.Request) {
 		s.render(w, "access", v)
 		return
 	}
-	if !contains(p.Subjects, p.Subject) {
+	if !slices.Contains(p.Subjects, p.Subject) {
 		p.Subject = p.Subjects[0]
 	}
 	subj, err := schema.ParseSubject(p.Subject)
@@ -127,7 +128,7 @@ func (s *Server) handleAccess(w http.ResponseWriter, r *http.Request) {
 	}
 	var rels []string
 	for _, rel := range p.Rels {
-		if chosen != nil && contains(chosen.Rels, rel) {
+		if chosen != nil && slices.Contains(chosen.Rels, rel) {
 			rels = append(rels, rel)
 		}
 	}
@@ -190,13 +191,4 @@ func (s *Server) handleAccess(w http.ResponseWriter, r *http.Request) {
 	s.log.Info("live query", "kind", "access", "identity", id.Name, "store", v.StoreID, "subject", p.Subject, "type", p.Type,
 		"relations", len(p.Rels), "calls", p.Calls, "duration", p.Elapsed)
 	s.render(w, "access", v)
-}
-
-func contains(l []string, s string) bool {
-	for _, x := range l {
-		if x == s {
-			return true
-		}
-	}
-	return false
 }
