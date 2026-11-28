@@ -105,11 +105,11 @@ func (g *Graph) markGrantingPath() {
 	}
 }
 
-// folds finds nodes with at least min failed branches (not allowed, not
+// folds finds nodes with at least minFailed failed branches (not allowed, not
 // blocking, not "… more", not ending at the user) and hides each such branch
 // together with everything reachable only through it. Nothing on the
 // granting path is hidden. Call after markGrantingPath.
-func (g *Graph) folds(min int) []Fold {
+func (g *Graph) folds(minFailed int) []Fold {
 	ix := g.index()
 	type found struct {
 		Fold
@@ -130,7 +130,7 @@ func (g *Graph) folds(min int) []Fold {
 			}
 			failed = append(failed, ei)
 		}
-		if len(failed) < min {
+		if len(failed) < minFailed {
 			continue
 		}
 		hidden := map[string]bool{}

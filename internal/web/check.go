@@ -419,7 +419,7 @@ func (s *Server) handleCheckRun(w http.ResponseWriter, r *http.Request) {
 		defer s.progress.finish(id)
 		opt.Progress = st.update
 	}
-	tr, err := trace.Explain(r.Context(), s.walkAPI, me.m, me.ev, req, opt)
+	tr, err := trace.Walk(r.Context(), s.walkAPI, me.m, me.ev, req, opt)
 	if err != nil {
 		s.fail(w, r, http.StatusBadRequest, err)
 		return

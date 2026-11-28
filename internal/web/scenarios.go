@@ -208,7 +208,7 @@ func (s *Server) handleScenarioCapture(w http.ResponseWriter, r *http.Request) {
 	defer release()
 	opt := s.cfg.Trace.Options()
 	opt.Verify = trace.VerifyRoot
-	tr, err := trace.Explain(r.Context(), s.walkAPI, me.m, me.ev, req, opt)
+	tr, err := trace.Walk(r.Context(), s.walkAPI, me.m, me.ev, req, opt)
 	if err != nil {
 		reply(http.StatusBadRequest, captureResponse{Error: err.Error()})
 		return

@@ -1,7 +1,6 @@
 package trace_test
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -17,7 +16,7 @@ import (
 // the total) and the tuples its reads returned.
 func TestCallAndTupleCounts(t *testing.T) {
 	srv := fgatest.Start(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	// doc:1 is shared with 40 groups; the user is a member of the last one.
 	const groups = 40
 	var keys []*openfgav1.TupleKey
@@ -45,7 +44,7 @@ func TestCallAndTupleCounts(t *testing.T) {
 		opt := trace.DefaultOptions()
 		opt.SetOrder(order)
 		opt.MaxFanout = 100 // read every group edge rather than probing
-		tr, err := trace.Explain(ctx, c, m, nil, trace.Request{Store: st.ID, Model: st.Model, User: "user:anne", Relation: "viewer", Object: "doc:1"}, opt)
+		tr, err := trace.Walk(ctx, c, m, nil, trace.Request{Store: st.ID, Model: st.Model, User: "user:anne", Relation: "viewer", Object: "doc:1"}, opt)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -62,7 +61,7 @@ func TestCallAndTupleCounts(t *testing.T) {
 // are counted apart from reads that reached OpenFGA.
 func TestCachedReadCounts(t *testing.T) {
 	srv := fgatest.Start(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	var keys []*openfgav1.TupleKey
 	for g := range 10 {
 		keys = append(keys, &openfgav1.TupleKey{User: fmt.Sprintf("group:g%d#member", g), Relation: "viewer", Object: "doc:1"})
@@ -89,7 +88,7 @@ func TestCachedReadCounts(t *testing.T) {
 	opt.Parallel = 1 // no lookahead: both runs make the same reads
 	req := trace.Request{Store: st.ID, Model: st.Model, User: "user:anne", Relation: "viewer", Object: "doc:1"}
 	run := func(r trace.Request) *trace.Trace {
-		tr, err := trace.Explain(ctx, cache, m, nil, r, opt)
+		tr, err := trace.Walk(ctx, cache, m, nil, r, opt)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -11,11 +11,12 @@
 package trace
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"slices"
-	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -57,6 +58,32 @@ const (
 	KindSkipped      Kind = "skipped"
 	KindMore         Kind = "more" // truncated edges
 )
+
+// Symbol is an operator kind's set symbol ("∪", "∩", "∖"); empty for others.
+func (k Kind) Symbol() string {
+	switch k {
+	case KindUnion:
+		return "∪"
+	case KindIntersection:
+		return "∩"
+	case KindExclusion:
+		return "∖"
+	}
+	return ""
+}
+
+// Word is an operator kind as the model writes it ("or", "and", "but not").
+func (k Kind) Word() string {
+	switch k {
+	case KindUnion:
+		return "or"
+	case KindIntersection:
+		return "and"
+	case KindExclusion:
+		return "but not"
+	}
+	return ""
+}
 
 // Node is a step in the evaluation.
 type Node struct {
@@ -117,8 +144,12 @@ type Tuple struct {
 	Contextual             bool
 }
 
+// Key is the tuple's identity, object#relation (its condition is part of
+// the tuple, not of its key).
+func (t *Tuple) Key() string { return t.Object + "#" + t.Relation + "@" + t.User }
+
 func (t *Tuple) String() string {
-	s := t.Object + "#" + t.Relation + "@" + t.User
+	s := t.Key()
 	if t.Condition != "" {
 		s += " [" + t.Condition + "]"
 	}
@@ -353,8 +384,9 @@ type walker struct {
 	relNodes       []*Node
 }
 
-// Explain walks a check and returns its trace.
-func Explain(ctx context.Context, api fga.API, model *schema.Model, ev *cond.Evaluator, req Request, opt Options) (*Trace, error) {
+// Walk evaluates a check step by step (reading tuples, following the model's
+// rewrite rules) and returns its trace; Trace.Explanation puts it in words.
+func Walk(ctx context.Context, api fga.API, model *schema.Model, ev *cond.Evaluator, req Request, opt Options) (*Trace, error) {
 	subj, err := schema.ParseSubject(req.User)
 	if err != nil {
 		return nil, err
@@ -779,8 +811,7 @@ func (w *walker) eval(ctx context.Context, object string, rel *schema.Relation, 
 }
 
 func (w *walker) opNode(kind Kind, object string, rel *schema.Relation, u *openfgav1.Userset) *Node {
-	sym := map[Kind]string{KindUnion: "∪ or", KindIntersection: "∩ and", KindExclusion: "∖ but not"}[kind]
-	n := w.node(kind, sym)
+	n := w.node(kind, kind.Symbol()+" "+kind.Word())
 	n.Object, n.Relation = object, rel.Name
 	n.Expr = schema.RenderRewrite(u, rel.DirectTypes)
 	w.step(Step{Phase: Enter, Node: n.ID})
@@ -851,7 +882,7 @@ func (w *walker) union(ctx context.Context, n *Node, object string, rel *schema.
 	first := -1
 	var gs []guess
 	if !w.opt.AllPaths && !w.opt.Unguided && len(children) > 1 {
-		gs = w.guide(ctx, object, rel, children)
+		gs = w.guide(ctx, object, children)
 		for i, g := range gs {
 			if g.known && g.allowed {
 				first = i
@@ -929,7 +960,7 @@ func (w *walker) intersection(ctx context.Context, n *Node, object string, rel *
 	first := -1
 	var gs []guess
 	if !w.opt.AllPaths && !w.opt.Unguided && len(children) > 1 {
-		gs = w.guide(ctx, object, rel, children)
+		gs = w.guide(ctx, object, children)
 		for i, g := range gs {
 			if g.known && !g.allowed {
 				first = i
@@ -985,7 +1016,7 @@ type guess struct {
 // BatchCheck. Computed relations map to one check; "X from Y" maps to X on
 // each Y object (read from the tuples, usually already cached). Direct and
 // nested branches stay unknown.
-func (w *walker) guide(ctx context.Context, object string, rel *schema.Relation, children []*openfgav1.Userset) []guess {
+func (w *walker) guide(ctx context.Context, object string, children []*openfgav1.Userset) []guess {
 	out := make([]guess, len(children))
 	subs := make([][]string, len(children)) // object#relation keys per branch
 	partial := make([]bool, len(children))  // TTU edges beyond the fanout limit
@@ -1031,17 +1062,17 @@ func (w *walker) guide(ctx context.Context, object string, rel *schema.Relation,
 		if len(subs[i]) == 0 {
 			continue
 		}
-		known, any := true, false
+		known, granted := true, false
 		for _, k := range subs[i] {
 			v, ok := verdicts[k]
 			if !ok {
 				known = false
 				continue
 			}
-			any = any || v
+			granted = granted || v
 		}
 		switch {
-		case any:
+		case granted:
 			out[i].known, out[i].allowed = true, true
 		case known && !partial[i]:
 			out[i].known, out[i].allowed = true, false
@@ -1069,13 +1100,10 @@ func (w *walker) serverChecks(ctx context.Context, keys []string) map[string]boo
 	if len(todo) == 0 || w.budget() != nil {
 		return out
 	}
-	var ctuples *openfgav1.ContextualTupleKeys
-	if len(w.req.Contextual) > 0 {
-		ctuples = &openfgav1.ContextualTupleKeys{TupleKeys: w.req.Contextual}
-	}
+	ctuples := w.contextual()
 	tk := func(k string) *openfgav1.CheckRequestTupleKey {
 		i := strings.LastIndexByte(k, '#')
-		return &openfgav1.CheckRequestTupleKey{User: w.req.User, Relation: k[i+1:], Object: k[:i]}
+		return w.checkKey(k[:i], k[i+1:])
 	}
 	record := func(k string, v bool) {
 		w.mu.Lock()
@@ -1088,11 +1116,11 @@ func (w *walker) serverChecks(ctx context.Context, keys []string) map[string]boo
 		w.checkCalls.Add(1)
 		req := &openfgav1.BatchCheckRequest{StoreId: w.req.Store, AuthorizationModelId: w.req.Model, Consistency: w.req.Consistency}
 		for i, k := range todo {
-			req.Checks = append(req.Checks, &openfgav1.BatchCheckItem{TupleKey: tk(k), ContextualTuples: ctuples, Context: w.req.Context, CorrelationId: fmt.Sprint(i)})
+			req.Checks = append(req.Checks, &openfgav1.BatchCheckItem{TupleKey: tk(k), ContextualTuples: ctuples, Context: w.req.Context, CorrelationId: strconv.Itoa(i)})
 		}
 		if resp, err := bc.BatchCheck(ctx, req); err == nil {
 			for i, k := range todo {
-				if r := resp.GetResult()[fmt.Sprint(i)]; r != nil && r.GetError() == nil {
+				if r := resp.GetResult()[strconv.Itoa(i)]; r != nil && r.GetError() == nil {
 					record(k, r.GetAllowed())
 				}
 			}
@@ -1321,9 +1349,13 @@ func (w *walker) direct(ctx context.Context, object string, rel *schema.Relation
 				}
 			}
 			// Walk the edges the server says hold first.
-			sort.SliceStable(edges, func(i, j int) bool {
-				return holds[edges[i].key.GetUser()] && !holds[edges[j].key.GetUser()]
-			})
+			first := func(r record) int {
+				if holds[r.key.GetUser()] {
+					return 0
+				}
+				return 1
+			}
+			slices.SortStableFunc(edges, func(a, b record) int { return cmp.Compare(first(a), first(b)) })
 		}
 		// Look ahead: start the reads each userset edge will need, in parallel.
 		var ahead []readKey
@@ -1364,7 +1396,8 @@ func (w *walker) direct(ctx context.Context, object string, rel *schema.Relation
 			n.Notes = append(n.Notes, fmt.Sprintf("%d group-style edge(s) not walked: the server's Check says the user is not in them", ruled))
 		}
 		truncated := more || evaluated < len(edges)
-		if truncated && !(found && !w.opt.AllPaths) {
+		settled := found && !w.opt.AllPaths // a grant ends a short-circuiting walk
+		if truncated && !settled {
 			n.Truncated = &Truncation{Examined: evaluated, Found: len(edges), Read: len(recs), More: more, What: "userset", Object: object, Relation: rel.Name}
 			resolved, ok := w.probeUsersets(ctx, n, object, rel, usersets, examined, depth)
 			if ok {
@@ -1522,15 +1555,13 @@ func (w *walker) listObjects(ctx context.Context, typ, relation string) ([]strin
 		Type: typ, Relation: relation, User: w.req.User,
 		Context: w.req.Context, Consistency: w.req.Consistency,
 	}
-	if len(w.req.Contextual) > 0 {
-		req.ContextualTuples = &openfgav1.ContextualTupleKeys{TupleKeys: w.req.Contextual}
-	}
+	req.ContextualTuples = w.contextual()
 	resp, err := w.api.ListObjects(ctx, req)
 	if err != nil {
 		return nil, false, err
 	}
 	objs := resp.GetObjects()
-	return objs, len(objs) < 1000, nil
+	return objs, len(objs) < fga.ListMax, nil
 }
 
 func (w *walker) ttu(ctx context.Context, object string, rel *schema.Relation, t *openfgav1.TupleToUserset, depth int) *Node {
@@ -1577,7 +1608,8 @@ func (w *walker) ttu(ctx context.Context, object string, rel *schema.Relation, t
 			found = true
 		}
 	}
-	if (more || evaluated < len(recs)) && !(found && !w.opt.AllPaths) {
+	settled := found && !w.opt.AllPaths // a grant ends a short-circuiting walk
+	if (more || evaluated < len(recs)) && !settled {
 		n.Truncated = &Truncation{Examined: evaluated, Found: len(recs), Read: len(recs), More: more, What: tupleset, Object: object, Relation: tupleset}
 		if tr, ok := w.model.Relation(rel.Type, tupleset); ok {
 			for _, ref := range tr.DirectTypes {
@@ -1679,7 +1711,7 @@ func (w *walker) verify(ctx context.Context, root *Node) int {
 		}
 	}
 	// Relations the guidance already checked need no second call.
-	remaining := targets[:0:0]
+	var remaining []*Node
 	w.mu.Lock()
 	for _, n := range targets {
 		if v, ok := w.known[n.Object+"#"+n.Relation]; ok {
@@ -1696,22 +1728,17 @@ func (w *walker) verify(ctx context.Context, root *Node) int {
 	sem := make(chan struct{}, 8)
 	var wg sync.WaitGroup
 	for _, n := range targets {
-		wg.Add(1)
 		sem <- struct{}{}
-		go func(n *Node) {
-			defer wg.Done()
+		wg.Go(func() {
 			defer func() { <-sem }()
 			req := &openfgav1.CheckRequest{
 				StoreId: w.req.Store, AuthorizationModelId: w.req.Model,
-				TupleKey: &openfgav1.CheckRequestTupleKey{User: w.req.User, Relation: n.Relation, Object: n.Object},
-				Context:  w.req.Context, Consistency: w.req.Consistency,
-			}
-			if len(w.req.Contextual) > 0 {
-				req.ContextualTuples = &openfgav1.ContextualTupleKeys{TupleKeys: w.req.Contextual}
+				TupleKey: w.checkKey(n.Object, n.Relation), ContextualTuples: w.contextual(),
+				Context: w.req.Context, Consistency: w.req.Consistency,
 			}
 			resp, err := w.api.Check(ctx, req)
 			w.setVerdict(n, resp.GetAllowed(), err)
-		}(n)
+		})
 	}
 	wg.Wait()
 	return len(targets)
@@ -1724,10 +1751,7 @@ const batchSize = 50
 // per node. It reports false (so the caller falls back to individual Checks)
 // when the server does not support BatchCheck.
 func (w *walker) verifyBatch(ctx context.Context, bc fga.BatchChecker, targets []*Node) bool {
-	var ctuples *openfgav1.ContextualTupleKeys
-	if len(w.req.Contextual) > 0 {
-		ctuples = &openfgav1.ContextualTupleKeys{TupleKeys: w.req.Contextual}
-	}
+	ctuples := w.contextual()
 	type chunk struct{ nodes []*Node }
 	var chunks []chunk
 	for i := 0; i < len(targets); i += batchSize {
@@ -1736,14 +1760,12 @@ func (w *walker) verifyBatch(ctx context.Context, bc fga.BatchChecker, targets [
 	var wg sync.WaitGroup
 	var unsupported atomic.Bool
 	for _, c := range chunks {
-		wg.Add(1)
-		go func(c chunk) {
-			defer wg.Done()
+		wg.Go(func() {
 			req := &openfgav1.BatchCheckRequest{StoreId: w.req.Store, AuthorizationModelId: w.req.Model, Consistency: w.req.Consistency}
 			for i, n := range c.nodes {
 				req.Checks = append(req.Checks, &openfgav1.BatchCheckItem{
-					TupleKey:         &openfgav1.CheckRequestTupleKey{User: w.req.User, Relation: n.Relation, Object: n.Object},
-					ContextualTuples: ctuples, Context: w.req.Context, CorrelationId: fmt.Sprint(i),
+					TupleKey:         w.checkKey(n.Object, n.Relation),
+					ContextualTuples: ctuples, Context: w.req.Context, CorrelationId: strconv.Itoa(i),
 				})
 			}
 			resp, err := bc.BatchCheck(ctx, req)
@@ -1757,14 +1779,14 @@ func (w *walker) verifyBatch(ctx context.Context, bc fga.BatchChecker, targets [
 					w.setVerdict(n, false, err)
 					continue
 				}
-				r := resp.GetResult()[fmt.Sprint(i)]
+				r := resp.GetResult()[strconv.Itoa(i)]
 				var rerr error
 				if e := r.GetError(); e != nil {
 					rerr = errors.New(e.GetMessage())
 				}
 				w.setVerdict(n, r.GetAllowed(), rerr)
 			}
-		}(c)
+		})
 	}
 	wg.Wait()
 	return !unsupported.Load()
@@ -1816,4 +1838,19 @@ func (t *Trace) Gaps() []string {
 		out = append(out, fmt.Sprintf("%d relation(s) stayed undecided (amber)", undecided))
 	}
 	return out
+}
+
+// contextual is the request's contextual tuples as the API takes them (nil
+// when there are none).
+func (w *walker) contextual() *openfgav1.ContextualTupleKeys {
+	if len(w.req.Contextual) == 0 {
+		return nil
+	}
+	return &openfgav1.ContextualTupleKeys{TupleKeys: w.req.Contextual}
+}
+
+// checkKey is the tuple key for checking the request's user against
+// object#relation.
+func (w *walker) checkKey(object, relation string) *openfgav1.CheckRequestTupleKey {
+	return &openfgav1.CheckRequestTupleKey{User: w.req.User, Relation: relation, Object: object}
 }

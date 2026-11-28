@@ -58,20 +58,20 @@ func loadConfig(fs *flag.FlagSet, args []string) (config.Config, error) {
 	if err := fs.Parse(args); err != nil {
 		return config.Config{}, err
 	}
-	cfg, err := config.Load(*path)
-	if err != nil {
-		return cfg, err
-	}
-	if *listen != "" {
-		cfg.Listen = *listen
-	}
-	if *apiURL != "" {
-		cfg.OpenFGA.APIURL = *apiURL
-	}
-	if *dsURI != "" {
-		cfg.Datastore.URI = *dsURI
-	}
-	return cfg, nil
+	// Flags override the file and environment before the result is validated,
+	// so a flag can supply what the file needs (e.g. --datastore-uri for
+	// tuples.source: datastore) and flag values are checked too.
+	return config.Load(*path, func(c *config.Config) {
+		if *listen != "" {
+			c.Listen = *listen
+		}
+		if *apiURL != "" {
+			c.OpenFGA.APIURL = *apiURL
+		}
+		if *dsURI != "" {
+			c.Datastore.URI = *dsURI
+		}
+	})
 }
 
 func newClient(cfg config.Config) (*fga.Client, error) {
@@ -132,7 +132,9 @@ func runServe(args []string) error {
 		<-ctx.Done()
 		sctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		hs.Shutdown(sctx)
+		if err := hs.Shutdown(sctx); err != nil {
+			log.Warn("shutdown did not finish cleanly", "err", err)
+		}
 	}()
 	log.Info("listening", "addr", cfg.Listen, "openfga", cfg.OpenFGA.APIURL)
 	if !loopback(cfg.Listen) {
@@ -175,7 +177,9 @@ func runTrace(args []string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	ctx := context.Background()
+	// Ctrl-C cancels the walk.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 	if *model == "" {
 		if *model, err = client.LatestModelID(ctx, *store); err != nil {
 			return err
@@ -201,7 +205,7 @@ func runTrace(args []string, out io.Writer) error {
 	if *allPaths {
 		opt.AllPaths = true
 	}
-	tr, err := trace.Explain(ctx, client, m, nil, req, opt)
+	tr, err := trace.Walk(ctx, client, m, nil, req, opt)
 	if err != nil {
 		return err
 	}
@@ -210,11 +214,19 @@ func runTrace(args []string, out io.Writer) error {
 		enc.SetIndent("", "  ")
 		return enc.Encode(tr.Graph())
 	}
+	writeTraceReport(out, tr, opt, *reading)
+	return nil
+}
+
+// writeTraceReport writes a walk as the trace command prints it: the text
+// trace, the explanation (read "up" from the user or "down" from the
+// object), a summary line, and whether every path was examined.
+func writeTraceReport(out io.Writer, tr *trace.Trace, opt trace.Options, reading string) {
 	fmt.Fprint(out, tr.Text())
 	ex := tr.Explanation(nil)
 	fmt.Fprintln(out)
 	fmt.Fprintln(out, ex.Headline)
-	if *reading == "down" {
+	if reading == "down" {
 		fmt.Fprint(out, ex.FormatDown())
 	} else {
 		fmt.Fprint(out, ex.Format())
@@ -235,7 +247,6 @@ func runTrace(args []string, out io.Writer) error {
 	} else if opt.AllPaths {
 		fmt.Fprintln(out, "exhaustive: every branch was examined")
 	}
-	return nil
 }
 
 // loopback reports whether a listen address only accepts local connections.

@@ -3,6 +3,7 @@ package trace
 import (
 	"encoding/json"
 	"fmt"
+	"iter"
 	"strconv"
 	"strings"
 )
@@ -225,7 +226,7 @@ func (t *Trace) Graph() *Graph {
 			label = "direct tuples"
 		}
 		if n.Op != "" {
-			label += "\n" + map[Kind]string{KindUnion: "∪", KindIntersection: "∩", KindExclusion: "∖"}[n.Op]
+			label += "\n" + n.Op.Symbol()
 		}
 		data := ElementData{
 			ID: NodeID(n.ID), Label: label, Short: shortLabel(n), Kind: n.Kind, Outcome: n.Outcome,
@@ -285,60 +286,57 @@ func (t *Trace) Graph() *Graph {
 	return g
 }
 
-// GrantingTuples counts the distinct tuples that end a granting path: tuples
-// that reach the user (or a wildcard) along allowed links from the root,
-// excluding the subtracted side of exclusions.
-func (t *Trace) GrantingTuples() int {
-	seen := map[int]bool{}
-	tuples := map[string]bool{}
-	var walk func(n *Node)
-	walk = func(n *Node) {
-		if seen[n.ID] || n.Outcome != Allowed {
-			return
-		}
-		seen[n.ID] = true
-		for _, l := range n.Children {
-			if l.Outcome != Allowed || l.Role == "subtract" || l.Node == nil {
-				continue
+// grantingLinks yields each tuple link on a granting path once (by tuple
+// key): tuples traversed along allowed links from the root, excluding the
+// subtracted side of exclusions, in walk order. Contextual tuples are
+// included.
+func (t *Trace) grantingLinks() iter.Seq[*Link] {
+	return func(yield func(*Link) bool) {
+		seen, have := map[int]bool{}, map[string]bool{}
+		var walk func(n *Node) bool
+		walk = func(n *Node) bool {
+			if seen[n.ID] || n.Outcome != Allowed {
+				return true
 			}
-			if l.Node.Kind == KindSubject && l.Tuple != nil {
-				tuples[l.Tuple.String()] = true
-			}
-			walk(l.Node)
-		}
-	}
-	walk(t.Root)
-	return len(tuples)
-}
-
-// PathTuples lists the tuples on granting paths (object#relation@user): every
-// tuple traversed along allowed links from the root, excluding the
-// subtracted side of exclusions. Contextual tuples are included.
-func (t *Trace) PathTuples() []string {
-	seen := map[int]bool{}
-	var out []string
-	have := map[string]bool{}
-	var walk func(n *Node)
-	walk = func(n *Node) {
-		if seen[n.ID] || n.Outcome != Allowed {
-			return
-		}
-		seen[n.ID] = true
-		for _, l := range n.Children {
-			if l.Outcome != Allowed || l.Role == "subtract" || l.Node == nil {
-				continue
-			}
-			if l.Tuple != nil {
-				k := l.Tuple.Object + "#" + l.Tuple.Relation + "@" + l.Tuple.User
-				if !have[k] {
-					have[k] = true
-					out = append(out, k)
+			seen[n.ID] = true
+			for _, l := range n.Children {
+				if l.Outcome != Allowed || l.Role == "subtract" || l.Node == nil {
+					continue
+				}
+				if l.Tuple != nil && !have[l.Tuple.Key()] {
+					have[l.Tuple.Key()] = true
+					if !yield(l) {
+						return false
+					}
+				}
+				if !walk(l.Node) {
+					return false
 				}
 			}
-			walk(l.Node)
+			return true
+		}
+		walk(t.Root)
+	}
+}
+
+// GrantingTuples counts the distinct tuples that end a granting path: those
+// that reach the user (or a wildcard).
+func (t *Trace) GrantingTuples() int {
+	n := 0
+	for l := range t.grantingLinks() {
+		if l.Node.Kind == KindSubject {
+			n++
 		}
 	}
-	walk(t.Root)
+	return n
+}
+
+// PathTuples lists the tuples on granting paths (object#relation@user).
+func (t *Trace) PathTuples() []string {
+	var out []string
+	for l := range t.grantingLinks() {
+		out = append(out, l.Tuple.Key())
+	}
 	return out
 }
 
@@ -355,42 +353,23 @@ type PathTuple struct {
 // GrantingPathTuples returns the tuples on granting paths (as PathTuples
 // does), with their conditions.
 func (t *Trace) GrantingPathTuples() []PathTuple {
-	seen := map[int]bool{}
-	have := map[string]bool{}
 	var out []PathTuple
-	var walk func(n *Node)
-	walk = func(n *Node) {
-		if seen[n.ID] || n.Outcome != Allowed {
-			return
-		}
-		seen[n.ID] = true
-		for _, l := range n.Children {
-			if l.Outcome != Allowed || l.Role == "subtract" || l.Node == nil {
-				continue
-			}
-			if tp := l.Tuple; tp != nil {
-				k := tp.Object + "#" + tp.Relation + "@" + tp.User
-				if !have[k] {
-					have[k] = true
-					pt := PathTuple{User: tp.User, Relation: tp.Relation, Object: tp.Object, Condition: tp.Condition, Contextual: tp.Contextual}
-					if l.Cond != nil {
-						for _, p := range l.Cond.Params {
-							if p.Source != "tuple" {
-								continue
-							}
-							if pt.Context == nil {
-								pt.Context = map[string]any{}
-							}
-							pt.Context[p.Name] = paramValue(p.Type, p.Value)
-						}
-					}
-					out = append(out, pt)
+	for l := range t.grantingLinks() {
+		tp := l.Tuple
+		pt := PathTuple{User: tp.User, Relation: tp.Relation, Object: tp.Object, Condition: tp.Condition, Contextual: tp.Contextual}
+		if l.Cond != nil {
+			for _, p := range l.Cond.Params {
+				if p.Source != "tuple" {
+					continue
 				}
+				if pt.Context == nil {
+					pt.Context = map[string]any{}
+				}
+				pt.Context[p.Name] = paramValue(p.Type, p.Value)
 			}
-			walk(l.Node)
 		}
+		out = append(out, pt)
 	}
-	walk(t.Root)
 	return out
 }
 
@@ -412,7 +391,7 @@ func shortLabel(n *Node) string {
 	switch n.Kind {
 	case KindRelation, KindCycle:
 		if n.Op != "" {
-			return n.Relation + " " + map[Kind]string{KindUnion: "∪", KindIntersection: "∩", KindExclusion: "∖"}[n.Op]
+			return n.Relation + " " + n.Op.Symbol()
 		}
 		return n.Relation
 	case KindUnion:

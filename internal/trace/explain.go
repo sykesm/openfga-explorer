@@ -5,6 +5,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/sykesm/openfga-explorer/internal/cond"
 )
 
 // Explanation is a plain-language account of a decision: one headline
@@ -145,7 +147,7 @@ func plural(n int, word string) string {
 	return fmt.Sprintf("%d %ss", n, word)
 }
 
-// Explain describes the trace in words. name renders object IDs for people
+// Explanation describes the trace in words. name renders object IDs for people
 // (e.g. decoding percent-encoded IDs); nil uses them as is.
 func (t *Trace) Explanation(name func(string) string) Explanation {
 	if name == nil {
@@ -424,7 +426,7 @@ func (x *explainer) why(n *Node, depth int, seen map[int]bool) string {
 	case KindDirect:
 		for _, l := range n.Children {
 			if l.Cond != nil && l.Outcome != Allowed && l.Tuple != nil {
-				return fmt.Sprintf("the %s tuple's condition %s is %s", l.Tuple.Relation, l.Cond.Name, condWord(string(l.Cond.Status)))
+				return fmt.Sprintf("the %s tuple's condition %s is %s", l.Tuple.Relation, l.Cond.Name, condWord(l.Cond.Status))
 			}
 		}
 		ruled := 0
@@ -491,11 +493,11 @@ func (x *explainer) why(n *Node, depth int, seen map[int]bool) string {
 	return strings.Join(parts, "; ")
 }
 
-func condWord(status string) string {
+func condWord(status cond.Status) string {
 	switch status {
-	case "not-met":
+	case cond.NotMet:
 		return "false"
-	case "missing-params":
+	case cond.Missing:
 		return "missing parameters"
 	default:
 		return "an error"
@@ -529,23 +531,7 @@ func (e Explanation) Format() string {
 			fmt.Fprintf(&b, "  %d. %s\n", n, s.Text)
 		}
 		for _, ev := range s.Evidence {
-			ref := ev.Ref.String()
-			if ev.Ref.Via != "" {
-				ref += " via " + ev.Ref.Via
-			}
-			switch ev.Kind {
-			case EvidenceTuple:
-				t := ev.Tuple.Object + "#" + ev.Tuple.Relation + "@" + ev.Tuple.User
-				if ev.Tuple.Condition != "" {
-					t += " with " + ev.Tuple.Condition
-				}
-				if ev.Tuple.Contextual {
-					t += " (contextual, not stored)"
-				}
-				fmt.Fprintf(&b, "       tuple  %s  (%s)\n", t, ref)
-			default:
-				fmt.Fprintf(&b, "       rule   %s\n", ref)
-			}
+			fmt.Fprintf(&b, "       %s\n", evidenceLine(ev))
 		}
 	}
 	return b.String()
@@ -593,15 +579,7 @@ func cite(steps []WhyStep) []WhyStep {
 			continue
 		}
 		slices.Sort(refs)
-		words := make([]string, len(refs))
-		for j, k := range refs {
-			words[j] = strconv.Itoa(k)
-		}
-		if len(words) == 1 {
-			steps[i].Text += " (from step " + words[0] + ")"
-		} else {
-			steps[i].Text += " (from steps " + strings.Join(words[:len(words)-1], ", ") + " and " + words[len(words)-1] + ")"
-		}
+		steps[i].Text += " (" + stepRefs("from", refs) + ")"
 	}
 	return steps
 }
@@ -610,8 +588,9 @@ func cite(steps []WhyStep) []WhyStep {
 // object to the user): the step, and under it the steps it builds on.
 type DownStep struct {
 	WhyStep
-	// Text is the step's sentence for this reading.
-	Text string
+	// Sentence is the step for this reading ("X, because Y"); the embedded
+	// Text is the user-up reading's.
+	Sentence string
 	// Repeat marks a step already shown higher up; it is named, not expanded.
 	Repeat bool
 	Under  []DownStep
@@ -641,7 +620,7 @@ func (e Explanation) Down() []DownStep {
 		if text == "" {
 			text = strings.TrimPrefix(s.base, "so ")
 		}
-		d := DownStep{WhyStep: s, Text: text}
+		d := DownStep{WhyStep: s, Sentence: text}
 		if shown[i] {
 			d.Repeat = true
 			return d
@@ -670,24 +649,16 @@ func (e Explanation) FormatDown() string {
 	write = func(d DownStep, depth int) {
 		pad := strings.Repeat("  ", depth)
 		if d.Repeat {
-			fmt.Fprintf(&b, "  %s- %s (see above)\n", pad, d.Text)
+			fmt.Fprintf(&b, "  %s- %s (see above)\n", pad, d.Sentence)
 			return
 		}
 		mark := "-"
 		if d.Reason {
 			mark = "✗"
 		}
-		fmt.Fprintf(&b, "  %s%s %s\n", pad, mark, d.Text)
+		fmt.Fprintf(&b, "  %s%s %s\n", pad, mark, d.Sentence)
 		for _, ev := range d.Evidence {
-			ref := ev.Ref.String()
-			if ev.Ref.Via != "" {
-				ref += " via " + ev.Ref.Via
-			}
-			if ev.Kind == EvidenceTuple {
-				fmt.Fprintf(&b, "  %s    tuple  %s#%s@%s  (%s)\n", pad, ev.Tuple.Object, ev.Tuple.Relation, ev.Tuple.User, ref)
-			} else {
-				fmt.Fprintf(&b, "  %s    rule   %s\n", pad, ref)
-			}
+			fmt.Fprintf(&b, "  %s    %s\n", pad, evidenceLine(ev))
 		}
 		for _, u := range d.Under {
 			write(u, depth+1)
@@ -730,15 +701,41 @@ func (e Explanation) DownFlat() []DownStep {
 		if len(refs) == 0 || (len(refs) == 1 && refs[0] == i+2) {
 			continue
 		}
-		words := make([]string, len(refs))
-		for j, k := range refs {
-			words[j] = strconv.Itoa(k)
-		}
-		if len(words) == 1 {
-			out[i].Text += " (see step " + words[0] + ")"
-		} else {
-			out[i].Text += " (see steps " + strings.Join(words[:len(words)-1], ", ") + " and " + words[len(words)-1] + ")"
-		}
+		out[i].Sentence += " (" + stepRefs("see", refs) + ")"
 	}
 	return out
+}
+
+// evidenceLine is one piece of evidence as text: "tuple  object#relation@user
+// with cond (contextual, not stored)  (type#relation via restriction)" or
+// "rule   type#relation via branch".
+func evidenceLine(ev Evidence) string {
+	ref := ev.Ref.String()
+	if ev.Ref.Via != "" {
+		ref += " via " + ev.Ref.Via
+	}
+	if ev.Kind != EvidenceTuple {
+		return "rule   " + ref
+	}
+	t := ev.Tuple.Key()
+	if ev.Tuple.Condition != "" {
+		t += " with " + ev.Tuple.Condition
+	}
+	if ev.Tuple.Contextual {
+		t += " (contextual, not stored)"
+	}
+	return "tuple  " + t + "  (" + ref + ")"
+}
+
+// stepRefs names steps by number after a word: "from step 2", "see steps 1,
+// 3 and 4".
+func stepRefs(word string, refs []int) string {
+	words := make([]string, len(refs))
+	for i, k := range refs {
+		words[i] = strconv.Itoa(k)
+	}
+	if len(words) == 1 {
+		return word + " step " + words[0]
+	}
+	return word + " steps " + strings.Join(words[:len(words)-1], ", ") + " and " + words[len(words)-1]
 }

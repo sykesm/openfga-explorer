@@ -51,7 +51,7 @@ func TestLatency(t *testing.T) {
 		t.Skip("set LATENCY=1 (takes a while: every call is delayed 10ms)")
 	}
 	c, store := testStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	modelID, _ := c.LatestModelID(ctx, store)
 	pm, _ := c.Model(ctx, store, modelID)
 	m, _ := schema.Load(pm)
@@ -76,7 +76,7 @@ func TestLatency(t *testing.T) {
 				opt := trace.DefaultOptions()
 				opt.Parallel, opt.AllPaths = parallel, allPaths
 				start := time.Now()
-				tr, err := trace.Explain(ctx, api, m, nil, req, opt)
+				tr, err := trace.Walk(ctx, api, m, nil, req, opt)
 				if err != nil {
 					t.Fatal(err)
 				}

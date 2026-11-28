@@ -1,7 +1,6 @@
 package trace_test
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -19,7 +18,7 @@ import (
 // walker spent its whole call budget and answered "undecided".
 func TestNestedGroupTree(t *testing.T) {
 	srv := fgatest.Start(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	key := func(u, r, o string) *openfgav1.TupleKey { return &openfgav1.TupleKey{User: u, Relation: r, Object: o} }
 	// A tree of 255 groups, 8 levels deep: each group's members include two
 	// child groups' members. One user is a member of a single leaf group.
@@ -63,7 +62,7 @@ type doc
 		"user:u200":   trace.Allowed, // a leaf member, 7 levels down
 		"user:nobody": trace.Denied,
 	} {
-		tr, err := trace.Explain(ctx, c, m, nil, trace.Request{Store: st.ID, Model: st.Model, User: user, Relation: "viewer", Object: "doc:1"}, opt)
+		tr, err := trace.Walk(ctx, c, m, nil, trace.Request{Store: st.ID, Model: st.Model, User: user, Relation: "viewer", Object: "doc:1"}, opt)
 		if err != nil {
 			t.Fatal(err)
 		}

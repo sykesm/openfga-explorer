@@ -39,7 +39,7 @@ func TestLookaheadDoesNotChangeTheWalk(t *testing.T) {
 		opt.SetOrder(order)
 		opt.Verify = trace.VerifyNone
 		opt.MaxCalls, opt.Parallel = maxCalls, parallel
-		tr, err := trace.Explain(ctx, c, m, nil, req, opt)
+		tr, err := trace.Walk(ctx, c, m, nil, req, opt)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -1,7 +1,6 @@
 package trace_test
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -30,7 +29,7 @@ func TestGolden(t *testing.T) {
 		t.Fatal(err)
 	}
 	store := st.ID
-	ctx := context.Background()
+	ctx := t.Context()
 	modelID, err := c.LatestModelID(ctx, store)
 	if err != nil {
 		t.Fatal(err)
@@ -60,7 +59,7 @@ func TestGolden(t *testing.T) {
 			opt := trace.DefaultOptions()
 			opt.SetOrder(tc.order)
 			req := trace.Request{Store: store, Model: modelID, User: tc.user, Relation: tc.rel, Object: tc.obj, Context: rc}
-			tr, err := trace.Explain(ctx, c, m, nil, req, opt)
+			tr, err := trace.Walk(ctx, c, m, nil, req, opt)
 			if err != nil {
 				t.Fatal(err)
 			}

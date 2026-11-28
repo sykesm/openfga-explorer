@@ -240,7 +240,7 @@ func explain(ctx context.Context, engine *server.Server, sm *schema.Model, ev *c
 	opt := trace.DefaultOptions()
 	opt.Verify = trace.VerifyNone
 	opt.AllPaths = false
-	walk, err := trace.Explain(ctx, engine, sm, ev, trace.Request{Store: store, Model: modelID, User: res.User, Relation: res.Relation, Object: res.Object, Context: reqCtx}, opt)
+	walk, err := trace.Walk(ctx, engine, sm, ev, trace.Request{Store: store, Model: modelID, User: res.User, Relation: res.Relation, Object: res.Object, Context: reqCtx}, opt)
 	if err != nil {
 		return
 	}

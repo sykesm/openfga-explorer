@@ -1,7 +1,6 @@
 package trace_test
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -19,7 +18,7 @@ func TestAgainstServer(t *testing.T) {
 		t.Skip("compares thousands of checks; skipped with -short")
 	}
 	c, store := testStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	modelID, err := c.LatestModelID(ctx, store)
 	if err != nil {
 		t.Fatal(err)
@@ -52,11 +51,12 @@ func TestAgainstServer(t *testing.T) {
 		"narrow": func(o *trace.Options) { o.MaxFanout, o.ProbeLimit = 2, 1 },
 	}
 	for name, tweak := range budgets {
-		t.Run(name, func(t *testing.T) { compareAll(t, ctx, c, m, store, modelID, reqCtx, users, objects, tweak) })
+		t.Run(name, func(t *testing.T) { compareAll(t, c, m, store, modelID, reqCtx, users, objects, tweak) })
 	}
 }
 
-func compareAll(t *testing.T, ctx context.Context, c *fga.Client, m *schema.Model, store, modelID string, reqCtx *structpb.Struct, users, objects []string, tweak func(*trace.Options)) {
+func compareAll(t *testing.T, c *fga.Client, m *schema.Model, store, modelID string, reqCtx *structpb.Struct, users, objects []string, tweak func(*trace.Options)) {
+	ctx := t.Context()
 	var checked, unknown, mismatched int
 	for _, obj := range objects {
 		typ, _, _ := schema.SplitObject(obj)
@@ -66,7 +66,7 @@ func compareAll(t *testing.T, ctx context.Context, c *fga.Client, m *schema.Mode
 				opt := trace.DefaultOptions()
 				opt.Verify = trace.VerifyNone
 				tweak(&opt)
-				tr, err := trace.Explain(ctx, c, m, nil, req, opt)
+				tr, err := trace.Walk(ctx, c, m, nil, req, opt)
 				if err != nil {
 					t.Fatalf("%s %s %s: %v", u, rel, obj, err)
 				}
@@ -109,7 +109,7 @@ func compareAll(t *testing.T, ctx context.Context, c *fga.Client, m *schema.Mode
 // (unreachable from the user type) are never allowed by the server.
 func TestReachabilityIsSound(t *testing.T) {
 	c, store := testStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	modelID, err := c.LatestModelID(ctx, store)
 	if err != nil {
 		t.Fatal(err)
