@@ -198,4 +198,3 @@ func relModule(m *schema.Model, typ, rel string) string {
 	}
 	return src
 }
-

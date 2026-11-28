@@ -353,61 +353,10 @@ func (s *Server) handleCheckRun(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	pick := func(field string) string {
-		if val := strings.TrimSpace(r.PostForm.Get(field)); val != "" {
-			return val
-		}
-		sel, typed := r.PostForm.Get(field+"_type"), strings.TrimSpace(r.PostForm.Get(field+"_q"))
-		if sel == "" || typed == "" {
-			return ""
-		}
-		typ, suffix := sel, ""
-		if i := strings.IndexByte(sel, '#'); i >= 0 {
-			typ, suffix = sel[:i], sel[i:]
-		}
-		typed = strings.TrimPrefix(typed, typ+":")
-		return typ + ":" + s.rule(typ).Normalize(typed) + suffix
-	}
-	req := trace.Request{
-		Store: v.StoreID, Model: v.ModelID,
-		User: pick("user"), Relation: r.PostForm.Get("relation"), Object: pick("object"),
-	}
-	if req.User == "" || req.Relation == "" || req.Object == "" {
-		s.fail(w, r, http.StatusBadRequest, errors.New("user, relation, and object are required"))
-		return
-	}
-	ctxText := strings.TrimSpace(r.PostForm.Get("context"))
-	if req.Context, err = trace.ParseContext(ctxText); err != nil {
+	run, err := s.parseCheckRun(r.PostForm, v.StoreID, v.ModelID)
+	if err != nil {
 		s.fail(w, r, http.StatusBadRequest, err)
 		return
-	}
-	ctText := r.PostForm.Get("contextual")
-	if req.Contextual, err = parseContextual(ctText); err != nil {
-		s.fail(w, r, http.StatusBadRequest, err)
-		return
-	}
-	if r.PostForm.Get("consistency") == "higher" {
-		req.Consistency = openfgav1.ConsistencyPreference_HIGHER_CONSISTENCY
-	}
-	opt := s.cfg.Trace.Options()
-	if n, err := strconv.Atoi(r.PostForm.Get("max_calls")); err == nil && n > 0 {
-		opt.MaxCalls = min(n, config.MaxTraceCalls)
-	}
-	if n, err := strconv.Atoi(r.PostForm.Get("max_fanout")); err == nil && n > 0 {
-		opt.MaxFanout = min(n, config.MaxTraceFanout)
-	}
-	if n, err := strconv.Atoi(r.PostForm.Get("probe_limit")); err == nil && n > 0 {
-		opt.ProbeLimit = min(n, config.MaxTraceProbes)
-	}
-	order := orderParam(r.PostForm.Get("order"), r.PostForm.Get("all_paths"))
-	opt.SetOrder(order)
-	switch r.PostForm.Get("verify") {
-	case "none":
-		opt.Verify = trace.VerifyNone
-	case "root":
-		opt.Verify = trace.VerifyRoot
-	default:
-		opt.Verify = trace.VerifyAll
 	}
 
 	release, ok := acquire(r.Context(), s.traceSem)
@@ -421,9 +370,10 @@ func (s *Server) handleCheckRun(w http.ResponseWriter, r *http.Request) {
 	if id := r.PostForm.Get("run_id"); validRunID(id) {
 		st := s.progress.start(id)
 		defer s.progress.finish(id)
-		opt.Progress = st.update
+		run.opt.Progress = st.update
 	}
-	tr, err := trace.Walk(r.Context(), s.walkAPI, me.m, me.ev, req, opt)
+	req := run.req
+	tr, err := trace.Walk(r.Context(), s.walkAPI, me.m, me.ev, req, run.opt)
 	if err != nil {
 		s.fail(w, r, http.StatusBadRequest, err)
 		return
@@ -434,33 +384,155 @@ func (s *Server) handleCheckRun(w http.ResponseWriter, r *http.Request) {
 	s.log.Info("trace", "identity", v.User.Name, "store", v.StoreID, "user", req.User, "relation", req.Relation, "object", req.Object,
 		"decision", tr.Decision(), "calls", tr.Calls, "tuples_read", tr.TuplesRead, "tuples_cached", tr.TuplesCached, "verify_calls", tr.VerifyCalls, "mismatches", tr.Mismatches, "duration", tr.Duration)
 
-	link := v.Base + "/check?" + string(queryOf(map[string]string{
-		"user": req.User, "relation": req.Relation, "object": req.Object, "context": ctxText, "contextual": ctText,
-		"order": order, "verify": r.PostForm.Get("verify"), "consistency": r.PostForm.Get("consistency"),
-		"max_calls": r.PostForm.Get("max_calls"), "max_fanout": r.PostForm.Get("max_fanout"), "probe_limit": r.PostForm.Get("probe_limit"),
-	}))
-	w.Header().Set("HX-Push-Url", link)
+	res := s.checkResult(tr, run, me.m, v.Base)
+	w.Header().Set("HX-Push-Url", res.Link)
+	v.Data = res
+	s.render(w, "check-result", v)
+}
+
+// checkRun is a parsed check form: the walk to run, and what the result
+// echoes back (the context as typed, and the form's settings for the link).
+type checkRun struct {
+	req trace.Request
+	opt trace.Options
+	// order is the normalized walk order (orderParam).
+	order string
+	// context and contextual are the request's context and contextual tuples
+	// as typed.
+	context, contextual string
+	// settings are the form's raw walk settings, for the result's link.
+	settings url.Values
+}
+
+// checkSettings are the form fields that tune a walk without changing the
+// question; the result's link carries them so a shared link reruns the same
+// walk.
+var checkSettings = []string{"verify", "consistency", "max_calls", "max_fanout", "probe_limit"}
+
+// parseCheckRun reads the check form. Every error is the form's fault.
+func (s *Server) parseCheckRun(form url.Values, store, model string) (checkRun, error) {
+	run := checkRun{
+		req: trace.Request{
+			Store: store, Model: model,
+			User: s.pickedID(form, "user"), Relation: form.Get("relation"), Object: s.pickedID(form, "object"),
+		},
+		context:    strings.TrimSpace(form.Get("context")),
+		contextual: form.Get("contextual"),
+		order:      orderParam(form.Get("order"), form.Get("all_paths")),
+		settings:   url.Values{},
+	}
+	if run.req.User == "" || run.req.Relation == "" || run.req.Object == "" {
+		return run, errors.New("user, relation, and object are required")
+	}
+	var err error
+	if run.req.Context, err = trace.ParseContext(run.context); err != nil {
+		return run, err
+	}
+	if run.req.Contextual, err = parseContextual(run.contextual); err != nil {
+		return run, err
+	}
+	for _, k := range checkSettings {
+		run.settings.Set(k, form.Get(k))
+	}
+	if form.Get("consistency") == "higher" {
+		run.req.Consistency = openfgav1.ConsistencyPreference_HIGHER_CONSISTENCY
+	}
+
+	run.opt = s.cfg.Trace.Options()
+	limit := func(field string, dst *int, most int) {
+		if n, err := strconv.Atoi(form.Get(field)); err == nil && n > 0 {
+			*dst = min(n, most)
+		}
+	}
+	limit("max_calls", &run.opt.MaxCalls, config.MaxTraceCalls)
+	limit("max_fanout", &run.opt.MaxFanout, config.MaxTraceFanout)
+	limit("probe_limit", &run.opt.ProbeLimit, config.MaxTraceProbes)
+	run.opt.SetOrder(run.order)
+	switch form.Get("verify") {
+	case "none":
+		run.opt.Verify = trace.VerifyNone
+	case "root":
+		run.opt.Verify = trace.VerifyRoot
+	default:
+		run.opt.Verify = trace.VerifyAll
+	}
+	return run, nil
+}
+
+// pickedID reads a picker field: the full ID when one was chosen, otherwise
+// the selected type (or userset) and the typed ID, normalized for the type.
+func (s *Server) pickedID(form url.Values, field string) string {
+	if val := strings.TrimSpace(form.Get(field)); val != "" {
+		return val
+	}
+	sel, typed := form.Get(field+"_type"), strings.TrimSpace(form.Get(field+"_q"))
+	if sel == "" || typed == "" {
+		return ""
+	}
+	typ, suffix := sel, ""
+	if i := strings.IndexByte(sel, '#'); i >= 0 {
+		typ, suffix = sel[:i], sel[i:]
+	}
+	typed = strings.TrimPrefix(typed, typ+":")
+	return typ + ":" + s.rule(typ).Normalize(typed) + suffix
+}
+
+// link is the check page URL that reruns this check with the same settings.
+func (run checkRun) link(base string) string {
+	q := map[string]string{
+		"user": run.req.User, "relation": run.req.Relation, "object": run.req.Object,
+		"context": run.context, "contextual": run.contextual, "order": run.order,
+	}
+	for k := range run.settings {
+		q[k] = run.settings.Get(k)
+	}
+	return base + "/check?" + queryOf(q)
+}
+
+// checkResult assembles what the result template shows from a finished walk.
+func (s *Server) checkResult(tr *trace.Trace, run checkRun, m *schema.Model, base string) *checkResult {
+	req := run.req
 	graph := tr.Graph()
-	links := traceLinks{base: v.Base, user: req.User, context: ctxText, contextual: ctText}
-	addNodeDetails(tr, graph, links, me.m)
+	links := traceLinks{base: base, user: req.User, context: run.context, contextual: run.contextual}
+	addNodeDetails(tr, graph, links, m)
 	gaps := tr.Gaps()
 	ex := tr.Explanation(s.displayObject)
-	v.Data = &checkResult{Trace: tr, CacheTTL: walkCacheTTL, Lines: tr.Lines(), Graph: graph, Decision: tr.Decision(), Walker: tr.Root.Outcome, Link: link, Context: ctxText, Contextual: ctText, Grants: tr.GrantingTuples(), Gaps: gaps,
-		Explanation: ex, Why: whySteps(ex.Steps, me.m, links), WhyDown: whyDown(ex.Down(), me.m, links), WhyFlat: whyFlat(ex.DownFlat(), me.m, links), Text: tr.Text(),
-		Summary: checkSummary(req.User, req.Relation, req.Object, ctxText), Done: doneTexts(tr.Decision(), order, len(gaps) == 0), Order: order}
+	res := &checkResult{
+		Order:    run.order,
+		CacheTTL: walkCacheTTL,
+		Trace:    tr,
+		Lines:    tr.Lines(),
+		Graph:    graph,
+		Decision: tr.Decision(),
+		Walker:   tr.Root.Outcome,
+		Link:     run.link(base),
+
+		Context:    run.context,
+		Contextual: run.contextual,
+		Grants:     tr.GrantingTuples(),
+		Gaps:       gaps,
+
+		Explanation: ex,
+		Text:        tr.Text(),
+		Why:         whySteps(ex.Steps, m, links),
+		WhyDown:     whyDown(ex.Down(), m, links),
+		WhyFlat:     whyFlat(ex.DownFlat(), m, links),
+
+		Summary: checkSummary(req.User, req.Relation, req.Object, run.context),
+		Done:    doneTexts(tr.Decision(), run.order, len(gaps) == 0),
+	}
 	if subj, err := schema.ParseSubject(req.User); err == nil {
-		res := v.Data.(*checkResult)
 		res.UserType = subj.Type
 		if subj.Relation != "" {
 			res.UserType += "#" + subj.Relation
 		}
 		if typ, _, ok := schema.SplitObject(req.Object); ok {
-			if rel, ok := me.m.Relation(typ, req.Relation); ok {
-				res.Holders = me.m.SubjectTypes(rel)
+			if rel, ok := m.Relation(typ, req.Relation); ok {
+				res.Holders = m.SubjectTypes(rel)
 			}
 		}
 	}
-	s.render(w, "check-result", v)
+	return res
 }
 
 // queryOf encodes the non-empty values as a query string (keys sorted, as

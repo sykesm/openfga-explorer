@@ -1,6 +1,59 @@
 package web
 
-import "testing"
+import (
+	"net/url"
+	"testing"
+
+	openfgav1 "github.com/openfga/api/proto/openfga/v1"
+	"github.com/sykesm/openfga-explorer/internal/config"
+	"github.com/sykesm/openfga-explorer/internal/ids"
+	"github.com/sykesm/openfga-explorer/internal/trace"
+)
+
+func TestParseCheckRun(t *testing.T) {
+	cfg := config.Default()
+	cfg.Types = ids.Rules{"user": {Case: "lower"}}
+	s := &Server{cfg: cfg}
+	run, err := s.parseCheckRun(url.Values{
+		// A typed ID with its type chosen in the picker is normalized for the type.
+		"user_type": {"user"}, "user_q": {"user:ANNE"},
+		"relation": {"viewer"}, "object": {"document:1"},
+		"context":     {` {"x": 1} `},
+		"consistency": {"higher"}, "verify": {"root"}, "order": {trace.OrderModel},
+		"max_calls": {"999999"}, "max_fanout": {"7"}, "probe_limit": {"-3"},
+	}, "store", "model")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if run.req.User != "user:anne" || run.req.Store != "store" || run.req.Model != "model" {
+		t.Errorf("request: %+v", run.req)
+	}
+	if run.req.Consistency != openfgav1.ConsistencyPreference_HIGHER_CONSISTENCY || run.opt.Verify != trace.VerifyRoot {
+		t.Errorf("consistency %v, verify %v", run.req.Consistency, run.opt.Verify)
+	}
+	def := cfg.Trace.Options()
+	if run.opt.MaxCalls != config.MaxTraceCalls || run.opt.MaxFanout != 7 || run.opt.ProbeLimit != def.ProbeLimit {
+		t.Errorf("limits: calls %d, fanout %d, probes %d (default %d)", run.opt.MaxCalls, run.opt.MaxFanout, run.opt.ProbeLimit, def.ProbeLimit)
+	}
+	// The link reruns the same check: the context as typed (trimmed), the
+	// normalized order, and the raw settings; empty fields are left out.
+	want := "/s/check?consistency=higher&context=%7B%22x%22%3A+1%7D&max_calls=999999&max_fanout=7&object=document%3A1&order=" +
+		trace.OrderModel + "&probe_limit=-3&relation=viewer&user=user%3Aanne&verify=root"
+	if got := run.link("/s"); got != want {
+		t.Errorf("link\n got %s\nwant %s", got, want)
+	}
+
+	for name, form := range map[string]url.Values{
+		"missing object":  {"user": {"user:anne"}, "relation": {"viewer"}},
+		"bad context":     {"user": {"user:anne"}, "relation": {"viewer"}, "object": {"document:1"}, "context": {"{"}},
+		"bad contextual":  {"user": {"user:anne"}, "relation": {"viewer"}, "object": {"document:1"}, "contextual": {"only two"}},
+		"type, no typing": {"user_type": {"user"}, "relation": {"viewer"}, "object": {"document:1"}},
+	} {
+		if _, err := s.parseCheckRun(form, "store", "model"); err == nil {
+			t.Errorf("%s: expected an error", name)
+		}
+	}
+}
 
 func TestParseContextual(t *testing.T) {
 	ks, err := parseContextual("user:anne viewer doc:1\n# comment\n\nuser:bob viewer doc:2 grant {\"grant_duration\":\"1h\"}")
