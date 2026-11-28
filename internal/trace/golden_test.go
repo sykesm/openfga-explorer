@@ -93,6 +93,9 @@ func render(tr *trace.Trace) string {
 	ex := tr.Explanation(nil)
 	fmt.Fprintf(&b, "decision: %s (walker %s)\n%s\n", tr.Decision(), tr.Root.Outcome, ex.Headline)
 	b.WriteString(ex.Format())
+	if ex.Steps != nil {
+		b.WriteString("top-down:\n" + ex.FormatDown())
+	}
 	fmt.Fprintf(&b, "gaps: %q\nguided skips: %d\ngroups ruled out: %d\n\n%s\n", tr.Gaps(), tr.GuidedSkips, tr.GroupsRuledOut, tr.Text())
 	g := tr.Graph()
 	var path []string

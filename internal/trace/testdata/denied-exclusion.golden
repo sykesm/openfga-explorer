@@ -5,6 +5,12 @@ Denied: user:mallory does not have can_view on document:doc-0004 — they are ex
   2. so user:mallory has “blocked from org” on document:doc-0004, through blocked on its org organization:acme
        tuple  document:doc-0004#org@organization:acme  (document#org via organization)
        rule   document#can_view via blocked from org
+top-down:
+  - user:mallory has “blocked from org” on document:doc-0004, through blocked on its org organization:acme
+      tuple  document:doc-0004#org@organization:acme  (document#org via organization)
+      rule   document#can_view via blocked from org
+    - user:mallory has blocked on organization:acme
+        tuple  organization:acme#blocked@user:mallory  (organization#blocked via user)
 gaps: []
 guided skips: 2
 groups ruled out: 0

@@ -81,10 +81,15 @@
   <h2 class="big">{{if eq .Decision "allowed"}}✓ Allowed{{else if eq .Decision "denied"}}✗ Denied{{else}}? Undecided{{end}}</h2>
   <p class="headline">{{trimVerdict .Explanation.Headline}}</p>
   <p class="jump sm">Jump to <a href="#trace-graph">graph</a> · <a href="#inspector">details</a></p>
-  {{with .Explanation}}{{if .Steps}}<details class="facts"><summary>Why: {{.Summary}}</summary><ol class="steps">{{range $.Data.Why}}<li class="step{{if .Reason}} reason{{end}}"><span class="ft">{{.Text}}</span>
-    {{- with .Evidence}}<ul class="evidence">{{range .}}<li class="ev ev-{{.Kind}}" data-kind="{{.Kind}}"><span class="fk k-{{.Kind}}" title="{{if eq .Kind "tuple"}}{{if .Tuple.Contextual}}Tuple: sent with this check as a contextual tuple, not stored{{else}}Tuple: a relationship stored in OpenFGA{{end}}{{else}}Rule: part of the model, the definition of a relation{{end}}">{{.Kind}}</span><span class="evbody">
-      {{- if eq .Kind "tuple"}}<code class="tup" title="The tuple as stored (object#relation@user), IDs unchanged">{{.TupleText}}</code>{{with .Tuple.Condition}} <span class="fl">with condition</span> <code class="tup">{{.}}</code>{{end}}{{if .Tuple.Contextual}} <span class="fl">contextual, not stored</span>{{end}}{{end}}
-      {{- if .Rel}}<span class="fref"><a href="{{.Href}}" title="{{.Ref.Relation}} on {{display .Ref.Object}} in Explore">{{.Rel}}</a>{{if .ShowDef}} <code title="{{.Rel}} = {{.Def}}">= {{.Pre}}{{with .Hit}}<b>{{.}}</b>{{end}}{{.Post}}</code>{{end}}{{with .Module}} <span class="fmod" title="module that defines it">{{.}}</span>{{end}}</span>{{end}}</span></li>{{end}}</ul>{{end}}</li>{{end}}</ol></details>{{end}}{{end}}
+  {{with .Explanation}}{{if .Steps}}<details class="facts"><summary>Why: {{.Summary}}</summary>
+    <div class="seg reading-seg" role="group" aria-label="Read the steps">
+      <button type="button" class="sm" data-act="reading" data-reading="up" aria-pressed="true" title="From the user up to the object: each step builds on the ones before">User → object</button>
+      <button type="button" class="sm" data-act="reading" data-reading="down" aria-pressed="false" title="From the object down to the user, the way the walk reasons: each step, then what it rests on, nested">Object → user (nested)</button>
+      <button type="button" class="sm" data-act="reading" data-reading="flat" aria-pressed="false" title="From the object down to the user, as a numbered list: each step says which steps it rests on">Object → user (numbered)</button>
+    </div>
+    <ol class="steps" data-reading="up">{{range $.Data.Why}}<li class="step{{if .Reason}} reason{{end}}"><span class="ft">{{.Text}}</span>{{template "why-ev" .Evidence}}</li>{{end}}</ol>
+    <ul class="steps steps-down" data-reading="down" hidden>{{template "why-down" $.Data.WhyDown}}</ul>
+    <ol class="steps" data-reading="flat" hidden>{{range $.Data.WhyFlat}}<li class="step{{if .Reason}} reason{{end}}"><span class="ft">{{.Text}}</span>{{template "why-ev" .Evidence}}</li>{{end}}</ol></details>{{end}}{{end}}
   <div class="vgroups">
   <div class="vrow" role="group" aria-labelledby="vl-result">
     <span class="vlabel" id="vl-result">Result</span>
@@ -204,3 +209,12 @@
 
 {{/* A "?" button that shows an option's help (#h-ID) under the options. */}}
 {{define "opt-q"}}<button type="button" class="opt-q" data-act="opt-help" aria-controls="h-{{.ID}}" aria-expanded="false" aria-label="What is “{{.Name}}”?" title="What is “{{.Name}}”?">?</button>{{end}}
+
+{{/* The evidence under a "Why" step: one row per tuple or rule. */}}
+{{define "why-ev"}}{{with .}}<ul class="evidence">{{range .}}<li class="ev ev-{{.Kind}}" data-kind="{{.Kind}}"><span class="fk k-{{.Kind}}" title="{{if eq .Kind "tuple"}}{{if .Tuple.Contextual}}Tuple: sent with this check as a contextual tuple, not stored{{else}}Tuple: a relationship stored in OpenFGA{{end}}{{else}}Rule: part of the model, the definition of a relation{{end}}">{{.Kind}}</span><span class="evbody">
+  {{- if eq .Kind "tuple"}}<code class="tup" title="The tuple as stored (object#relation@user), IDs unchanged">{{.TupleText}}</code>{{with .Tuple.Condition}} <span class="fl">with condition</span> <code class="tup">{{.}}</code>{{end}}{{if .Tuple.Contextual}} <span class="fl">contextual, not stored</span>{{end}}{{end}}
+  {{- if .Rel}}<span class="fref"><a href="{{.Href}}" title="{{.Ref.Relation}} on {{display .Ref.Object}} in Explore">{{.Rel}}</a>{{if .ShowDef}} <code title="{{.Rel}} = {{.Def}}">= {{.Pre}}{{with .Hit}}<b>{{.}}</b>{{end}}{{.Post}}</code>{{end}}{{with .Module}} <span class="fmod" title="module that defines it">{{.}}</span>{{end}}</span>{{end}}</span></li>{{end}}</ul>{{end}}{{end}}
+
+{{/* The top-down reading: each step, its evidence, then the steps it rests on, nested. */}}
+{{define "why-down"}}{{range .}}<li class="step{{if .Reason}} reason{{end}}{{if .Repeat}} repeat{{end}}"><span class="ft">{{.Text}}{{if .Repeat}} <span class="muted">(see above)</span>{{end}}</span>
+  {{- if not .Repeat}}{{template "why-ev" .Evidence}}{{with .Under}}<ul class="steps-down">{{template "why-down" .}}</ul>{{end}}{{end}}</li>{{end}}{{end}}

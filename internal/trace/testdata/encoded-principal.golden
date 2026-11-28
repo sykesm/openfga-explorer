@@ -21,6 +21,29 @@ Allowed: principal:SVC%3ABUILD%23CI has can_view on document:doc-0001 — can_vi
        rule   document#can_view
   9. so principal:SVC%3ABUILD%23CI has can_view on document:doc-0001: they do not have “blocked from org”, so “but not blocked from org” does not apply
        rule   document#can_view via but not blocked from org
+top-down:
+  - principal:SVC%3ABUILD%23CI has can_view on document:doc-0001: they do not have “blocked from org”, so “but not blocked from org” does not apply
+      rule   document#can_view via but not blocked from org
+    - principal:SVC%3ABUILD%23CI has viewer and “member from org” on document:doc-0001
+        rule   document#can_view
+      - principal:SVC%3ABUILD%23CI has viewer on document:doc-0001, through viewer on its parent folder:engineering
+          tuple  document:doc-0001#parent@folder:engineering  (document#parent via folder)
+          rule   document#viewer via viewer from parent
+        - principal:SVC%3ABUILD%23CI has viewer on folder:engineering, through viewer on its parent folder:root
+            tuple  folder:engineering#parent@folder:root  (folder#parent via folder)
+            rule   folder#viewer via viewer from parent
+          - principal:SVC%3ABUILD%23CI has viewer on folder:root, granted to group:eng#member
+              tuple  folder:root#viewer@group:eng#member  (folder#viewer via group#member)
+            - principal:SVC%3ABUILD%23CI has member on group:eng, granted to group:platform#member
+                tuple  group:eng#member@group:platform#member  (group#member via group#member)
+              - principal:SVC%3ABUILD%23CI has member on group:platform
+                  tuple  group:platform#member@principal:SVC%3ABUILD%23CI  (group#member via principal)
+      - principal:SVC%3ABUILD%23CI has “member from org” on document:doc-0001, through member on its org organization:acme
+          tuple  document:doc-0001#org@organization:acme  (document#org via organization)
+          rule   document#can_view via member from org
+        - principal:SVC%3ABUILD%23CI has member on organization:acme, granted to group:eng#member
+            tuple  organization:acme#member@group:eng#member  (organization#member via group#member)
+          - principal:SVC%3ABUILD%23CI has member on group:eng, granted to group:platform#member (see above)
 gaps: []
 guided skips: 4
 groups ruled out: 0

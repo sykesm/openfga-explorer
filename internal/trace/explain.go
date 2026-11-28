@@ -26,6 +26,8 @@ type WhyStep struct {
 	Evidence []Evidence
 	// from holds the text of the steps this one builds on (see cite).
 	from []string
+	// base is Text before cite added "(from step N)".
+	base string
 }
 
 func (s WhyStep) String() string { return s.Text }
@@ -561,6 +563,7 @@ func (x *explainer) after(c *Node, steps []WhyStep, s WhyStep) []WhyStep {
 func cite(steps []WhyStep) []WhyStep {
 	num := map[string]int{}
 	for i := range steps {
+		steps[i].base = steps[i].Text
 		var refs []int
 		other := false
 		for _, f := range steps[i].from {
@@ -585,4 +588,137 @@ func cite(steps []WhyStep) []WhyStep {
 		}
 	}
 	return steps
+}
+
+// DownStep is a step in the top-down reading of an explanation (from the
+// object to the user): the step, and under it the steps it builds on.
+type DownStep struct {
+	WhyStep
+	// Text is the step's sentence for this reading.
+	Text string
+	// Repeat marks a step already shown higher up; it is named, not expanded.
+	Repeat bool
+	Under  []DownStep
+}
+
+// Down is the top-down reading of the steps (the way the walk reasons): the
+// conclusion first, each step's supporting steps under it. Reasons, which
+// nothing builds on, are roots of their own. The other reading of Steps.
+func (e Explanation) Down() []DownStep {
+	byText := map[string]int{}
+	used := map[int]bool{}
+	for i, s := range e.Steps {
+		byText[s.base] = i
+	}
+	for _, s := range e.Steps {
+		for _, f := range s.from {
+			if k, ok := byText[f]; ok {
+				used[k] = true
+			}
+		}
+	}
+	shown := map[int]bool{}
+	var build func(i int) DownStep
+	build = func(i int) DownStep {
+		s := e.Steps[i]
+		d := DownStep{WhyStep: s, Text: strings.TrimPrefix(s.base, "so ")}
+		if shown[i] {
+			d.Repeat = true
+			return d
+		}
+		shown[i] = true
+		for _, f := range s.from {
+			if k, ok := byText[f]; ok {
+				d.Under = append(d.Under, build(k))
+			}
+		}
+		return d
+	}
+	var out []DownStep
+	for i := len(e.Steps) - 1; i >= 0; i-- {
+		if !used[i] {
+			out = append(out, build(i))
+		}
+	}
+	return out
+}
+
+// FormatDown writes Down as indented text, like Format.
+func (e Explanation) FormatDown() string {
+	var b strings.Builder
+	var write func(d DownStep, depth int)
+	write = func(d DownStep, depth int) {
+		pad := strings.Repeat("  ", depth)
+		if d.Repeat {
+			fmt.Fprintf(&b, "  %s- %s (see above)\n", pad, d.Text)
+			return
+		}
+		mark := "-"
+		if d.Reason {
+			mark = "✗"
+		}
+		fmt.Fprintf(&b, "  %s%s %s\n", pad, mark, d.Text)
+		for _, ev := range d.Evidence {
+			ref := ev.Ref.String()
+			if ev.Ref.Via != "" {
+				ref += " via " + ev.Ref.Via
+			}
+			if ev.Kind == EvidenceTuple {
+				fmt.Fprintf(&b, "  %s    tuple  %s#%s@%s  (%s)\n", pad, ev.Tuple.Object, ev.Tuple.Relation, ev.Tuple.User, ref)
+			} else {
+				fmt.Fprintf(&b, "  %s    rule   %s\n", pad, ref)
+			}
+		}
+		for _, u := range d.Under {
+			write(u, depth+1)
+		}
+	}
+	for _, d := range e.Down() {
+		write(d, 0)
+	}
+	return b.String()
+}
+
+// DownFlat is the top-down reading as a numbered list instead of a tree: the
+// steps in the same order as Down, each listed once, and a step whose
+// supporting steps are not simply the next one says which they are
+// ("(because of steps 3 and 7)").
+func (e Explanation) DownFlat() []DownStep {
+	var out []DownStep
+	num := map[string]int{} // base text → number in out
+	var add func(d DownStep)
+	add = func(d DownStep) {
+		if d.Repeat {
+			return
+		}
+		out = append(out, d)
+		num[d.base] = len(out)
+		for _, u := range d.Under {
+			add(u)
+		}
+	}
+	for _, d := range e.Down() {
+		add(d)
+	}
+	for i := range out {
+		var refs []int
+		for _, u := range out[i].Under {
+			if k, ok := num[u.base]; ok {
+				refs = append(refs, k)
+			}
+		}
+		if len(refs) == 0 || (len(refs) == 1 && refs[0] == i+2) {
+			continue
+		}
+		words := make([]string, len(refs))
+		for j, k := range refs {
+			words[j] = strconv.Itoa(k)
+		}
+		if len(words) == 1 {
+			out[i].Text += " (because of step " + words[0] + ")"
+		} else {
+			out[i].Text += " (because of steps " + strings.Join(words[:len(words)-1], ", ") + " and " + words[len(words)-1] + ")"
+		}
+	}
+	return out
 }

@@ -1787,18 +1787,18 @@ func TestBrowserCheckWhyKinds(t *testing.T) {
 	if m == nil {
 		t.Fatalf("summary %q does not count steps and tuples", sum)
 	}
-	counts := eval[string](b, `document.querySelectorAll('.facts li.step').length + ' ' +
-		new Set([...document.querySelectorAll('.facts .ev-tuple code.tup')].map((c) => c.textContent)).size`)
+	counts := eval[string](b, `document.querySelectorAll('.facts ol.steps[data-reading="up"] > li.step').length + ' ' +
+		new Set([...document.querySelectorAll('.facts ol.steps[data-reading="up"] .ev-tuple code.tup')].map((c) => c.textContent)).size`)
 	if counts != m[1]+" "+m[2] {
 		t.Errorf("summary %q, list has %s (steps tuples)", sum, counts)
 	}
-	steps := eval[[]string](b, `[...document.querySelectorAll('.facts li.step > .ft')].map((e) => e.textContent)`)
+	steps := eval[[]string](b, `[...document.querySelectorAll('.facts ol.steps[data-reading="up"] > li.step > .ft')].map((e) => e.textContent)`)
 	if len(steps) < 2 || steps[0] != "user:eng-002 has member on group:eng" || !strings.Contains(steps[len(steps)-1], "has can_view on document:doc-0007") {
 		t.Errorf("steps do not run from the user to the object: %q", steps)
 	}
 	// step finds the step whose text matches, and runs expr on it (as s).
 	step := func(re, expr string) string {
-		return eval[string](b, `(() => { const s = [...document.querySelectorAll('.facts li.step')]
+		return eval[string](b, `(() => { const s = [...document.querySelectorAll('.facts ol.steps[data-reading="up"] > li.step')]
 			.find((l) => new RegExp(`+"`"+re+"`"+`).test(l.querySelector('.ft').textContent));
 			return s ? String(`+expr+`) : 'no step'; })()`)
 	}
@@ -1823,18 +1823,30 @@ func TestBrowserCheckWhyKinds(t *testing.T) {
 	}
 	// Every piece of evidence links to its relation in Explore, and every
 	// chip explains its kind.
-	if n := eval[int](b, `[...document.querySelectorAll('.facts .ev')].filter((e) => !e.querySelector('.fref a[href*="/explore?"]') || !e.querySelector('.fk[title]')).length`); n != 0 {
+	if n := eval[int](b, `[...document.querySelectorAll('.facts ol.steps[data-reading="up"] .ev')].filter((e) => !e.querySelector('.fref a[href*="/explore?"]') || !e.querySelector('.fk[title]')).length`); n != 0 {
 		t.Errorf("%d pieces of evidence without a link or chip tooltip", n)
 	}
 	// The step is what you read; the evidence is smaller.
-	if !eval[bool](b, `parseFloat(getComputedStyle(document.querySelector('.facts li.step > .ft')).fontSize) > parseFloat(getComputedStyle(document.querySelector('.facts .ev')).fontSize)`) {
+	if !eval[bool](b, `parseFloat(getComputedStyle(document.querySelector('.facts ol.steps[data-reading="up"] > li.step > .ft')).fontSize) > parseFloat(getComputedStyle(document.querySelector('.facts ol.steps[data-reading="up"] .ev')).fontSize)`) {
 		t.Error("the evidence should be smaller than its step")
 	}
 	// Every kind's chip is the same width.
-	widths := eval[string](b, `[...new Set([...document.querySelectorAll('.facts .fk')].map((e) => e.getBoundingClientRect().width.toFixed(1)))].join(' ')`)
+	widths := eval[string](b, `[...new Set([...document.querySelectorAll('.facts ol.steps[data-reading="up"] .fk')].map((e) => e.getBoundingClientRect().width.toFixed(1)))].join(' ')`)
 	if strings.Contains(widths, " ") || widths == "0.0" {
 		t.Errorf("chips differ in width: %q", widths)
 	}
+	// The other reading: from the object down to the user, nested; the choice
+	// is remembered.
+	b.run(chromedp.Click(`.reading-seg [data-reading="down"]`, chromedp.ByQuery))
+	down := eval[string](b, `[document.querySelector('.facts ol.steps[data-reading="up"]').hidden, document.querySelector('.facts ul.steps-down').hidden,
+		document.querySelector('.facts ul.steps-down > li > .ft').textContent,
+		document.querySelector('.facts ul.steps-down > li > ul.steps-down > li > .ft')?.textContent].join(' | ')`)
+	if down != "true | false | user:eng-002 has can_view on document:doc-0007: they do not have “blocked from org”, so “but not blocked from org” does not apply | user:eng-002 has viewer and “member from org” on document:doc-0007" {
+		t.Errorf("object-to-user reading: %q", down)
+	}
+	b.open(`~/check?user=user:eng-002&relation=can_view&object=document:doc-0007&context=` +
+		`%7B%22current_time%22%3A%222026-11-24T12%3A00%3A00Z%22%2C%22user_ip%22%3A%2210.1.2.3%22%7D`)
+	b.waitFor("remembered reading", `document.querySelector('.facts ul.steps-down')?.hidden === false && document.querySelector('.facts ol.steps[data-reading="up"]').hidden`)
 	b.checkClean("why kinds")
 }
 

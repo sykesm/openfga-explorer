@@ -158,6 +158,7 @@ func runTrace(args []string, out io.Writer) error {
 	order := fs.String("order", "guided", "evaluation order: guided (shortest explanation), model (model order), all (every path)")
 	maxCalls := fs.Int("max-calls", 0, "call budget (default from config)")
 	asJSON := fs.Bool("json", false, "print the trace graph as JSON")
+	reading := fs.String("explain", "up", "how to read the explanation: up (user to object) or down (object to user)")
 	cfg, err := loadConfig(fs, args)
 	if err != nil {
 		return err
@@ -221,7 +222,11 @@ func runTrace(args []string, out io.Writer) error {
 	ex := tr.Explanation(nil)
 	fmt.Fprintln(out)
 	fmt.Fprintln(out, ex.Headline)
-	fmt.Fprint(out, ex.Format())
+	if *reading == "down" {
+		fmt.Fprint(out, ex.FormatDown())
+	} else {
+		fmt.Fprint(out, ex.Format())
+	}
 	fmt.Fprintf(out, "\n%s (walker: %s) · %d tuples read · %d walk + %d verify calls · %v", tr.Decision(), tr.Root.Outcome, tr.TuplesRead, tr.Calls, tr.VerifyCalls, tr.Duration.Round(time.Millisecond))
 	if tr.Mismatches > 0 {
 		fmt.Fprintf(out, " · %d MISMATCHES", tr.Mismatches)

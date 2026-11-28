@@ -263,7 +263,13 @@ reads from the user up to the object, each step saying what it establishes
 reads from what the object requires down to what is missing. Under each step
 are the tuples it rests on, written `object#relation@user`, and the model rule
 that carries it, with the part of the relation's definition that applied set
-off. The same steps appear in `fgaexplorer trace` output.
+off. A switch chooses how to read the steps: **User → object** (each step
+builds on the ones before, citing earlier steps when not the one just above),
+**Object → user (nested)** (the way the walk reasons: each step, then what it
+rests on, indented), or **Object → user (numbered)** (the same order as a flat
+list, each step naming the steps it rests on). The choice is remembered in the
+browser. The same steps appear in `fgaexplorer trace` output (`--explain=down`
+for the top-down reading).
 
 The walker/server comparison test checks the walker against the server on every
 (user, relation, object) combination in the sample store, under several

@@ -1,7 +1,7 @@
 // The Check form: per-tab persistence, collapse to a summary after a run,
 // live walk progress and cancel, re-running with other options, and stepping
 // through "who else has this?" users.
-import { $, $$, base, load, session, stateKey } from './core.js';
+import { $, $$, base, load, session, stateKey, store } from './core.js';
 import { picker, pickersIn } from './pickers.js';
 import { onKey } from './shortcuts.js';
 import { tabsOf } from './ui.js';
@@ -166,6 +166,18 @@ function stopProgress() {
   if (text) text.textContent = 'walking…';
 }
 
+/**
+ * Shows the "Why" steps in one reading: "up" (user to object) or "down"
+ * (object to user). Remembered for this viewer.
+ * @param {string} reading @param {boolean} [remember]
+ */
+function setReading(reading, remember = true) {
+  const r = ['down', 'flat'].includes(reading) ? reading : 'up';
+  for (const l of $$('.facts [data-reading]:not(button)')) l.hidden = l.dataset.reading !== r;
+  for (const b of $$('.reading-seg [data-reading]')) b.setAttribute('aria-pressed', String(b.dataset.reading === r));
+  if (remember) store.set('reading', r);
+}
+
 /** @param {MouseEvent} e */
 function onClick(e) {
   const t = /** @type {Element} */ (e.target);
@@ -193,6 +205,7 @@ function onClick(e) {
         }
       });
       break;
+    case 'reading': setReading(act.dataset.reading || 'up'); break;
     case 'opt-help': toggleOptionHelp(act); break;
     case 'edit-check': editCheck(); break;
     case 'reset-check': session.del(stateKey('check')); location.assign(`${base()}/check`); break;
@@ -233,6 +246,7 @@ export function initCheckForm() {
 function resultShown(e) {
   e.detail.restore = restoring;
   restoring = false;
+  setReading(store.get('reading', 'up'), false);
   saveCheck({ ran: true });
   reopenOthers();
 }

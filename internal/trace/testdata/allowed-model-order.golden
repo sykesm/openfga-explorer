@@ -25,6 +25,33 @@ Allowed: user:eng-002 has can_view on document:doc-0007 — can_view on document
        rule   document#can_view
   10. so user:eng-002 has can_view on document:doc-0007: they do not have “blocked from org”, so “but not blocked from org” does not apply
        rule   document#can_view via but not blocked from org
+top-down:
+  - user:eng-002 has can_view on document:doc-0007: they do not have “blocked from org”, so “but not blocked from org” does not apply
+      rule   document#can_view via but not blocked from org
+    - user:eng-002 has viewer and “member from org” on document:doc-0007
+        rule   document#can_view
+      - user:eng-002 has viewer on document:doc-0007, through viewer on its parent folder:design-docs
+          tuple  document:doc-0007#parent@folder:design-docs  (document#parent via folder)
+          rule   document#viewer via viewer from parent
+        - user:eng-002 has viewer on folder:design-docs, through viewer on its parent folder:platform
+            tuple  folder:design-docs#parent@folder:platform  (folder#parent via folder)
+            rule   folder#viewer via viewer from parent
+          - user:eng-002 has viewer on folder:platform, through viewer on its parent folder:engineering
+              tuple  folder:platform#parent@folder:engineering  (folder#parent via folder)
+              rule   folder#viewer via viewer from parent
+            - user:eng-002 has viewer on folder:engineering, through viewer on its parent folder:root
+                tuple  folder:engineering#parent@folder:root  (folder#parent via folder)
+                rule   folder#viewer via viewer from parent
+              - user:eng-002 has viewer on folder:root, granted to group:eng#member
+                  tuple  folder:root#viewer@group:eng#member  (folder#viewer via group#member)
+                - user:eng-002 has member on group:eng
+                    tuple  group:eng#member@user:eng-002  (group#member via user)
+      - user:eng-002 has “member from org” on document:doc-0007, through member on its org organization:acme
+          tuple  document:doc-0007#org@organization:acme  (document#org via organization)
+          rule   document#can_view via member from org
+        - user:eng-002 has member on organization:acme, granted to group:eng#member
+            tuple  organization:acme#member@group:eng#member  (organization#member via group#member)
+          - user:eng-002 has member on group:eng (see above)
 gaps: []
 guided skips: 0
 groups ruled out: 0

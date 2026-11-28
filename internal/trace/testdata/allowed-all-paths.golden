@@ -6,6 +6,13 @@ Allowed: user:sales-007 has viewer on document:roadmap through group:sales → g
        tuple  group:team-150#member@group:sales#member  (group#member via group#member)
   3. so user:sales-007 has viewer on document:roadmap, granted to group:team-150#member
        tuple  document:roadmap#viewer@group:team-150#member  (document#viewer via group#member)
+top-down:
+  - user:sales-007 has viewer on document:roadmap, granted to group:team-150#member
+      tuple  document:roadmap#viewer@group:team-150#member  (document#viewer via group#member)
+    - user:sales-007 has member on group:team-150, granted to group:sales#member
+        tuple  group:team-150#member@group:sales#member  (group#member via group#member)
+      - user:sales-007 has member on group:sales
+          tuple  group:sales#member@user:sales-007  (group#member via user)
 gaps: []
 guided skips: 0
 groups ruled out: 0

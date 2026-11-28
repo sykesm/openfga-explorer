@@ -188,6 +188,10 @@ type checkResult struct {
 	Text        string
 	// Why is the explanation's steps, their evidence tied to the model.
 	Why []whyStep
+	// WhyDown is the same steps read top-down, from the object to the user.
+	WhyDown []whyStep
+	// WhyFlat is the top-down reading as a numbered list.
+	WhyFlat []whyStep
 	// Summary is the one-line form summary; Done the player's closing status.
 	Summary string
 	Done    doneText
@@ -417,7 +421,7 @@ func (s *Server) handleCheckRun(w http.ResponseWriter, r *http.Request) {
 	gaps := tr.Gaps()
 	ex := tr.Explanation(s.displayObject)
 	v.Data = &checkResult{Trace: tr, CacheTTL: walkCacheTTL, Lines: tr.Lines(), Graph: graph, Decision: tr.Decision(), Walker: tr.Root.Outcome, Link: link, Context: ctxText, Contextual: ctText, Grants: tr.GrantingTuples(), Gaps: gaps,
-		Explanation: ex, Why: whySteps(ex.Steps, me.m, links), Text: tr.Text(),
+		Explanation: ex, Why: whySteps(ex.Steps, me.m, links), WhyDown: whyDown(ex.Down(), me.m, links), WhyFlat: whyFlat(ex.DownFlat(), me.m, links), Text: tr.Text(),
 		Summary: checkSummary(req.User, req.Relation, req.Object, ctxText), Done: doneTexts(tr.Decision(), order, len(gaps) == 0)}
 	if subj, err := schema.ParseSubject(req.User); err == nil {
 		res := v.Data.(*checkResult)

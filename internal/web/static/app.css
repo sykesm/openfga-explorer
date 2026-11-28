@@ -511,6 +511,14 @@ table.edges td { margin-top: 4px; }
 .facts ol.steps { margin: 4px 0 4px; padding-left: 24px; font-size: 13px; }
 .facts li.step { margin: 6px 0; }
 .facts li.step.reason { list-style: "✗  "; }
+/* The reading switch, and the top-down reading: nested steps, each level
+   joined by a guide line to the step it supports. */
+.reading-seg { margin: 6px 0 2px; }
+.reading-seg [aria-pressed="true"] { background: var(--soft); font-weight: 600; }
+.reading-seg button + button { border-left: 1px solid var(--line); }
+.facts ul.steps-down { list-style: none; margin: 4px 0; padding-left: 4px; font-size: 13px; }
+.facts ul.steps-down ul.steps-down { margin: 2px 0 2px 6px; padding-left: 14px; border-left: 1px solid var(--line); }
+.facts li.step.repeat > .ft { color: var(--muted); }
 .facts .evidence { list-style: none; margin: 2px 0 0; padding: 0; font-size: 11px; line-height: 1.45; color: var(--muted); }
 .facts .ev { display: grid; grid-template-columns: auto 1fr; column-gap: .5em; align-items: baseline; margin: 2px 0; }
 .facts .ev > .evbody { overflow-wrap: anywhere; }

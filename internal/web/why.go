@@ -7,11 +7,15 @@ import (
 	"github.com/sykesm/openfga-explorer/internal/trace"
 )
 
-// whyStep is one step of a check's "Why" list, with its evidence.
+// whyStep is one step of a check's "Why" list, with its evidence. In the
+// top-down reading, Under holds the steps it builds on, and Repeat marks a
+// step already shown higher up.
 type whyStep struct {
 	Text     string
 	Reason   bool
 	Evidence []whyEvidence
+	Repeat   bool
+	Under    []whyStep
 }
 
 // whyEvidence is a tuple or model rule a step rests on, tied to the model
@@ -143,4 +147,40 @@ func relModule(m *schema.Model, typ, rel string) string {
 		src += ", added to " + typ + " (extend type)"
 	}
 	return src
+}
+
+// whyDown is the top-down reading (object to user) of the steps, its
+// evidence tied to the model like whySteps (first mentions in this order).
+func whyDown(down []trace.DownStep, m *schema.Model, l traceLinks) []whyStep {
+	shown := map[string]bool{}
+	var conv func(ds []trace.DownStep) []whyStep
+	conv = func(ds []trace.DownStep) []whyStep {
+		out := make([]whyStep, 0, len(ds))
+		for _, d := range ds {
+			ws := whyStep{Text: d.Text, Reason: d.Reason, Repeat: d.Repeat}
+			if !d.Repeat {
+				for _, ev := range d.Evidence {
+					ws.Evidence = append(ws.Evidence, evidence(ev, m, l, shown))
+				}
+				ws.Under = conv(d.Under)
+			}
+			out = append(out, ws)
+		}
+		return out
+	}
+	return conv(down)
+}
+
+// whyFlat is the top-down reading as a numbered list (see trace.DownFlat).
+func whyFlat(flat []trace.DownStep, m *schema.Model, l traceLinks) []whyStep {
+	shown := map[string]bool{}
+	out := make([]whyStep, 0, len(flat))
+	for _, d := range flat {
+		ws := whyStep{Text: d.Text, Reason: d.Reason}
+		for _, ev := range d.Evidence {
+			ws.Evidence = append(ws.Evidence, evidence(ev, m, l, shown))
+		}
+		out = append(out, ws)
+	}
+	return out
 }
