@@ -211,6 +211,7 @@ function selectNode(t, n, { zoom = false } = {}) {
   n.select();
   cy.animate({ center: { eles: n }, ...(zoom ? { zoom: Math.max(cy.zoom(), 0.9) } : {}), duration: reducedMotion() ? 0 : 220 });
   showDetail(t, n);
+  v.steps?.tapped(n); // the Why steps follow, as for a tap
 }
 
 // ---- linking the "Why" steps to the graph (prototype) ----
@@ -311,12 +312,20 @@ function linkSteps(t) {
     pin(li === pinned ? null : li);
   });
   return {
-    // Tapping a node marks the steps that cover it, and lets go of a pinned
-    // step unless the node is on it; the background (null) clears both.
+    // Selecting a node marks the steps that cover it and brings one into
+    // view in the reading shown (the step that establishes the node, else
+    // the last that passes through it), and lets go of a pinned step unless
+    // the node is on it; the background (null) clears both.
     tapped(target) {
       const id = target ? target.id() : '';
-      for (const li of $$('li.step[data-nodes]', facts)) li.classList.toggle('covers', !!id && (li.dataset.nodes || '').split(' ').includes(id));
+      const nodesOf = (/** @type {HTMLElement} */ li) => (li.dataset.nodes || '').split(' ');
+      for (const li of $$('li.step[data-nodes]', facts)) li.classList.toggle('covers', !!id && nodesOf(li).includes(id));
       if (!target || !pinned || !stepElements(v, pinned).contains(target)) pin(null);
+      const reading = $$(':scope > .steps', facts).find((l) => !l.hidden);
+      if (!id || !reading || !reading.offsetParent) return; // the pane or the Why tab is not showing
+      const covering = $$('li.step.covers', reading);
+      const best = covering.find((li) => nodesOf(li)[0] === id) || covering[covering.length - 1];
+      best?.scrollIntoView({ block: 'nearest', behavior: scrollBehavior() });
     },
   };
 }

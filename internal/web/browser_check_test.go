@@ -1224,3 +1224,36 @@ func TestBrowserCheckScrub(t *testing.T) {
 	}
 	b.checkClean("scrub")
 }
+
+// TestBrowserCheckNodeToStep: the graph leads back to the explanation.
+// Tapping a node brings the step that establishes it into view in the Why
+// pane (in the reading shown), and choosing a text trace line marks the
+// steps covering its node, as a tap does.
+func TestBrowserCheckNodeToStep(t *testing.T) {
+	x := newTestExplorer(t)
+	b := newBrowser(t, x)
+	b.run(emulation.SetDeviceMetricsOverride(1280, 720, 1, false))
+	b.open(`~/check?user=user:eng-002&relation=can_view&object=document:doc-0007&context=` +
+		`%7B%22current_time%22%3A%222026-11-24T12%3A00%3A00Z%22%2C%22user_ip%22%3A%2210.1.2.3%22%7D`)
+	b.waitFor("graph", `document.querySelector('#trace-canvas')?._cyreg?.cy?.nodes().length > 0 && document.querySelector('.facts li.step')`)
+	b.settled()
+	b.run(chromedp.Evaluate(`document.querySelector('.player [data-act="final"]').click()`, nil))
+	const cy = `document.querySelector('#trace-canvas')._cyreg.cy`
+	const first = `document.querySelector('.facts ol.steps[data-reading="up"] > li.step')`
+	// In view: within the Why pane's visible box.
+	const inView = `((el) => { const p = document.querySelector('#rpanel-why').getBoundingClientRect(), r = el.getBoundingClientRect(); return r.top >= p.top - 1 && r.bottom <= p.bottom + 1; })`
+	b.run(chromedp.Evaluate(`document.querySelector('#rpanel-why').scrollTop = 1e6`, nil))
+	if eval[bool](b, inView+`(`+first+`)`) {
+		t.Fatal("the Why pane is too short to scroll the first step out of view; use a smaller screen")
+	}
+	// The user's node is established by the first step.
+	b.run(chromedp.Evaluate(`void `+cy+`.nodes('[kind = "subject"]')[0].emit('tap')`, nil))
+	b.waitFor("first step in view", first+`.classList.contains('covers') && `+inView+`(`+first+`)`)
+	// A text trace line selects its node: the covering steps are marked.
+	b.run(chromedp.Evaluate(`void `+cy+`.emit('tap')`, nil), chromedp.Click(`#rtab-trace`, chromedp.ByQuery))
+	b.run(chromedp.Evaluate(`(() => { const id = `+cy+`.nodes('[kind = "subject"]')[0].id(); document.querySelector('#rpanel-trace .tl[data-node="' + id + '"]').click(); })()`, nil))
+	if !eval[bool](b, first+`.classList.contains('covers')`) {
+		t.Error("choosing the user's text trace line did not mark the step covering it")
+	}
+	b.checkClean("node to step")
+}
