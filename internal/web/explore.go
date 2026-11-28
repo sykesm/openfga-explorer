@@ -148,7 +148,23 @@ type edgeView struct {
 	SourceLabel, TargetLabel string
 }
 
-func (e edgeView) GraphData() map[string]string {
+// edgeData is an instance-graph edge as explore.js reads it (EdgeData), in
+// edge lists (data-edge) and graph elements: user (source) → object
+// (target), labeled with the object's relation.
+type edgeData struct {
+	ID          string `json:"id"`
+	Source      string `json:"source"`
+	Target      string `json:"target"`
+	Label       string `json:"label"`
+	Relation    string `json:"relation"`
+	Peer        string `json:"peer,omitempty"`
+	SourceLabel string `json:"sourceLabel,omitempty"`
+	TargetLabel string `json:"targetLabel,omitempty"`
+}
+
+// GraphData is the edge for the instance graph. Its ID is the element ID
+// the browser finds it by.
+func (e edgeView) GraphData() edgeData {
 	label := e.Relation
 	if e.Via != "" {
 		label += " ← #" + e.Via
@@ -156,7 +172,10 @@ func (e edgeView) GraphData() map[string]string {
 	if e.Condition != "" {
 		label += " [" + e.Condition + "]"
 	}
-	return map[string]string{"source": e.Source, "target": e.Target, "label": label, "relation": e.Relation, "peer": e.Peer, "sourceLabel": e.SourceLabel, "targetLabel": e.TargetLabel}
+	return edgeData{
+		ID: e.Source + "|" + label + "|" + e.Target, Source: e.Source, Target: e.Target, Label: label, Relation: e.Relation,
+		Peer: e.Peer, SourceLabel: e.SourceLabel, TargetLabel: e.TargetLabel,
+	}
 }
 
 type edgeSet struct {
@@ -460,7 +479,7 @@ type instanceGraph struct {
 	// Elements are Cytoscape elements, each once: the instances, their edges
 	// in both directions, their peers, and count nodes for relations with
 	// many edges (as in the instance panel).
-	Elements []map[string]any `json:"elements"`
+	Elements []graphElement `json:"elements"`
 	// Errors are relations that could not be read ("object relation: error").
 	Errors []string `json:"errors,omitempty"`
 }
@@ -534,8 +553,8 @@ func (s *Server) handleInstanceGraph(w http.ResponseWriter, r *http.Request) {
 		s.readOut(ctx, v, p)
 		s.readIn(ctx, v, p)
 	})
-	g := instanceGraph{Objects: []string{}, Elements: []map[string]any{}}
-	seen := map[string]map[string]any{} // element ID → its data
+	g := instanceGraph{Objects: []string{}, Elements: []graphElement{}}
+	seen := map[string]int{} // element ID → its index in g.Elements
 	for _, p := range panels {
 		complete := true
 		note := func(rel string, es edgeSet) {
@@ -557,22 +576,18 @@ func (s *Server) handleInstanceGraph(w http.ResponseWriter, r *http.Request) {
 		} else {
 			g.Incomplete = append(g.Incomplete, p.Object)
 		}
-		patch := s.graphPatch(p)
-		for _, el := range patch["elements"].([]map[string]any) {
-			data := el["data"].(map[string]any)
-			id, _ := data["id"].(string)
+		for _, el := range s.graphPatch(p).Elements {
+			id := el.Data.ID
 			if !complete && id == p.Object {
-				delete(data, "focus") // not expanded: it was not fully read
+				el.Data.Focus = false // not expanded: it was not fully read
 			}
-			if kept, ok := seen[id]; ok {
+			if i, ok := seen[id]; ok {
 				// An expanded instance may first come as another's peer:
 				// keep the mark that it was expanded.
-				if data["focus"] == true {
-					kept["focus"] = true
-				}
+				g.Elements[i].Data.Focus = g.Elements[i].Data.Focus || el.Data.Focus
 				continue
 			}
-			seen[id] = data
+			seen[id] = len(g.Elements)
 			g.Elements = append(g.Elements, el)
 		}
 	}
@@ -1087,35 +1102,64 @@ func recentOfType(raw, typ string) []string {
 	return out
 }
 
+// graphElement is an instance-graph element for Cytoscape (explore.js).
+type graphElement = cyElement[graphData]
+
+// graphData is an instance-graph node's or edge's data. Nodes are
+// instances (Type, Focus when expanded) or count nodes (Kind "count", with
+// the Chooser that lists their edges and the Owner instance); edges carry
+// Source, Target and Relation.
+type graphData struct {
+	ID       string `json:"id"`
+	Label    string `json:"label"`
+	Type     string `json:"type,omitempty"`
+	Focus    bool   `json:"focus,omitempty"`
+	Kind     string `json:"kind,omitempty"`
+	Chooser  string `json:"chooser,omitempty"`
+	Owner    string `json:"owner,omitempty"`
+	Source   string `json:"source,omitempty"`
+	Target   string `json:"target,omitempty"`
+	Relation string `json:"relation,omitempty"`
+}
+
+// instancePatch is the part of the instance graph an instance panel adds.
+type instancePatch struct {
+	Focus    string         `json:"focus"`
+	Elements []graphElement `json:"elements"`
+}
+
 // graphPatch converts an instance panel into Cytoscape elements: the focus
 // node, its low-cardinality edges, and one "count" node per high-cardinality
 // relation that opens the edge chooser when clicked.
-func (s *Server) graphPatch(p *instancePanel) map[string]any {
-	var els []map[string]any
+func (s *Server) graphPatch(p *instancePanel) instancePatch {
+	var els []graphElement
 	seen := map[string]bool{}
-	node := func(id string, extra map[string]any) {
-		if seen[id] {
+	node := func(d graphData) {
+		if seen[d.ID] {
 			return
 		}
-		seen[id] = true
-		t, _, _ := schema.SplitObject(id)
-		d := map[string]any{"id": id, "label": s.displayObject(id), "type": t}
-		for k, v := range extra {
-			d[k] = v
+		seen[d.ID] = true
+		if d.Label == "" {
+			d.Label = s.displayObject(d.ID)
 		}
-		els = append(els, map[string]any{"group": "nodes", "data": d})
+		d.Type, _, _ = schema.SplitObject(d.ID) // count nodes ("type:id|out|rel") take their owner's type, for color
+		els = append(els, graphElement{Group: "nodes", Data: d})
 	}
 	edge := func(e edgeView) {
 		g := e.GraphData()
-		id := g["source"] + "|" + g["label"] + "|" + g["target"]
-		if seen[id] {
+		if seen[g.ID] {
 			return
 		}
-		seen[id] = true
-		node(e.Peer, nil)
-		els = append(els, map[string]any{"group": "edges", "data": map[string]any{"id": id, "source": g["source"], "target": g["target"], "label": g["label"], "relation": g["relation"]}})
+		seen[g.ID] = true
+		node(graphData{ID: e.Peer})
+		els = append(els, graphElement{Group: "edges", Data: graphData{ID: g.ID, Source: g.Source, Target: g.Target, Label: g.Label, Relation: g.Relation}})
 	}
-	node(p.Object, map[string]any{"focus": true})
+	count := func(id, label, chooser string, e graphData) {
+		node(graphData{ID: id, Label: label, Kind: "count", Chooser: chooser, Owner: p.Object})
+		e.ID = id + "|e"
+		els = append(els, graphElement{Group: "edges", Data: e, Classes: "count"})
+	}
+	node(graphData{ID: p.Object, Focus: true})
 	for _, o := range p.Out {
 		switch {
 		case o.Inline:
@@ -1124,8 +1168,7 @@ func (s *Server) graphPatch(p *instancePanel) map[string]any {
 			}
 		case !o.Empty() && o.Err == "":
 			id := p.Object + "|out|" + o.Rel.Name
-			node(id, map[string]any{"label": o.Count + " " + o.Rel.Name, "kind": "count", "chooser": "out-" + o.Rel.Name, "owner": p.Object})
-			els = append(els, map[string]any{"group": "edges", "data": map[string]any{"id": id + "|e", "source": id, "target": p.Object, "label": o.Rel.Name, "relation": o.Rel.Name}, "classes": "count"})
+			count(id, o.Count+" "+o.Rel.Name, "out-"+o.Rel.Name, graphData{Source: id, Target: p.Object, Label: o.Rel.Name, Relation: o.Rel.Name})
 		}
 	}
 	for _, in := range p.In {
@@ -1137,11 +1180,10 @@ func (s *Server) graphPatch(p *instancePanel) map[string]any {
 			}
 		case !in.Empty() && in.Err == "":
 			id := p.Object + "|in|" + name
-			node(id, map[string]any{"label": in.Count + " " + name, "kind": "count", "chooser": "in-" + name, "owner": p.Object})
-			els = append(els, map[string]any{"group": "edges", "data": map[string]any{"id": id + "|e", "source": p.Object, "target": id, "label": in.In.Relation, "relation": in.In.Relation}, "classes": "count"})
+			count(id, in.Count+" "+name, "in-"+name, graphData{Source: p.Object, Target: id, Label: in.In.Relation, Relation: in.In.Relation})
 		}
 	}
-	return map[string]any{"focus": p.Object, "elements": els}
+	return instancePatch{Focus: p.Object, Elements: els}
 }
 
 // plural names a user type for a count: "1 user", "3 users", "2 group#member usersets".

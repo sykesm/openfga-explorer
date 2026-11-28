@@ -27,12 +27,12 @@ func graphOf(root string, nodes map[string]string, edges ...string) *Graph {
 		return 0
 	})
 	for _, id := range ids {
-		g.Elements = append(g.Elements, Element{Group: "nodes", Data: map[string]any{"id": id}, Classes: nodes[id]})
+		g.Elements = append(g.Elements, Element{Group: "nodes", Data: ElementData{ID: id}, Classes: nodes[id]})
 	}
 	for i, spec := range edges {
 		ends, cls, _ := strings.Cut(spec, ":")
 		src, dst, _ := strings.Cut(ends, "->")
-		g.Elements = append(g.Elements, Element{Group: "edges", Data: map[string]any{"id": fmt.Sprintf("e%d", i), "source": src, "target": dst}, Classes: strings.ReplaceAll(cls, ",", " ")})
+		g.Elements = append(g.Elements, Element{Group: "edges", Data: ElementData{ID: fmt.Sprintf("e%d", i), Source: src, Target: dst}, Classes: strings.ReplaceAll(cls, ",", " ")})
 	}
 	return g
 }
@@ -56,8 +56,8 @@ func TestGrantingPath(t *testing.T) {
 	}
 	for id, want := range map[string]int{"r": 0, "a": 1, "u": 2} {
 		n := g.index().node(id)
-		if n.Data["depth"] != want {
-			t.Errorf("depth(%s) = %v, want %d", id, n.Data["depth"], want)
+		if n.Data.Depth == nil || *n.Data.Depth != want {
+			t.Errorf("depth(%s) = %v, want %d", id, n.Data.Depth, want)
 		}
 	}
 	// A denied root has no granting path.

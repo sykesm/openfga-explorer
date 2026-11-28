@@ -3,6 +3,7 @@ package trace
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -26,6 +27,9 @@ type Line struct {
 	Object   string
 	Relation string
 }
+
+// ElementID is the graph element ID of the line's node (see NodeID).
+func (l Line) ElementID() string { return NodeID(l.NodeID) }
 
 // Icon returns a glyph for an outcome.
 func Icon(o Outcome) string {
@@ -146,12 +150,43 @@ func (t *Trace) Text() string {
 	return b.String()
 }
 
-// Element is a Cytoscape.js element.
+// Element is a Cytoscape.js element: a node or an edge (Group "nodes" or
+// "edges").
 type Element struct {
-	Group   string         `json:"group"`
-	Data    map[string]any `json:"data"`
-	Classes string         `json:"classes,omitempty"`
+	Group   string      `json:"group"`
+	Data    ElementData `json:"data"`
+	Classes string      `json:"classes,omitempty"`
 }
+
+// ElementData is what the page reads from an element (trace.js). Nodes use
+// the fields above Source; edges use ID, Label, Source, Target and Tuple.
+type ElementData struct {
+	ID    string `json:"id"`
+	Label string `json:"label"`
+	// Short is the label when zoomed out.
+	Short   string  `json:"short,omitempty"`
+	Kind    Kind    `json:"kind,omitempty"`
+	Outcome Outcome `json:"outcome,omitempty"`
+	// Hint is the server's verdict on a skipped branch.
+	Hint Outcome `json:"hint,omitempty"`
+	// Object and Relation are for the web layer's node details; not sent.
+	Object   string `json:"-"`
+	Relation string `json:"-"`
+	// Depth is a granting-path node's distance from the root (see markGrantingPath).
+	Depth *int `json:"depth,omitempty"`
+	// Detail is what the side panel shows for a node, attached by the web
+	// layer (web.nodeDetail).
+	Detail any `json:"detail,omitempty"`
+
+	Source string `json:"source,omitempty"`
+	Target string `json:"target,omitempty"`
+	// Tuple is an edge's tuple, object#relation@user (with its condition).
+	Tuple string `json:"tuple,omitempty"`
+}
+
+// NodeID is the graph element ID of a trace node ("n7"); the text trace's
+// lines and the explanation's steps refer to nodes by it.
+func NodeID(id int) string { return "n" + strconv.Itoa(id) }
 
 // GraphStep is an animation step in Cytoscape element IDs.
 type GraphStep struct {
@@ -171,11 +206,9 @@ type Graph struct {
 	Folds []Fold `json:"folds,omitempty"`
 }
 
-func nid(id int) string { return fmt.Sprintf("n%d", id) }
-
 // Graph converts the trace into Cytoscape.js elements plus an animation timeline.
 func (t *Trace) Graph() *Graph {
-	g := &Graph{Root: nid(t.Root.ID)}
+	g := &Graph{Root: NodeID(t.Root.ID)}
 	seen := map[int]bool{}
 	edgeN := 0
 	var visit func(n *Node)
@@ -194,35 +227,16 @@ func (t *Trace) Graph() *Graph {
 		if n.Op != "" {
 			label += "\n" + map[Kind]string{KindUnion: "∪", KindIntersection: "∩", KindExclusion: "∖"}[n.Op]
 		}
-		data := map[string]any{
-			"id": nid(n.ID), "label": label, "short": shortLabel(n), "kind": string(n.Kind), "outcome": string(n.Outcome),
-			"reason": n.Reason, "expr": firstNonEmpty(n.Expr, strings.TrimPrefix(n.Label, "direct ")), "object": n.Object, "relation": n.Relation,
-			"notes": strings.Join(n.Notes, "\n"),
+		data := ElementData{
+			ID: NodeID(n.ID), Label: label, Short: shortLabel(n), Kind: n.Kind, Outcome: n.Outcome,
+			Hint: n.Hint, Object: n.Object, Relation: n.Relation,
 		}
 		classes := []string{string(n.Kind), string(n.Outcome)}
 		if n.Hint != "" {
-			data["hint"] = string(n.Hint)
 			classes = append(classes, "hint-"+string(n.Hint))
 		}
-		if len(n.Checked) > 0 {
-			var cs []map[string]any
-			for _, c := range n.Checked {
-				m := map[string]any{"object": c.Object, "relation": c.Relation}
-				if c.Known {
-					m["allowed"] = c.Allowed
-				}
-				cs = append(cs, m)
-			}
-			data["checks"] = cs
-		}
-		if n.Server != nil {
-			data["server"] = n.Server.Allowed
-			if n.Server.Err != "" {
-				data["serverErr"] = n.Server.Err
-			}
-			if n.Server.Mismatch {
-				classes = append(classes, "mismatch")
-			}
+		if n.Server != nil && n.Server.Mismatch {
+			classes = append(classes, "mismatch")
 		}
 		if n == t.Root {
 			classes = append(classes, "root")
@@ -230,19 +244,12 @@ func (t *Trace) Graph() *Graph {
 		g.Elements = append(g.Elements, Element{Group: "nodes", Data: data, Classes: strings.Join(classes, " ")})
 		for _, c := range n.Children {
 			edgeN++
-			ed := map[string]any{
-				"id": fmt.Sprintf("e%d", edgeN), "source": nid(n.ID), "target": nid(c.Node.ID),
-				"label": c.Label, "outcome": string(c.Outcome),
-			}
+			ed := ElementData{ID: "e" + strconv.Itoa(edgeN), Source: NodeID(n.ID), Target: NodeID(c.Node.ID), Label: c.Label}
 			if c.Tuple != nil {
-				ed["tuple"] = c.Tuple.String()
-				if c.Tuple.Contextual {
-					ed["contextual"] = true
-				}
+				ed.Tuple = c.Tuple.String()
 			}
 			if c.Cond != nil {
-				ed["cond"] = c.Cond.Summary()
-				ed["label"] = c.Label + " [" + c.Cond.Name + "]"
+				ed.Label = c.Label + " [" + c.Cond.Name + "]"
 			}
 			cls := []string{string(c.Outcome)}
 			if c.Blocking {
@@ -258,21 +265,18 @@ func (t *Trace) Graph() *Graph {
 			visit(c.Node)
 		}
 		if tr := n.Truncated; tr != nil {
-			id := nid(n.ID) + "-more"
+			id := NodeID(n.ID) + "-more"
 			g.Elements = append(g.Elements,
-				Element{Group: "nodes", Data: map[string]any{
-					"id": id, "label": tr.Summary(), "kind": "more",
-					"object": tr.Object, "relation": tr.Relation,
-				}, Classes: "more"},
-				Element{Group: "edges", Data: map[string]any{"id": id + "-e", "source": nid(n.ID), "target": id, "label": "…"}, Classes: "more"},
+				Element{Group: "nodes", Data: ElementData{ID: id, Label: tr.Summary(), Kind: KindMore, Object: tr.Object, Relation: tr.Relation}, Classes: "more"},
+				Element{Group: "edges", Data: ElementData{ID: id + "-e", Source: NodeID(n.ID), Target: id, Label: "…"}, Classes: "more"},
 			)
 		}
 	}
 	visit(t.Root)
 	for _, s := range t.Steps {
-		gs := GraphStep{Phase: s.Phase, Node: nid(s.Node), Outcome: s.Outcome}
+		gs := GraphStep{Phase: s.Phase, Node: NodeID(s.Node), Outcome: s.Outcome}
 		if s.Phase == Traverse {
-			gs.From = nid(s.From)
+			gs.From = NodeID(s.From)
 		}
 		g.Steps = append(g.Steps, gs)
 	}

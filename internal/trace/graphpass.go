@@ -41,14 +41,13 @@ func (g *Graph) index() *elemIndex {
 			continue
 		}
 		ix.edges[id] = i
-		ix.out[e.str("source")] = append(ix.out[e.str("source")], i)
-		ix.in[e.str("target")] = append(ix.in[e.str("target")], i)
+		ix.out[e.Data.Source] = append(ix.out[e.Data.Source], i)
+		ix.in[e.Data.Target] = append(ix.in[e.Data.Target], i)
 	}
 	return ix
 }
 
-func (e *Element) id() string          { return e.str("id") }
-func (e *Element) str(k string) string { s, _ := e.Data[k].(string); return s }
+func (e *Element) id() string { return e.Data.ID }
 
 // HasClass reports whether the element has the class.
 func (e *Element) HasClass(c string) bool { return slices.Contains(strings.Fields(e.Classes), c) }
@@ -80,7 +79,7 @@ func (g *Graph) markGrantingPath() {
 	}
 	depth := map[string]int{g.Root: 0}
 	root.addClass("flowpath")
-	root.Data["depth"] = 0
+	root.Data.Depth = new(0)
 	for queue := []string{g.Root}; len(queue) > 0; queue = queue[1:] {
 		id := queue[0]
 		for _, ei := range ix.out[id] {
@@ -89,8 +88,8 @@ func (g *Graph) markGrantingPath() {
 				continue
 			}
 			e.addClass("flowpath")
-			t := e.str("target")
-			if n := ix.node(t); n != nil && e.str("tuple") != "" && n.Data["kind"] == string(KindSubject) {
+			t := e.Data.Target
+			if n := ix.node(t); n != nil && e.Data.Tuple != "" && n.Data.Kind == KindSubject {
 				e.addClass("grant")
 			}
 			if _, ok := depth[t]; ok {
@@ -99,7 +98,7 @@ func (g *Graph) markGrantingPath() {
 			depth[t] = depth[id] + 1
 			if n := ix.node(t); n != nil {
 				n.addClass("flowpath")
-				n.Data["depth"] = depth[t]
+				n.Data.Depth = new(depth[t])
 			}
 			queue = append(queue, t)
 		}
@@ -125,7 +124,7 @@ func (g *Graph) folds(min int) []Fold {
 		var failed []int
 		for _, ei := range ix.out[parent] {
 			e := &g.Elements[ei]
-			t := ix.node(e.str("target"))
+			t := ix.node(e.Data.Target)
 			if e.HasClass(string(Allowed)) || e.HasClass("blocking") || e.HasClass("more") || t == nil || t.HasClass("subject") {
 				continue
 			}
@@ -144,7 +143,7 @@ func (g *Graph) folds(min int) []Fold {
 		}
 		for _, ei := range failed {
 			add(g.Elements[ei].id())
-			add(g.Elements[ei].str("target"))
+			add(g.Elements[ei].Data.Target)
 		}
 		// Extend through descendants reachable only through hidden elements.
 		for changed := true; changed; {
@@ -155,7 +154,7 @@ func (g *Graph) folds(min int) []Fold {
 				}
 				for _, ei := range ix.out[id] {
 					e := &g.Elements[ei]
-					t := e.str("target")
+					t := e.Data.Target
 					tn := ix.node(t)
 					if hidden[t] || tn == nil || tn.HasClass("subject") || tn.HasClass("root") {
 						continue
@@ -163,7 +162,7 @@ func (g *Graph) folds(min int) []Fold {
 					only := true
 					for _, ii := range ix.in[t] {
 						in := &g.Elements[ii]
-						if !hidden[in.id()] && !hidden[in.str("source")] {
+						if !hidden[in.id()] && !hidden[in.Data.Source] {
 							only = false
 							break
 						}

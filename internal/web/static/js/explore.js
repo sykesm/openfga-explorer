@@ -383,12 +383,13 @@ function applyPatch(patch) {
 
 /**
  * An instance-graph edge: user (source) → object (target), and the object's
- * relation it stands for.
- * @typedef {{ source: string, target: string, label: string, relation?: string, sourceLabel?: string, targetLabel?: string }} EdgeData
+ * relation it stands for. id is its element ID, set by the server
+ * (web.edgeData), which edge lists and graph elements share.
+ * @typedef {{ id: string, source: string, target: string, label: string, relation?: string, sourceLabel?: string, targetLabel?: string }} EdgeData
  */
 
 /** @param {EdgeData} d */
-const edgeId = (d) => `${d.source}|${d.label}|${d.target}`;
+const edgeId = (d) => d.id;
 /** @param {EdgeData} d */
 const onGraph = (d) => !!instCy && instCy.getElementById(edgeId(d)).length > 0;
 

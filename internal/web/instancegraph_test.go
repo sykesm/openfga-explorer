@@ -30,10 +30,10 @@ func patchIDs(t *testing.T, body string) []string {
 	return elementIDs(patch.Elements)
 }
 
-func elementIDs(els []map[string]any) []string {
+func elementIDs(els []graphElement) []string {
 	var ids []string
 	for _, el := range els {
-		ids = append(ids, el["data"].(map[string]any)["id"].(string))
+		ids = append(ids, el.Data.ID)
 	}
 	return ids
 }
@@ -70,12 +70,11 @@ func TestInstanceGraphMatchesPanel(t *testing.T) {
 	}
 	var in, out bool
 	for _, el := range g.Elements {
-		d := el["data"].(map[string]any)
-		if el["group"] != "edges" {
+		if el.Group != "edges" {
 			continue
 		}
-		out = out || d["target"] == obj
-		in = in || strings.HasPrefix(fmt.Sprint(d["source"]), obj)
+		out = out || el.Data.Target == obj
+		in = in || strings.HasPrefix(el.Data.Source, obj)
 	}
 	if !in || !out {
 		t.Errorf("edges in both directions: in %v, out %v", in, out)
@@ -94,7 +93,7 @@ func TestInstanceGraphSeveral(t *testing.T) {
 	}
 	for _, o := range objs {
 		i := slices.Index(ids, o)
-		if i < 0 || g.Elements[i]["data"].(map[string]any)["focus"] != true {
+		if i < 0 || !g.Elements[i].Data.Focus {
 			t.Errorf("%s is not marked expanded", o)
 		}
 	}
@@ -149,9 +148,8 @@ func TestInstanceGraphLimits(t *testing.T) {
 		t.Fatalf("budget of 4 reads for 3 instances: complete %v, incomplete %v, limit %q", g.Objects, g.Incomplete, g.Limit)
 	}
 	for _, el := range g.Elements {
-		d := el["data"].(map[string]any)
-		if slices.Contains(g.Incomplete, fmt.Sprint(d["id"])) && d["focus"] == true {
-			t.Errorf("%s is marked expanded but was not fully read", d["id"])
+		if slices.Contains(g.Incomplete, el.Data.ID) && el.Data.Focus {
+			t.Errorf("%s is marked expanded but was not fully read", el.Data.ID)
 		}
 	}
 

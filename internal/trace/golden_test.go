@@ -101,9 +101,9 @@ func render(tr *trace.Trace) string {
 	var path []string
 	for _, e := range g.Elements {
 		if e.HasClass("flowpath") {
-			id, _ := e.Data["id"].(string)
-			if d, ok := e.Data["depth"]; ok {
-				id += fmt.Sprintf("@%v", d)
+			id := e.Data.ID
+			if d := e.Data.Depth; d != nil {
+				id += fmt.Sprintf("@%v", *d)
 			}
 			path = append(path, id)
 		}

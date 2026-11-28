@@ -64,7 +64,7 @@ func addNodeDetails(t *trace.Trace, g *trace.Graph, l traceLinks, m *schema.Mode
 	nodes := map[string]*trace.Node{}
 	var walk func(n *trace.Node)
 	walk = func(n *trace.Node) {
-		id := fmt.Sprintf("n%d", n.ID)
+		id := trace.NodeID(n.ID)
 		if nodes[id] != nil {
 			return
 		}
@@ -79,16 +79,12 @@ func addNodeDetails(t *trace.Trace, g *trace.Graph, l traceLinks, m *schema.Mode
 		if e.Group != "nodes" {
 			continue
 		}
-		id, _ := e.Data["id"].(string)
-		label, _ := e.Data["label"].(string)
-		title := strings.ReplaceAll(label, "\n", " ")
+		title := strings.ReplaceAll(e.Data.Label, "\n", " ")
 		switch {
-		case nodes[id] != nil:
-			e.Data["detail"] = detailFor(nodes[id], title, l, m)
-		case e.Data["kind"] == "more":
-			obj, _ := e.Data["object"].(string)
-			rel, _ := e.Data["relation"].(string)
-			e.Data["detail"] = nodeDetail{Title: title, Links: []detailLink{{Text: "Browse these edges", Href: l.explore(obj, rel), Ghost: true}}}
+		case nodes[e.Data.ID] != nil:
+			e.Data.Detail = detailFor(nodes[e.Data.ID], title, l, m)
+		case e.Data.Kind == trace.KindMore:
+			e.Data.Detail = nodeDetail{Title: title, Links: []detailLink{{Text: "Browse these edges", Href: l.explore(e.Data.Object, e.Data.Relation), Ghost: true}}}
 		}
 	}
 }

@@ -266,12 +266,12 @@ func TestCheckRun(t *testing.T) {
 		if e.HasClass("flowpath") {
 			path++
 		}
-		if e.Group != "nodes" || e.Data["detail"] == nil {
+		if e.Group != "nodes" || e.Data.Detail == nil {
 			continue
 		}
 		details++
-		d := e.Data["detail"].(map[string]any)
-		if e.Data["kind"] == "skipped" && e.Data["hint"] == "denied" {
+		d := e.Data.Detail.(map[string]any)
+		if e.Data.Kind == trace.KindSkipped && e.Data.Hint == trace.Denied {
 			skippedWithHint++
 			rows, _ := json.Marshal(d["rows"])
 			if !strings.Contains(string(rows), "this branch does not hold") {
@@ -295,7 +295,7 @@ func TestCheckRun(t *testing.T) {
 	g = traceData(t, body)
 	found := false
 	for _, e := range g.Elements {
-		if d, ok := e.Data["detail"].(map[string]any); ok {
+		if d, ok := e.Data.Detail.(map[string]any); ok {
 			b, _ := json.Marshal(d)
 			if strings.Contains(html.UnescapeString(string(b)), "Trace from here") && strings.Contains(string(b), "context=") {
 				found = true
@@ -395,7 +395,7 @@ func TestModularModel(t *testing.T) {
 	mustContain(t, "check", body, `class="verdict v-allowed"`)
 	found := false
 	for _, e := range traceData(t, body).Elements {
-		if d, ok := e.Data["detail"].(map[string]any); ok && e.Data["relation"] == "can_audit" {
+		if d, ok := e.Data.Detail.(map[string]any); ok && strings.HasSuffix(e.Data.Label, "#can_audit") {
 			b, _ := json.Marshal(d)
 			found = strings.Contains(string(b), "compliance (compliance.fga), added to document (extend type)")
 		}

@@ -17,6 +17,7 @@ import (
 	"net/url"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -664,13 +665,13 @@ func (s *Server) handleSchemaJSON(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, http.StatusBadGateway, err)
 		return
 	}
-	var els []map[string]any
+	var els []any // cyElement[schemaNode], then cyElement[schemaEdge]
 	for _, tn := range v.Model.TypeNames {
 		t := v.Model.Types[tn]
 		k := t.ByKind()
-		els = append(els, map[string]any{"group": "nodes", "data": map[string]any{
-			"id": tn, "label": tn, "relations": len(t.RelationNames), "module": t.Source.Module,
-			"direct": len(k[schema.Direct]), "derived": len(k[schema.Derived]), "hybrid": len(k[schema.Hybrid]),
+		els = append(els, cyElement[schemaNode]{Group: "nodes", Data: schemaNode{
+			ID: tn, Label: tn, Relations: len(t.RelationNames), Module: t.Source.Module,
+			Direct: len(k[schema.Direct]), Derived: len(k[schema.Derived]), Hybrid: len(k[schema.Hybrid]),
 		}})
 	}
 	// Merge parallel edges of the same kind so dense models stay legible.
@@ -689,13 +690,45 @@ func (s *Server) handleSchemaJSON(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	for i, k := range order {
-		els = append(els, map[string]any{"group": "edges", "data": map[string]any{
-			"id": fmt.Sprintf("se%d", i), "source": k.from, "target": k.to, "kind": k.kind,
-			"label": strings.Join(labels[k], "\n"), "count": len(labels[k]), "relations": rels[k],
-		}, "classes": k.kind})
+		els = append(els, cyElement[schemaEdge]{Group: "edges", Classes: k.kind, Data: schemaEdge{
+			ID: "se" + strconv.Itoa(i), Source: k.from, Target: k.to, Kind: k.kind,
+			Label: strings.Join(labels[k], "\n"), Count: len(labels[k]), Relations: rels[k],
+		}})
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"elements": els})
+	_ = json.NewEncoder(w).Encode(struct {
+		Elements []any `json:"elements"`
+	}{els})
+}
+
+// cyElement is a Cytoscape.js element (a node or an edge) with data D.
+type cyElement[D any] struct {
+	Group   string `json:"group"`
+	Data    D      `json:"data"`
+	Classes string `json:"classes,omitempty"`
+}
+
+// schemaNode is a type in the model graph (explore.js): its relations, by kind.
+type schemaNode struct {
+	ID        string `json:"id"`
+	Label     string `json:"label"`
+	Relations int    `json:"relations"`
+	Module    string `json:"module"`
+	Direct    int    `json:"direct"`
+	Derived   int    `json:"derived"`
+	Hybrid    int    `json:"hybrid"`
+}
+
+// schemaEdge is the model graph's edges of one kind between two types,
+// merged: Count of them, their labels one per line, and their Relations.
+type schemaEdge struct {
+	ID        string   `json:"id"`
+	Source    string   `json:"source"`
+	Target    string   `json:"target"`
+	Kind      string   `json:"kind"`
+	Label     string   `json:"label"`
+	Count     int      `json:"count"`
+	Relations []string `json:"relations"`
 }
 
 // trimVerdict drops the "Allowed: " prefix where the verdict is already
