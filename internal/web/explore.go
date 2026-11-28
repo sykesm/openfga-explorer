@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	openfgav1 "github.com/openfga/api/proto/openfga/v1"
@@ -266,13 +267,15 @@ type inRelation struct {
 }
 
 type instancePanel struct {
-	Object   string
-	Type     *schema.Type
-	Out      []*outRelation
-	Derived  []*outRelation
-	In       []*inRelation
-	Exists   bool
-	UserType []string // types usable as ListUsers filters
+	Object  string
+	Type    *schema.Type
+	Out     []*outRelation
+	Derived []*outRelation
+	In      []*inRelation
+	Exists  bool
+	// ExistsUnsure: no tuple was found, but not every place was checked.
+	ExistsUnsure bool
+	UserType     []string // types usable as ListUsers filters
 	// HasIncoming is set when the type can appear as the user of tuples.
 	HasIncoming bool
 	// HasAccess offers "what can this access?" (admins, live queries enabled).
@@ -316,7 +319,8 @@ func (s *Server) handleInstance(w http.ResponseWriter, r *http.Request) {
 	p.ExpandMax = s.expandMax(r)
 	if !p.Exists {
 		// Incoming edges load on demand; check existence cheaply instead.
-		p.Exists = s.exists(ctx, v, typ, id)
+		found, sure := s.exists(ctx, v, typ, id)
+		p.Exists, p.ExistsUnsure = found, !found && !sure
 	}
 	seen := map[string]bool{}
 	for _, e := range v.Model.TypeGraph() {
@@ -906,8 +910,10 @@ type searchResults struct {
 	Err        string
 	NoSearch   bool
 	Exists     *bool
-	MoreQuery  string
-	Continued  bool
+	// ExistsUnsure: the typed ID was not found, but not every place was checked.
+	ExistsUnsure bool
+	MoreQuery    string
+	Continued    bool
 	// Browse is set when listing instances without a prefix.
 	Browse bool
 	// InResults is set when the typed ID is one of the results (no separate row needed).
@@ -964,8 +970,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	if s.search == nil {
 		res.NoSearch = true
 		if res.Normalized != "" {
-			e := s.exists(ctx, v, typ, res.Normalized)
-			res.Exists = &e
+			s.setExists(ctx, v, res)
 		}
 	} else {
 		// An empty prefix browses the type's instances in ID order.
@@ -988,16 +993,16 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	res.Continued = q.Get("cursor") != ""
 	// Say whether the typed ID exists, so a typo never looks like a match.
 	if res.Normalized != "" && !res.Continued && res.Exists == nil {
-		e := false
 		for _, r := range res.Results {
 			if r.ID == res.Normalized {
-				e, res.InResults = true, true
+				res.InResults = true
 			}
 		}
-		if !e {
-			e = s.exists(ctx, v, typ, res.Normalized)
+		if res.InResults {
+			res.Exists = new(true)
+		} else {
+			s.setExists(ctx, v, res)
 		}
-		res.Exists = &e
 	}
 	if res.Page != nil && !res.Page.Complete {
 		mq := url.Values{}
@@ -1011,22 +1016,49 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	s.render(w, "search-results", v)
 }
 
-// exists checks whether any tuple references the object, as object or user.
-func (s *Server) exists(ctx context.Context, v *view, typ, id string) bool {
+// existsReads bounds the reads exists makes: the object as an object, plus
+// the object as a user in the first of the relations that accept its type.
+const existsReads = 8
+
+// exists reports whether any tuple references the object, as object or as
+// user. The reads go through the walk cache, in parallel, and stop at the
+// first hit. sure is false when it could not tell: more relations accept
+// the type than existsReads covers, or a read failed.
+func (s *Server) exists(ctx context.Context, v *view, typ, id string) (found, sure bool) {
 	obj := typ + ":" + id
-	if resp, err := fga.ReadPage(ctx, s.fga, v.StoreID, &openfgav1.ReadRequestTupleKey{Object: obj}, 1, "", 0); err == nil && len(resp.GetTuples()) > 0 {
-		return true
-	}
+	keys := []*openfgav1.ReadRequestTupleKey{{Object: obj}}
 	for _, in := range v.Model.IncomingFor(typ) {
 		user := obj
 		if in.UsersetRelation != "" {
 			user += "#" + in.UsersetRelation
 		}
-		if resp, err := fga.ReadPage(ctx, s.fga, v.StoreID, &openfgav1.ReadRequestTupleKey{User: user, Relation: in.Relation, Object: in.ObjectType + ":"}, 1, "", 0); err == nil && len(resp.GetTuples()) > 0 {
-			return true
-		}
+		keys = append(keys, &openfgav1.ReadRequestTupleKey{User: user, Relation: in.Relation, Object: in.ObjectType + ":"})
 	}
-	return false
+	sure = len(keys) <= existsReads
+	keys = keys[:min(len(keys), existsReads)]
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	var hit, failed atomic.Bool
+	var wg sync.WaitGroup
+	for _, k := range keys {
+		wg.Go(func() {
+			resp, err := fga.ReadPage(ctx, s.walkAPI, v.StoreID, k, 1, "", openfgav1.ConsistencyPreference_UNSPECIFIED)
+			switch {
+			case err != nil:
+				if ctx.Err() == nil {
+					failed.Store(true)
+				}
+			case len(resp.GetTuples()) > 0:
+				hit.Store(true)
+				cancel()
+			}
+		})
+	}
+	wg.Wait()
+	if hit.Load() {
+		return true, true
+	}
+	return false, sure && !failed.Load()
 }
 
 // ---- recently used -------------------------------------------------------------
@@ -1124,4 +1156,16 @@ func plural(typ string, n int) string {
 		return typ
 	}
 	return typ + "s"
+}
+
+// setExists records whether the typed ID is referenced by any tuple: Exists
+// when known either way, ExistsUnsure when not found but not every place
+// was checked.
+func (s *Server) setExists(ctx context.Context, v *view, res *searchResults) {
+	found, sure := s.exists(ctx, v, res.Type, res.Normalized)
+	if found || sure {
+		res.Exists = &found
+	} else {
+		res.ExistsUnsure = true
+	}
 }

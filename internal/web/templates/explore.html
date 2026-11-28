@@ -179,7 +179,8 @@
     {{if .ExpandMax}}<button type="button" class="ghost sm" data-act="expand-hop" title="Add this instance's neighbors' edges to the instance graph, without leaving this panel (+1 hop); again for the next ring">Expand neighbors</button>{{end}}
     <a class="btn sm" href="{{$b}}/check?{{query "object" .Object}}">Check access…</a>
   </div>
-  {{if not .Exists}}<div class="alert warn">No tuples reference <code>{{.Object}}</code>. It may not exist, or its ID may be normalized differently.</div>{{end}}
+  {{if .ExistsUnsure}}<div class="alert warn">No tuples found referencing <code>{{.Object}}</code> in the first places checked. Its type can appear in more relations than were checked, so it may still exist.</div>
+  {{else if not .Exists}}<div class="alert warn">No tuples reference <code>{{.Object}}</code>. It may not exist, or its ID may be normalized differently.</div>{{end}}
 
   <fga-tabs class="itabs" role="tablist" aria-label="Instance views" data-remember="itab:{{.Type.Name}}">
     <button type="button" role="tab" data-tab="edges" id="itab-edges" aria-controls="ipanel-edges" aria-selected="{{if eq $tab "edges"}}true{{else}}false{{end}}"{{if ne $tab "edges"}} tabindex="-1"{{end}} title="Tuples with {{display .Object}} as the object">Edges <span class="pill">{{len .Out}}</span></button>

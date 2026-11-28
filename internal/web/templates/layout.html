@@ -154,6 +154,12 @@
     <span class="muted">— use it anyway</span>
   </button></li>
   {{end}}{{end}}
+  {{if and .Typed (not .Continued) .ExistsUnsure}}
+  <li><button type="button" class="pick" data-value="{{.Type}}:{{.Normalized}}{{.Suffix}}" data-text="{{.Typed}}"
+      title="{{.Type}} can appear in more relations than were checked, so it may still be referenced.">
+    <span class="sr-id">{{displayID .Type .Normalized}}{{.Suffix}}</span> <span class="muted">— no tuples found in the first places checked; it may still exist</span>
+  </button></li>
+  {{end}}
 </ul>
 {{with .Page}}
   {{if not .Complete}}

@@ -189,6 +189,26 @@ func TestExploreFragments(t *testing.T) {
 	_, body = x.get("~/search?field=user&user_type=principal&user_q=svc:build%23ci&mode=form", http.StatusOK)
 	mustContain(t, "normalized search", body, `data-value="principal:SVC%3ABUILD%23CI"`)
 
+	// Whether a typed ID is in any tuple: found, not found (every place it
+	// can appear was checked), or unsure (user can appear in more relations
+	// than the check covers, so it says so rather than "no tuples").
+	_, body = x.get("~/search?field=user&user_type=user&user_q=anne&mode=form", http.StatusOK)
+	mustContain(t, "exists", body, `data-value="user:anne"`)
+	if strings.Contains(body, "may still exist") || strings.Contains(body, "No tuples reference") {
+		t.Errorf("user:anne is in tuples:\n%s", body)
+	}
+	_, body = x.get("~/search?field=inst&inst_type=group&inst_q=no-such-group&mode=explore", http.StatusOK)
+	mustContain(t, "missing", body, "No tuples reference <code>group:no-such-group</code>")
+	_, body = x.get("~/search?field=user&user_type=user&user_q=no-such-user&mode=form", http.StatusOK)
+	mustContain(t, "unsure", body, `data-value="user:no-such-user"`, "it may still exist")
+	if strings.Contains(body, "No tuples reference") {
+		t.Error("a partial existence check claimed no tuples reference the ID")
+	}
+	_, body = x.get("~/explore/instance?object=user:no-such-user", http.StatusOK)
+	mustContain(t, "instance unsure", body, `data-exists="false"`, "it may still exist")
+	_, body = x.get("~/explore/instance?object=group:no-such-group", http.StatusOK)
+	mustContain(t, "instance missing", body, "No tuples reference <code>group:no-such-group</code>")
+
 	// An empty search lists the recent objects the browser sends, of this
 	// type only; the server keeps none of its own.
 	recent := url.QueryEscape(`["user:anne","group:eng","user:bob","user:anne"]`)
