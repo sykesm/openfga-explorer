@@ -20,7 +20,7 @@
 <body data-base="{{.Base}}" data-page="{{.Active}}"{{with .Model}} data-types="{{range $i, $t := .TypeNames}}{{if $i}},{{end}}{{$t}}{{end}}"{{end}}>
 <a class="skip" href="#main">Skip to content</a>
 <header class="top">
-  <a class="brand" href="/?all=1" title="All stores"><span class="logo" aria-hidden="true">◇</span> OpenFGA Explorer</a>
+  <a class="brand" href="/?all=1" title="All stores"><span class="logo" aria-hidden="true">◇</span> <span class="brand-name">OpenFGA Explorer</span></a>
   {{if .StoreID}}
   <span class="crumb" title="{{.StoreID}}"><span class="k">store</span> {{or .StoreName .StoreID}}</span>
   <span class="crumb" title="{{.ModelID}}"><span class="k">model</span> <code>{{short .ModelID 10}}</code>{{if eq .ModelParam "latest"}} <span class="tag">latest</span>{{end}}</span>

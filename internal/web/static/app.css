@@ -618,6 +618,25 @@ input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; margin:
    the reading switch scroll sideways in their own rows; the details card
    spans the graph. */
 @media (max-width: 700px) {
+  /* Header: the brand mark, store and model on one row, the actions on the
+     next, the views (scrolling sideways) last; the name stays for screen
+     readers, the keyboard hint goes (no keyboard). */
+  .top { gap: 4px 10px; padding: 6px 10px; }
+  .brand .brand-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .crumb { font-size: 12px; }
+  .palette-btn kbd { display: none; }
+  .who { font-size: 11px; }
+  .tabs { order: 10; flex: 1 1 100%; }
+  .tabs a { padding: 4px 10px; }
+  /* The query and verdict: the answer, Permalink and Save on one row, the
+     stats under them in small type, then the headline. */
+  .qsummary { font-size: 12px; }
+  .verdict { padding: 8px 10px; }
+  .verdict .big { font-size: 18px; flex: 1 1 auto; }
+  .vtop { gap: 4px 10px; }
+  .vtop .spacer { display: none; }
+  .vtop .stats { order: 5; flex: 1 1 100%; font-size: 11.5px; }
+  .verdict .headline { font-size: 14px; margin-top: 4px; }
   .view-switch { display: flex; margin: 12px 0 0; }
   .view-switch button { flex: 1 1 0; min-height: 36px; }
   .view-switch button + button { border-left: 1px solid var(--line); }

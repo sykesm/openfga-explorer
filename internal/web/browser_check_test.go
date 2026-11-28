@@ -1021,6 +1021,14 @@ func TestBrowserCheckPhone(t *testing.T) {
 	if sw := eval[int](b, `Math.max(document.scrollingElement.scrollWidth - document.documentElement.clientWidth, document.querySelector('main').scrollWidth - document.querySelector('main').clientWidth)`); sw > 0 {
 		t.Errorf("the page scrolls sideways by %dpx", sw)
 	}
+	// The header and verdict are compact enough that the switch is on the
+	// first screen; the brand keeps its name for screen readers.
+	if top := eval[float64](b, `document.querySelector('.view-switch').getBoundingClientRect().top / innerHeight`); top > 0.6 {
+		t.Errorf("the Explanation / Graph switch starts %.0f%% down the screen, want the top 60%%", top*100)
+	}
+	if name := eval[string](b, `document.querySelector('.brand').textContent.trim()`); !strings.Contains(name, "OpenFGA Explorer") {
+		t.Errorf("brand link text %q", name)
+	}
 	// One at a time: the explanation first; the switch shows the graph,
 	// measured and drawn at its size, and is remembered.
 	const shown = `[getComputedStyle(document.querySelector('#inspector')).display !== 'none', getComputedStyle(document.querySelector('#trace-graph')).display !== 'none'].join(' ')`
