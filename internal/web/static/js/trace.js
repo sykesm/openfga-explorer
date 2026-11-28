@@ -608,6 +608,34 @@ function renderTrace(t, { replay = true, restore = false } = {}) {
   // Last, so nothing above (panel width, panel state) refits the restored view.
   if (kept) { restoreView(t, cy, kept, 'viewport'); flow.userView = true; }
   keepView(view);
+  noteOutOfView(t);
+}
+
+/**
+ * Says when part of the graph is out of view while the view is still the
+ * trace's own framing (a long path is framed readably from its top, see
+ * readableView): once the person zooms, pans, or fits, it is theirs, and
+ * the note goes. While the granting path is highlighted, the framing is
+ * meant to show the path, so only the path counts.
+ * @param {FgaTrace} t
+ */
+function noteOutOfView(t) {
+  const note = /** @type {HTMLElement | null} */ ($('.graph-note', t));
+  const v = t.view;
+  if (!note || !v) return;
+  const { cy, player: { flow } } = v;
+  let queued = 0;
+  const check = () => {
+    queued = 0;
+    if (cy.destroyed()) return;
+    const e = cy.extent();
+    const bb = (flow.started ? flow.nodes.union(flow.edges) : cy.elements(':visible')).boundingBox();
+    const out = bb.x1 < e.x1 - 1 || bb.x2 > e.x2 + 1 || bb.y1 < e.y1 - 1 || bb.y2 > e.y2 + 1;
+    note.hidden = flow.userView || !out;
+  };
+  cy.on('viewport resize', () => { if (!queued) queued = requestAnimationFrame(check); });
+  check();
+  note.addEventListener('click', (e) => { if (/** @type {Element} */ (e.target).closest('[data-act="fit"]')) fitTrace(t); });
 }
 
 /**

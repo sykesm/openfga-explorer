@@ -199,6 +199,8 @@
     </div>
     <div class="canvas-box">
       <div id="trace-canvas" class="canvas"></div>
+      {{/* Said while the graph is framed for reading (not by the person) and part of it is out of view. */}}
+      <p class="graph-note sm" hidden>Part of the graph is out of view: drag or scroll to see it, or <button type="button" class="linkish" data-act="fit">Fit all</button></p>
       {{/* The selected node's details: a card over the graph, shown while something is selected. */}}
       <section id="node-detail" class="node-detail" aria-live="polite" aria-label="Selected node">
         <p class="nd-empty muted sm">Select a node in the graph or a line of the text trace to see what it means and where to go next.</p>

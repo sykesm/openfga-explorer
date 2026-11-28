@@ -399,6 +399,11 @@ func TestBrowserCheckFillsWindow(t *testing.T) {
 	const cy = `document.querySelector('#trace-canvas')._cyreg.cy`
 	// The graph itself follows its box (it settles just after drawing).
 	b.waitFor("graph filling its box", cy+`.height() > 900 && `+cy+`.height() === document.querySelector('#trace-canvas').clientHeight`)
+	// It all fits here: no note that part of it is out of view.
+	b.run(chromedp.Sleep(300 * time.Millisecond))
+	if !eval[bool](b, `document.querySelector('.graph-note').hidden`) {
+		t.Error("the out-of-view note shows while the whole graph is in view")
+	}
 	// Take charge of the view, then resize the window and toggle the panel.
 	b.run(chromedp.Click(`.player [data-act="step"]`, chromedp.ByQuery), chromedp.Evaluate(`void `+cy+`.zoom(1.7)`, nil))
 	b.run(emulation.SetDeviceMetricsOverride(2000, 1100, 1, false))
@@ -1043,10 +1048,13 @@ func TestBrowserCheckReadableZoom(t *testing.T) {
 	if got != "true true true" {
 		t.Errorf("readable framing: %q (zoom ≥ 0.8 | object near the top | object in view)", got)
 	}
-	// Fit all: everything in view, whatever the zoom.
-	b.run(chromedp.Click(`.player [data-act="fit"]`, chromedp.ByQuery))
+	// A note says part of the graph is out of view; its Fit all shows
+	// everything, whatever the zoom, and the note goes.
+	b.waitFor("note", `!document.querySelector('.graph-note').hidden`)
+	b.run(chromedp.Click(`.graph-note [data-act="fit"]`, chromedp.ByQuery))
 	if !eval[bool](b, `(() => { const c = `+cy+`, bb = c.elements(':visible').renderedBoundingBox(); return bb.y1 >= -1 && bb.y2 <= c.height() + 1 && c.zoom() < 0.8; })()`) {
 		t.Error("Fit all should show the whole graph")
 	}
+	b.waitFor("note gone", `document.querySelector('.graph-note').hidden`)
 	b.checkClean("readable zoom")
 }
