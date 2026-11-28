@@ -84,7 +84,8 @@
     <div class="stats">
       <span>walker <b class="o-{{.Walker}}">{{.Walker}}</b></span>
       <span>server {{with $t.Root.Server}}{{if .Err}}<b class="o-error" title="{{.Err}}">error</b>{{else if .Allowed}}<b class="o-allowed">allowed</b>{{else}}<b class="o-denied">denied</b>{{end}}{{else}}<b>not verified</b>{{end}}</span>
-      <span>{{$t.TuplesRead}} tuple{{if ne $t.TuplesRead 1}}s{{end}} read{{with $t.TuplesCached}} ({{.}} from the explorer's cache){{end}} · {{$t.Calls}} walk + {{$t.VerifyCalls}} verify calls {{template "opt-q" (dict "ID" "calls" "Name" "tuples read and calls")}}</span>
+      {{/* Phones show the short counts; the "?" help has the full account. */}}
+      <span><span class="stat-long">{{$t.TuplesRead}} tuple{{if ne $t.TuplesRead 1}}s{{end}} read{{with $t.TuplesCached}} ({{.}} from the explorer's cache){{end}} · {{$t.Calls}} walk + {{$t.VerifyCalls}} verify calls</span><span class="stat-short">{{$t.TuplesRead}} tuple{{if ne $t.TuplesRead 1}}s{{end}} · {{add $t.Calls $t.VerifyCalls}} calls</span> {{template "opt-q" (dict "ID" "calls" "Name" "tuples read and calls")}}</span>
       <span>{{$t.Duration.Round 1000000}}</span>
     </div>
     <span class="spacer"></span>

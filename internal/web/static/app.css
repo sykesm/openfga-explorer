@@ -302,6 +302,7 @@ fga-picker .picker-q { flex: 1; font-family: var(--mono); font-size: 13px; }
    the end; the headline sentence under it. */
 .vtop { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; }
 .vtop .stats { gap: 2px 12px; }
+.stat-short { display: none; }
 .vtop .spacer { flex: 1; }
 .vtop .permalink { line-height: 1.2; }
 .verdict .headline { margin: 6px 0 0; }
@@ -636,6 +637,8 @@ input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; margin:
   .vtop { gap: 4px 10px; }
   .vtop .spacer { display: none; }
   .vtop .stats { order: 5; flex: 1 1 100%; font-size: 11.5px; }
+  .stat-long { display: none; }
+  .stat-short { display: inline; }
   .verdict .headline { font-size: 14px; margin-top: 4px; }
   .view-switch { display: flex; margin: 12px 0 0; }
   .view-switch button { flex: 1 1 0; min-height: 36px; }

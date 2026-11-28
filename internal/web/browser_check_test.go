@@ -1026,6 +1026,10 @@ func TestBrowserCheckPhone(t *testing.T) {
 	if top := eval[float64](b, `document.querySelector('.view-switch').getBoundingClientRect().top / innerHeight`); top > 0.6 {
 		t.Errorf("the Explanation / Graph switch starts %.0f%% down the screen, want the top 60%%", top*100)
 	}
+	// The stats are short counts (the "?" help has the full account).
+	if got := eval[string](b, `[document.querySelector('.vtop .stats .stat-short').offsetParent !== null, document.querySelector('.vtop .stats .stat-long').offsetParent === null, document.querySelector('.vtop .stats').getBoundingClientRect().height <= 44].join(' ')`); got != "true true true" {
+		t.Errorf("phone stats (short shown | long hidden | about one line): %q", got)
+	}
 	if name := eval[string](b, `document.querySelector('.brand').textContent.trim()`); !strings.Contains(name, "OpenFGA Explorer") {
 		t.Errorf("brand link text %q", name)
 	}
