@@ -129,7 +129,10 @@ func (s *Server) handleAccess(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	p.Rels = rels
-	if q.Get("run") == "" || chosen == nil {
+	// A run starts only from the form (an htmx request, which a link cannot
+	// make): a link that carries run=1, from a ticket or another site, opens
+	// the form filled in, and the person starts the live query themselves.
+	if q.Get("run") == "" || chosen == nil || r.Header.Get("HX-Request") == "" {
 		s.render(w, "access", v)
 		return
 	}

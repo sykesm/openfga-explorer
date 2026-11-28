@@ -60,7 +60,7 @@ func TestIdentityAndAdminFlag(t *testing.T) {
 	if strings.Contains(body, `data-tab="access"`) {
 		t.Error("access tab shown to a non-admin")
 	}
-	_, body = x.get("~/explore/access?object=user:anne&type=document&rel=viewer&run=1", http.StatusOK)
+	_, body = x.hxGet("~/explore/access?object=user:anne&type=document&rel=viewer&run=1", http.StatusOK)
 	mustContain(t, "refused", body, "for admins")
 
 	// With the flag, anonymous requests are admins…
@@ -111,13 +111,20 @@ func TestAccessRun(t *testing.T) {
 	mustContain(t, "form", body, `name="subject" value="group:eng#member"`, `name="rel" value="viewer"`)
 
 	ctx := `{"current_time":"2026-11-24T12:00:00Z","user_ip":"10.1.2.3"}`
-	_, body = x.get("~/explore/access?object=user:eng-002&subject=user:eng-002&type=document&rel=can_view&rel=owner&run=1&context="+urlq(ctx), http.StatusOK)
+	run := "~/explore/access?object=user:eng-002&subject=user:eng-002&type=document&rel=can_view&rel=owner&run=1&context=" + urlq(ctx)
+	// A link with run=1 (no HX-Request) opens the form filled in; it does not run.
+	_, body = x.get(run, http.StatusOK)
+	mustContain(t, "link", body, `name="rel" value="owner" checked`, "Find accessible objects")
+	if strings.Contains(body, "document:doc-0007") {
+		t.Error("a link with run=1 started a live query")
+	}
+	_, body = x.hxGet(run, http.StatusOK)
 	mustContain(t, "results", body, "2 calls", "<code>can_view</code>", "document:doc-0007", "<code>owner</code>")
 	mustContain(t, "explain link", body, "relation=can_view&amp;user=user%3Aeng-002")
 
 	// The hourly limit (2 here) applies per person.
-	x.get("~/explore/access?object=user:anne&type=document&rel=viewer&run=1", http.StatusOK)
-	_, body = x.get("~/explore/access?object=user:anne&type=document&rel=viewer&run=1", http.StatusOK)
+	x.hxGet("~/explore/access?object=user:anne&type=document&rel=viewer&run=1", http.StatusOK)
+	_, body = x.hxGet("~/explore/access?object=user:anne&type=document&rel=viewer&run=1", http.StatusOK)
 	mustContain(t, "rate limit", body, "in the last hour (the limit)")
 }
 

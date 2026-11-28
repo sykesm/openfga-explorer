@@ -91,6 +91,15 @@ func (x *testExplorer) get(path string, want int) (*http.Response, string) {
 	return x.do(req, want)
 }
 
+// hxGet fetches path as htmx does (with HX-Request), as a page's own
+// controls do and a link cannot.
+func (x *testExplorer) hxGet(path string, want int) (*http.Response, string) {
+	x.t.Helper()
+	req, _ := http.NewRequest(http.MethodGet, x.url(path), nil)
+	req.Header.Set("HX-Request", "true")
+	return x.do(req, want)
+}
+
 func (x *testExplorer) post(path string, form url.Values) (*http.Response, string) {
 	x.t.Helper()
 	req, _ := http.NewRequest(http.MethodPost, x.url(path), strings.NewReader(form.Encode()))
