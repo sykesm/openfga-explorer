@@ -82,7 +82,8 @@ export function traceStyle(p) {
     { selector: 'node.mismatch', style: { 'border-color': p.mismatch, 'border-width': 5 } },
     { selector: '.pending', style: { opacity: 0.1 } },
     // Off the granting path while it is highlighted: shapes recede, labels stay legible.
-    { selector: 'node.dim', style: { 'border-opacity': 0.45, 'background-opacity': 0.5, color: p.muted } },
+    // Recedes by style, not opacity: a thin border (still 3:1), a lighter fill, muted label.
+    { selector: 'node.dim', style: { 'border-width': 1, 'background-opacity': 0.5, color: p.muted } },
     { selector: 'edge.dim', style: { 'line-color': p.skipped, 'target-arrow-color': p.skipped, width: 1.2, color: p.muted } },
     // Skipped nodes are already de-emphasized (dashed, italic): don't fade them twice.
     { selector: 'node.skipped.dim', style: { 'border-opacity': 1, 'background-opacity': 1 } },
@@ -109,7 +110,7 @@ export function traceStyle(p) {
     // A "Why" step pointed at or pinned: its nodes and the edges between them.
     { selector: 'node.step-on', style: { 'border-color': p.accent, 'border-width': 4, 'underlay-color': p.accent, 'underlay-opacity': 0.25, 'underlay-padding': 7, 'z-index': 50 } },
     // Everything else while a step is lit: shapes recede, labels stay legible (as .dim).
-    { selector: 'node.step-dim', style: { 'border-opacity': 0.4, 'background-opacity': 0.45, color: p.muted } },
+    { selector: 'node.step-dim', style: { 'border-width': 1, 'background-opacity': 0.45, color: p.muted } },
     { selector: 'edge.step-dim', style: { 'line-color': p.skipped, 'target-arrow-color': p.skipped, width: 1.1, color: p.muted } },
     { selector: 'edge.step-on', style: { 'line-color': p.accent, 'target-arrow-color': p.accent, 'line-style': 'solid', width: 5, 'arrow-scale': 1.3, 'z-index': 50 } },
   );

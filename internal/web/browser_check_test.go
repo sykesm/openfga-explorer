@@ -117,7 +117,7 @@ const graphContrastJS = `(() => {
   const panel = rgb(getComputedStyle(document.documentElement).getPropertyValue('--panel').trim());
   const shown = (fg, a) => fg.map((v, i) => v * a + panel[i] * (1 - a));
   const ratio = (fg, a) => { const l = [lum(shown(fg, a)), lum(panel)].sort((x, y) => y - x); return (l[0] + 0.05) / (l[1] + 0.05); };
-  const worst = { skippedLabel: 99, skippedBorder: 99, dimLabel: 99, dimLine: 99 };
+  const worst = { skippedLabel: 99, skippedBorder: 99, dimLabel: 99, dimLine: 99, dimBorder: 99, stepDimLabel: 99, stepDimLine: 99, stepDimBorder: 99 };
   const take = (k, v) => { worst[k] = Math.min(worst[k], v); };
   cy.nodes(':visible').forEach((n) => {
     const op = n.effectiveOpacity();
@@ -126,10 +126,13 @@ const graphContrastJS = `(() => {
       take('skippedLabel', label);
       take('skippedBorder', ratio(rgb(n.style('border-color')), op * +n.style('border-opacity')));
     }
-    if (n.hasClass('dim')) take('dimLabel', label);
+    const border = ratio(rgb(n.style('border-color')), op * +n.style('border-opacity'));
+    if (n.hasClass('dim')) { take('dimLabel', label); take('dimBorder', border); }
+    if (n.hasClass('step-dim')) { take('stepDimLabel', label); take('stepDimBorder', border); }
   });
   cy.edges(':visible').forEach((e) => {
     if (e.hasClass('dim')) take('dimLine', ratio(rgb(e.style('line-color')), e.effectiveOpacity()));
+    if (e.hasClass('step-dim')) take('stepDimLine', ratio(rgb(e.style('line-color')), e.effectiveOpacity()));
   });
   return worst;
 })()`
@@ -151,7 +154,7 @@ func TestBrowserGraphContrast(t *testing.T) {
 			// Expand folds so every skipped and dimmed element is measured.
 			b.run(chromedp.Evaluate(`(() => { const cy = document.querySelector('#trace-canvas')._cyreg.cy; cy.nodes('.fold').forEach((f) => f.emit('tap')); })()`, nil))
 			got := eval[map[string]float64](b, graphContrastJS)
-			for k, min := range map[string]float64{"skippedLabel": 4.5, "skippedBorder": 3, "dimLabel": 4.5, "dimLine": 3} {
+			for k, min := range map[string]float64{"skippedLabel": 4.5, "skippedBorder": 3, "dimLabel": 4.5, "dimLine": 3, "dimBorder": 3} {
 				if got[k] == 99 {
 					t.Errorf("%s: no elements measured", k)
 				} else if got[k] < min {
@@ -1098,4 +1101,73 @@ func TestBrowserCheckReadableZoom(t *testing.T) {
 	}
 	b.waitFor("note gone", `document.querySelector('.graph-note').hidden`)
 	b.checkClean("readable zoom")
+}
+
+// stepContrastJS measures the Why steps' highlights as painted: the text
+// color and the step's background composited onto the reading pane (a 1×1
+// canvas does the compositing), as WCAG contrast ratios.
+const stepContrastJS = `(() => {
+  const c = document.createElement('canvas'); c.width = c.height = 1;
+  const x = c.getContext('2d', { willReadFrequently: true });
+  const px = (layers) => { x.clearRect(0, 0, 1, 1); for (const l of layers) { x.fillStyle = '#000'; x.fillStyle = l; x.fillRect(0, 0, 1, 1); }
+    const d = x.getImageData(0, 0, 1, 1).data; return [d[0], d[1], d[2]]; };
+  const lum = (c) => { const [r, g, b] = c.map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+  const ratio = (a, b) => { const l = [lum(a), lum(b)].sort((p, q) => q - p); return (l[0] + 0.05) / (l[1] + 0.05); };
+  const panel = getComputedStyle(document.querySelector('#inspector')).backgroundColor;
+  const out = {};
+  for (const cls of ['pointed', 'covers', 'pinned']) {
+    const ft = document.querySelector('.facts li.step.' + cls + ' > .ft');
+    if (!ft) continue;
+    const s = getComputedStyle(ft);
+    const bg = px([panel, s.backgroundColor]);
+    // A highlight that painted nothing would pass for the wrong reason.
+    out[cls + 'Tinted'] = bg.join() !== px([panel]).join();
+    out[cls] = ratio(px([panel, s.color]), bg);
+  }
+  return out;
+})()`
+
+// TestBrowserStepHighlightContrast: the Why steps' highlights (pointed at,
+// covering the selected node, pinned) keep their text at 4.5:1 in both
+// themes, and while a step is lit the rest of the graph stays legible
+// (labels at 4.5:1, lines at 3:1).
+func TestBrowserStepHighlightContrast(t *testing.T) {
+	x := newTestExplorer(t)
+	b := newBrowser(t, x)
+	for _, scheme := range []string{"light", "dark"} {
+		t.Run(scheme, func(t *testing.T) {
+			b.t = t
+			b.run(emulation.SetEmulatedMedia().WithFeatures([]*emulation.MediaFeature{
+				{Name: "prefers-color-scheme", Value: scheme}, {Name: "prefers-reduced-motion", Value: "reduce"}}))
+			b.open(`~/check?user=user:eng-002&relation=can_view&object=document:doc-0007&context=` +
+				`%7B%22current_time%22%3A%222026-11-24T12%3A00%3A00Z%22%2C%22user_ip%22%3A%2210.1.2.3%22%7D`)
+			b.waitFor("graph", `document.querySelector('#trace-canvas')?._cyreg?.cy?.nodes().length > 0 && document.querySelector('.facts li.step .step-loc')`)
+			b.settled()
+			// Pin the second step (its path lights, the rest is step-dim), and
+			// mark two others as pointed at and covering.
+			b.run(chromedp.Evaluate(`(() => { const ls = document.querySelectorAll('.facts ol.steps[data-reading="up"] > li.step');
+				ls[1].querySelector('.step-loc').click(); ls[0].classList.add('pointed'); ls[2].classList.add('covers'); })()`, nil))
+			got := eval[map[string]any](b, stepContrastJS)
+			for _, cls := range []string{"pointed", "covers", "pinned"} {
+				if got[cls+"Tinted"] != true {
+					t.Errorf("%s step: no highlight painted (%v)", cls, got)
+					continue
+				}
+				if r, _ := got[cls].(float64); r < 4.5 {
+					t.Errorf("%s step text contrast %.2f:1, want at least 4.5:1", cls, r)
+				}
+			}
+			g := eval[map[string]float64](b, graphContrastJS)
+			for k, min := range map[string]float64{"stepDimLabel": 4.5, "stepDimLine": 3, "stepDimBorder": 3, "skippedBorder": 3} {
+				if g[k] == 99 {
+					t.Errorf("%s: no elements measured", k)
+				} else if g[k] < min {
+					t.Errorf("%s contrast %.2f:1, want at least %.1f:1", k, g[k], min)
+				}
+			}
+			t.Logf("%s: steps %v; graph %v", scheme, got, g)
+			b.checkClean(scheme)
+		})
+	}
 }
