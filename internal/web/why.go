@@ -16,6 +16,9 @@ type whyStep struct {
 	Evidence []whyEvidence
 	Repeat   bool
 	Under    []whyStep
+	// Nodes are the graph nodes the step covers, space-separated (see
+	// trace.WhyStep.Nodes), so the page can show the step in the graph.
+	Nodes string
 }
 
 // whyEvidence is a tuple or model rule a step rests on, tied to the model
@@ -59,7 +62,7 @@ func newWhyBuilder(m *schema.Model, l traceLinks) *whyBuilder {
 
 // step is s as a page step, worded text for the reading it is in.
 func (b *whyBuilder) step(text string, s trace.WhyStep) whyStep {
-	ws := whyStep{Text: text, Reason: s.Reason}
+	ws := whyStep{Text: text, Reason: s.Reason, Nodes: strings.Join(s.Nodes, " ")}
 	for _, ev := range s.Evidence {
 		ws.Evidence = append(ws.Evidence, evidence(ev, b.m, b.l, b.shown))
 	}
@@ -86,7 +89,8 @@ func whyDown(down []trace.DownStep, m *schema.Model, l traceLinks) []whyStep {
 		out := make([]whyStep, 0, len(ds))
 		for _, d := range ds {
 			if d.Repeat {
-				out = append(out, whyStep{Text: d.Sentence, Reason: d.Reason, Repeat: true})
+				// Named, not expanded: no evidence, but it still points at the graph.
+				out = append(out, whyStep{Text: d.Sentence, Reason: d.Reason, Repeat: true, Nodes: strings.Join(d.Nodes, " ")})
 				continue
 			}
 			ws := b.step(d.Sentence, d.WhyStep)

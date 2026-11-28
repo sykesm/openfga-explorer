@@ -297,60 +297,67 @@ fga-picker .picker-q { flex: 1; font-family: var(--mono); font-size: 13px; }
 .o-denied { color: var(--denied) !important; }
 .o-unknown { color: var(--unknown) !important; }
 .o-error { color: var(--error) !important; }
-/* Under the verdict, controls are grouped by purpose, one labeled column each
-   (stacked on narrow screens): what the run found, how the explanation was
-   made (and how else it can be), and ways to keep it. Side by side, they
-   take little height from the graph below. */
-.vgroups { display: grid; grid-template-columns: minmax(16rem, 1fr) minmax(20rem, 1.4fr) minmax(18rem, 1fr); margin-top: 10px; border-top: 1px solid var(--line); }
-.vrow { padding: 8px 14px 0; border-left: 1px solid var(--line); min-width: 0; }
-.vrow:first-child { border-left: 0; padding-left: 0; }
-.vlabel { display: block; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
-.vgroups .stats { gap: 2px 12px; }
-.vhead { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
-.vhead .vlabel { margin-bottom: 5px; }
-.vhead .permalink { line-height: 1.2; }
-@media (max-width: 1100px) {
-  .vgroups { grid-template-columns: 1fr; }
-  .vrow, .vrow:first-child { border-left: 0; padding: 8px 0 0; }
-  .vrow + .vrow { border-top: 1px solid var(--line); margin-top: 8px; }
-}
-.vbody > * + * { margin-top: 6px; }
-.vbody p { margin-bottom: 0; }
-.order-seg [aria-pressed="true"] { background: var(--soft); font-weight: 600; }
-.order-seg button + button { border-left: 1px solid var(--line); }
-.vbody .paths { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+/* The verdict header: the answer and its stats on one line, Permalink and
+   "Save to scenario" (a small popover holding the button and its option) at
+   the end; the headline sentence under it. */
+.vtop { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; }
+.vtop .stats { gap: 2px 12px; }
+.vtop .spacer { flex: 1; }
+.vtop .permalink { line-height: 1.2; }
+.verdict .headline { margin: 6px 0 0; }
+.save-menu { position: relative; }
+.save-menu > summary { list-style: none; cursor: pointer; }
+.save-menu > summary::-webkit-details-marker { display: none; }
+.save-menu > .capture { position: absolute; right: 0; top: calc(100% + 4px); z-index: 30; width: min(340px, 80vw);
+  background: var(--panel); box-shadow: 0 8px 24px rgb(0 0 0 / .18); }
 /* "Add to scenario" and its option are one unit, set apart. */
 .capture { display: block; border: 1px solid var(--line); border-radius: 7px; padding: 6px 10px; }
 .capture-row { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
 .capture-help { margin: 4px 0 0; }
 .capture-msg { display: block; margin-top: 4px; }
- (max-width: 700px) {
-  .vrow { grid-template-columns: 1fr; }
-  .vlabel { padding-top: 0; }
-}
+/* Over the graph: how the walk chose branches (changing it re-runs the check). */
+.walkbar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 6px 10px; border-bottom: 1px solid var(--line); }
+.walkbar .wlabel { font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+/* Two lines reserved: the note differs per order, and the graph under it
+   must not jump when the order changes. */
+.walkbar .order-note { flex: 1 1 100%; margin: 0; min-height: 2lh; }
+.walkbar .alert { flex: 1 1 100%; margin: 0; }
+.walkbar .paths { display: inline-flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.order-seg [aria-pressed="true"] { background: var(--soft); font-weight: 600; }
+.order-seg button + button { border-left: 1px solid var(--line); }
 
-.trace-views { display: grid; grid-template-columns: minmax(0, 1fr) 8px var(--text-w, 38%); gap: 0; margin-top: 12px; }
+/* The reading pane (Why, Text trace, Who else?) on the left, the graph on
+   the right: whatever step you read, its graph is beside it. */
+.trace-views { display: grid; grid-template-columns: var(--text-w, 42%) 8px minmax(0, 1fr); gap: 0; margin-top: 12px; }
 .trace-views.panel-collapsed { grid-template-columns: minmax(0, 1fr); }
 .trace-views.panel-collapsed .splitter, .trace-views.panel-collapsed .inspector { display: none; }
 .trace-graph-wrap { position: relative; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; min-height: 620px; }
-.trace-graph-wrap .canvas { min-height: 540px; }
+.canvas-box { position: relative; flex: 1 1 auto; min-height: 0; display: flex; }
+.canvas-box > .canvas { flex: 1 1 auto; min-width: 0; }
+.trace-graph-wrap .canvas { min-height: 480px; }
 .player { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
 .player input[type=range] { width: 90px; vertical-align: middle; }
 /* The play button and step count change text as the replay runs; fixed
    widths keep the bar (and the graph under it) from reflowing. */
 .player [data-act="play"] { min-width: 8.5em; }
 .player .step-count { min-width: 14ch; font-variant-numeric: tabular-nums; }
-/* ---- side panel (inspector): selected node, then Text trace / Who else? tabs ---- */
-.inspector { display: flex; flex-direction: column; min-height: 0; max-height: 760px; margin-left: 4px;
+/* ---- reading pane (inspector): Why / Text trace / Who else? tabs, each scrolling on its own ---- */
+.inspector { display: flex; flex-direction: column; min-height: 0; max-height: 760px; margin-right: 4px;
   background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
-.insp-head { display: flex; align-items: center; justify-content: space-between; padding: 4px 6px 4px 12px; border-bottom: 1px solid var(--line); }
-.insp-head h2.sect { margin: 0; }
-.node-detail { position: relative; flex: 0 0 auto; max-height: 40vh; overflow-y: auto; padding: 10px 12px; font-size: 12.5px; border-bottom: 1px solid var(--line); }
+.insp-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 6px; padding: 0 6px 0 4px; border-bottom: 1px solid var(--line); }
+.insp-head > button { margin-bottom: 4px; }
+.rtabs { padding: 6px 6px 0; flex: none; border-bottom: 0; }
+.rpanel { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 8px 12px; }
+.facts-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 10px; margin-bottom: 4px; }
+.facts-head .reading-seg { margin: 0; }
+/* The selected node's details: a card over the graph's top right corner,
+   hidden while nothing is selected. */
+.node-detail { position: absolute; top: 8px; right: 8px; z-index: 6; width: min(360px, 48%); max-height: calc(100% - 16px); overflow-y: auto;
+  padding: 10px 12px; font-size: 12.5px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 6px 20px rgb(0 0 0 / .16); }
+.node-detail:has(> .nd-empty) { display: none; }
 .node-detail .nd-empty { margin: 0; }
-.rtabs { padding: 6px 10px 0; flex: none; }
-.rpanel { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 8px 10px; }
-.panel-rail { display: none; position: absolute; right: 0; top: 50%; transform: translateY(-50%); z-index: 5;
-  border-radius: var(--radius) 0 0 var(--radius); border-right: 0; font-size: 12px; padding: 8px 6px; writing-mode: vertical-rl; }
+.panel-rail { display: none; position: absolute; left: 0; top: 50%; transform: translateY(-50%); z-index: 5;
+  border-radius: 0 var(--radius) var(--radius) 0; border-left: 0; font-size: 12px; padding: 8px 6px; writing-mode: vertical-rl; }
 .trace-views.panel-collapsed .panel-rail { display: block; }
 .node-detail h3 { text-transform: none; letter-spacing: 0; color: var(--fg); margin: 0 24px 6px 0; font-family: var(--mono); font-size: 13px; word-break: break-all; }
 .node-detail dl { display: grid; grid-template-columns: 70px 1fr; gap: 3px 8px; margin: 0 0 8px; }
@@ -409,7 +416,7 @@ h2.sect { margin-top: 2px; font-size: 12px; text-transform: uppercase; letter-sp
   .side-resizer, .splitter { display: none; }
   .canvas-wrap { border-right: 0; border-bottom: 1px solid var(--line); }
   .trace-views, .grid2, .model-page { grid-template-columns: 1fr; }
-  .trace-views .inspector { margin: 12px 0 0; max-height: 70vh; }
+  .trace-views .inspector { margin: 0 0 12px; max-height: 70vh; }
   .qrow { grid-template-columns: 1fr; }
 }
 
@@ -490,7 +497,7 @@ table.edges td { margin-top: 4px; }
 .side-resizer, .splitter { cursor: col-resize; background: transparent; position: relative; }
 .side-resizer::after, .splitter::after { content: ""; position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; transform: translateX(-50%); background: var(--line); }
 .side-resizer:hover::after, .splitter:hover::after, .side-resizer:focus-visible::after, .splitter:focus-visible::after { background: var(--accent); width: 3px; }
-.trace-views .trace-graph-wrap { margin-right: 4px; }
+.trace-views .trace-graph-wrap { margin-left: 4px; }
 
 /* ---- check form summary ---- */
 .check-form.collapsed .qrow, .check-form.collapsed .more-opts { display: none; }
@@ -501,7 +508,6 @@ table.edges td { margin-top: 4px; }
 
 /* ---- verdict explanation ---- */
 .headline { font-size: 15px; margin: 4px 0 6px; max-width: 110ch; line-height: 1.5; }
-.facts > summary { cursor: pointer; font-size: 12.5px; color: var(--accent); }
 /* Steps read from the user up to the object; under each, the tuples and
    model rules it rests on. The step is what you read; the evidence is
    smaller supporting detail. */
@@ -516,6 +522,16 @@ table.edges td { margin-top: 4px; }
 .facts ul.steps-down { list-style: none; margin: 4px 0; padding-left: 4px; font-size: 13px; }
 .facts ul.steps-down ul.steps-down { margin: 2px 0 2px 6px; padding-left: 14px; border-left: 1px solid var(--line); }
 .facts li.step.repeat > .ft { color: var(--muted); }
+/* Linking steps to the graph: ◎ shows a step there; the step pointed at,
+   pinned, or covering the selected node is marked on its sentence only (so
+   in the nested reading its supporting steps aren't marked with it). */
+.facts .step-loc { min-width: 24px; min-height: 24px; margin-left: 4px; padding: 0 4px; border: 1px solid transparent; border-radius: 6px;
+  background: none; color: var(--accent); font-size: 13px; line-height: 1; cursor: pointer; vertical-align: middle; }
+.facts .step-loc:hover, .facts .step-loc:focus-visible { border-color: var(--accent); background: var(--soft); }
+.facts li.step[data-nodes] > .ft { border-radius: 4px; padding: 1px 3px; margin-left: -3px; }
+.facts li.step.pointed > .ft, .facts li.step.covers > .ft { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.facts li.step.pinned > .ft { background: color-mix(in srgb, var(--accent) 22%, transparent); box-shadow: inset 3px 0 0 var(--accent); }
+.facts li.step.pinned > .step-loc { border-color: var(--accent); }
 .facts .evidence { list-style: none; margin: 2px 0 0; padding: 0; font-size: 11px; line-height: 1.45; color: var(--muted); }
 .facts .ev { display: grid; grid-template-columns: auto 1fr; column-gap: .5em; align-items: baseline; margin: 2px 0; }
 .facts .ev > .evbody { overflow-wrap: anywhere; }
@@ -586,19 +602,11 @@ input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; margin:
   *, ::before, ::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
 
-/* Phones: the side panel is a bottom sheet; collapsed, only its header shows.
-   (Last, so it overrides the stacked layout for narrow screens above.) */
+/* Phones: the reading pane sits above the graph (scrolling on its own), and
+   the details card spans the graph. */
 @media (max-width: 700px) {
-  .trace-views { margin-bottom: 45vh; }
-  .trace-views.panel-collapsed { margin-bottom: 48px; }
-  .trace-views .inspector { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; margin: 0; max-height: 45vh;
-    border-radius: var(--radius) var(--radius) 0 0; box-shadow: 0 -8px 24px rgb(0 0 0 / .18); }
-  .trace-views.panel-collapsed .inspector { display: flex; max-height: none; }
-  .trace-views.panel-collapsed .inspector > :not(.insp-head) { display: none; }
-  .trace-views.panel-collapsed .panel-rail { display: none; }
-  .trace-views .insp-head button { transform: rotate(90deg); }
-  .trace-views .node-detail { max-height: 22vh; }
-  .trace-views.panel-collapsed .insp-head button { transform: rotate(-90deg); }
+  .trace-views .inspector { max-height: 60vh; }
+  .node-detail { width: calc(100% - 16px); max-height: 50%; }
 }
 
 /* ---- modules (modular models) ---- */

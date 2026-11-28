@@ -54,13 +54,14 @@ func TestBrowserCheck(t *testing.T) {
 		t.Error("no closing status")
 	}
 
-	// Under the verdict, the controls are in labeled groups; "Add to
-	// scenario" and its option are one unit.
-	if got := eval[string](b, `[...document.querySelectorAll('.verdict .vrow[role=group]')].map((g) => document.getElementById(g.getAttribute('aria-labelledby')).textContent).join(' ')`); got != "Result Explanation Save" {
-		t.Errorf("verdict groups: %q", got)
+	// Each control sits with what it affects: the stats in the verdict, the
+	// walk order over the graph, and "Add to scenario" with its option in the
+	// verdict's Save popover.
+	if !eval[bool](b, `!!document.querySelector('.verdict .vtop .stats') && !!document.querySelector('#trace-graph .walkbar .order-seg')`) {
+		t.Error("stats should be in the verdict and the walk order over the graph")
 	}
-	if !eval[bool](b, `!!document.querySelector('.capture [data-act="capture"]') && !!document.querySelector('.capture [data-act="capture-mask"]')`) {
-		t.Error("the scenario option is not grouped with its button")
+	if !eval[bool](b, `!!document.querySelector('.verdict .save-menu .capture [data-act="capture"]') && !!document.querySelector('.verdict .save-menu .capture [data-act="capture-mask"]')`) {
+		t.Error("the scenario option is not grouped with its button in the Save popover")
 	}
 	// The order switch shows the current order; choosing it again does nothing.
 	const pressed = `document.querySelector('.order-seg [aria-pressed="true"]')?.dataset.order`
@@ -163,8 +164,9 @@ func TestBrowserGraphContrast(t *testing.T) {
 	}
 }
 
-// TestBrowserInspector covers the check view's side panel: node details,
-// the Text trace / Who else? tabs, collapsing, and the phone bottom sheet.
+// TestBrowserInspector covers the check view's reading pane and details:
+// the Why / Text trace / Who else? tabs, the details card over the graph,
+// collapsing the pane, and phones (the pane above the graph).
 func TestBrowserInspector(t *testing.T) {
 	x := newTestExplorer(t)
 	b := newBrowser(t, x)
@@ -172,15 +174,21 @@ func TestBrowserInspector(t *testing.T) {
 		`%7B%22current_time%22%3A%222026-11-24T12%3A00%3A00Z%22%2C%22user_ip%22%3A%2210.1.2.3%22%7D`)
 	b.waitFor("graph", `document.querySelector('#trace-canvas')?._cyreg?.cy?.nodes().length > 0`)
 	b.settled()
-	if !eval[bool](b, `!!document.querySelector('.inspector #node-detail .nd-empty') && !document.querySelector('#trace-graph #node-detail')`) {
-		t.Error("details should start empty, in the side panel (not over the graph)")
+	// The pane starts on Why, beside the graph (left of it).
+	if got := eval[string](b, `[document.querySelector('#inspector [role="tab"][aria-selected="true"]')?.dataset.tab,
+		document.querySelector('#inspector').getBoundingClientRect().right <= document.querySelector('#trace-graph').getBoundingClientRect().left + 1].join(' ')`); got != "why true" {
+		t.Errorf("reading pane: %q (tab, left of the graph)", got)
+	}
+	const card = `getComputedStyle(document.querySelector('#node-detail')).display !== 'none'`
+	if !eval[bool](b, `!!document.querySelector('#trace-graph #node-detail .nd-empty') && !(`+card+`)`) {
+		t.Error("details should start empty and hidden, as a card over the graph")
 	}
 
-	// Selecting a node fills the details; Escape clears them.
+	// Selecting a node shows the card; Escape clears and hides it.
 	b.run(chromedp.Evaluate(`void document.querySelector('#trace-canvas')._cyreg.cy.nodes('.root').emit('tap')`, nil))
-	b.waitFor("details", `document.querySelector('#node-detail h3')?.textContent.includes('document:doc-0007')`)
+	b.waitFor("details", `document.querySelector('#node-detail h3')?.textContent.includes('document:doc-0007') && `+card)
 	b.run(chromedp.Evaluate(`document.activeElement.blur()`, nil), chromedp.KeyEvent(kb.Escape))
-	b.waitFor("cleared", `document.querySelector('#node-detail .nd-empty')`)
+	b.waitFor("cleared", `document.querySelector('#node-detail .nd-empty') && !(`+card+`)`)
 
 	// Who else? lists holders; tracing one re-lists in the same tab.
 	b.run(chromedp.Click(`#rtab-others`, chromedp.ByQuery))
@@ -195,7 +203,8 @@ func TestBrowserInspector(t *testing.T) {
 	}
 	b.waitFor("re-listed", `!document.querySelector('#rpanel-others').hidden && document.querySelector('#rpanel-others .lu-trace')`)
 
-	// Collapsing gives the graph the width; selecting a node reopens the panel.
+	// Collapsing gives the graph the width; selecting a node leaves it closed
+	// (details are on the graph); the rail reopens it.
 	width := `document.querySelector('#trace-canvas').getBoundingClientRect().width`
 	before := eval[float64](b, width)
 	b.run(chromedp.Evaluate(`document.activeElement.blur()`, nil), chromedp.KeyEvent("t"))
@@ -207,13 +216,18 @@ func TestBrowserInspector(t *testing.T) {
 		t.Error("collapsed panel should leave a rail to reopen it")
 	}
 	b.run(chromedp.Evaluate(`void document.querySelector('#trace-canvas')._cyreg.cy.nodes('.root').emit('tap')`, nil))
+	if !eval[bool](b, `document.querySelector('.trace-views').classList.contains('panel-collapsed')`) {
+		t.Error("selecting a node reopened the reading pane")
+	}
+	b.run(chromedp.Click(`.panel-rail`, chromedp.ByQuery))
 	b.waitFor("reopened", `!document.querySelector('.trace-views').classList.contains('panel-collapsed')`)
 
-	// Phones: a bottom sheet that collapses to its header.
+	// Phones: the pane sits above the graph, in the page flow.
 	b.run(emulation.SetDeviceMetricsOverride(390, 844, 2, true))
-	b.waitFor("sheet", `getComputedStyle(document.querySelector('.inspector')).position === 'fixed'`)
-	b.run(chromedp.Click(`.insp-head [data-act="toggle-panel"]`, chromedp.ByQuery))
-	b.waitFor("sheet collapsed", `document.querySelector('.inspector').getBoundingClientRect().height < 60`)
+	b.waitFor("stacked", `document.querySelector('.inspector').getBoundingClientRect().bottom <= document.querySelector('#trace-graph').getBoundingClientRect().top + 1`)
+	if pos := eval[string](b, `getComputedStyle(document.querySelector('.inspector')).position`); pos == "fixed" {
+		t.Error("the reading pane should not float over the page on phones")
+	}
 	b.run(emulation.ClearDeviceMetricsOverride())
 	b.checkClean("inspector")
 }
@@ -410,6 +424,8 @@ func TestBrowserTextTraceHighlightWidth(t *testing.T) {
 	b.open(`~/check?user=user:eng-002&relation=can_view&object=document:doc-0007&context=` +
 		`%7B%22current_time%22%3A%222026-11-24T12%3A00%3A00Z%22%2C%22user_ip%22%3A%2210.1.2.3%22%7D`)
 	b.waitFor("text trace", `document.querySelectorAll('#rpanel-trace .tl').length > 0`)
+	b.settled()
+	b.run(chromedp.Click(`#rtab-trace`, chromedp.ByQuery))
 	// Every line box is at least as wide as its own text and the widest line,
 	// and no narrower than the pane.
 	const uncovered = `(() => { const pane = document.querySelector('#rpanel-trace'); const ls = [...pane.querySelectorAll('.tl')];
@@ -439,7 +455,7 @@ func TestBrowserGrantingTuples(t *testing.T) {
 	b.waitFor("graph", `document.querySelector('#trace-canvas')?._cyreg?.cy?.nodes().length > 0`)
 	b.settled()
 	const cy = `document.querySelector('#trace-canvas')._cyreg.cy`
-	const btn = `document.querySelector('.verdict [data-act="show-grants"]')`
+	const btn = `document.querySelector('#trace-graph [data-act="show-grants"]')`
 	n := eval[int](b, `new Set(`+cy+`.edges('.grant').map((e) => e.data('tuple'))).size`)
 	if n == 0 {
 		t.Fatal("no granting tuples marked in the graph")
@@ -448,7 +464,7 @@ func TestBrowserGrantingTuples(t *testing.T) {
 		t.Errorf("button %q, graph marks %d tuples", got, n)
 	}
 
-	b.run(chromedp.Click(`.verdict [data-act="show-grants"]`, chromedp.ByQuery))
+	b.run(chromedp.Click(`#trace-graph [data-act="show-grants"]`, chromedp.ByQuery))
 	if !eval[bool](b, btn+`.getAttribute('aria-pressed') === 'true' && `+cy+`.edges('.grant-on').length === `+cy+`.edges('.grant').length`) {
 		t.Error("the granting tuples are not highlighted")
 	}
@@ -475,13 +491,13 @@ func TestBrowserGrantingTuples(t *testing.T) {
 		t.Error("the chosen tuple is not highlighted")
 	}
 
-	b.run(chromedp.Click(`.verdict [data-act="show-grants"]`, chromedp.ByQuery))
+	b.run(chromedp.Click(`#trace-graph [data-act="show-grants"]`, chromedp.ByQuery))
 	if !eval[bool](b, btn+`.getAttribute('aria-pressed') === 'false' && `+cy+`.edges('.grant-on, .tuple-on').length === 0 && !document.querySelector('.tl.grant-line, .tl.tuple-line, .grant-list')`) {
 		t.Error("switching off left highlights behind")
 	}
 
 	// Back to the shortest explanation.
-	b.run(chromedp.Click(`.verdict [data-act="order"][data-order="guided"]`, chromedp.ByQuery))
+	b.run(chromedp.Click(`#trace-graph [data-act="order"][data-order="guided"]`, chromedp.ByQuery))
 	b.waitFor("shortest explanation", `document.querySelector('.order-seg [data-order="guided"]')?.getAttribute('aria-pressed') === 'true'`)
 	if !strings.Contains(eval[string](b, `location.search`), "order=guided") {
 		t.Error("URL does not record the order")
@@ -737,10 +753,10 @@ func TestBrowserCheckWhyKinds(t *testing.T) {
 	b := newBrowser(t, x)
 	b.open(`~/check?user=user:eng-002&relation=can_view&object=document:doc-0007&context=` +
 		`%7B%22current_time%22%3A%222026-11-24T12%3A00%3A00Z%22%2C%22user_ip%22%3A%2210.1.2.3%22%7D`)
-	b.waitFor("result", `document.querySelector('#check-result .verdict .facts')`)
-	b.run(chromedp.Evaluate(`document.querySelector('.facts').open = true`, nil))
-	sum := eval[string](b, `document.querySelector('.facts > summary').textContent.trim()`)
-	m := regexp.MustCompile(`^Why: (\d+) steps?, from (\d+) tuples?$`).FindStringSubmatch(sum)
+	b.waitFor("result", `document.querySelector('#check-result .facts')`)
+	b.run(chromedp.Evaluate(`void 0`, nil))
+	sum := eval[string](b, `document.querySelector('.facts .facts-sum').textContent.trim()`)
+	m := regexp.MustCompile(`^(\d+) steps?, from (\d+) tuples?$`).FindStringSubmatch(sum)
 	if m == nil {
 		t.Fatalf("summary %q does not count steps and tuples", sum)
 	}
@@ -814,7 +830,7 @@ func TestBrowserCopyMarkdown(t *testing.T) {
 	b := newBrowser(t, x)
 	b.open(`~/check?user=user:eng-002&relation=can_view&object=document:doc-0007&context=` +
 		`%7B%22current_time%22%3A%222026-11-24T12%3A00%3A00Z%22%2C%22user_ip%22%3A%2210.1.2.3%22%7D`)
-	b.waitFor("result", `document.querySelector('#check-result .verdict .facts')`)
+	b.waitFor("result", `document.querySelector('#check-result .facts')`)
 	b.settled()
 	b.run(chromedp.Evaluate(`window.__copied = null;
 		Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: (s) => { window.__copied = s; return Promise.resolve(); } } });
@@ -831,6 +847,61 @@ func TestBrowserCopyMarkdown(t *testing.T) {
 		t.Errorf("copied Markdown repeats steps or has undefined parts:\n%s", md)
 	}
 	b.checkClean("copy markdown")
+}
+
+// Pointing at a "Why" step lights up its path in the graph; its ◎ button
+// pins it and selects the node it establishes; selecting a node marks the
+// steps that cover it.
+func TestBrowserCheckStepGraph(t *testing.T) {
+	x := newTestExplorer(t)
+	b := newBrowser(t, x)
+	b.open(`~/check?user=user:eng-002&relation=can_view&object=document:doc-0007&context=` +
+		`%7B%22current_time%22%3A%222026-11-24T12%3A00%3A00Z%22%2C%22user_ip%22%3A%2210.1.2.3%22%7D`)
+	b.waitFor("graph", `document.querySelector('#trace-canvas')?._cyreg?.cy?.nodes().length > 0 && document.querySelector('.facts')`)
+	b.run(chromedp.Evaluate(`document.querySelector('.player [data-act="final"]').click(); void 0`, nil))
+	const cy = `document.querySelector('#trace-canvas')._cyreg.cy`
+	const li = `[...document.querySelectorAll('.facts ol.steps[data-reading="up"] > li.step')].find((l) => l.querySelector('.ft').textContent.includes('has viewer on folder:root'))`
+	if n := eval[string](b, `[...document.querySelectorAll('.facts li.step:not([data-nodes]) > .ft')].map((e) => e.textContent).join(' / ')`); n != "" {
+		t.Errorf("steps without graph nodes: %s", n) // a repeat ("see above") points at the graph too
+	}
+	// Hover: the step's nodes and the edges joining them, nothing else.
+	lit := `(() => { const c = ` + cy + `; return [c.nodes('.step-on').map((n) => n.id()).sort().join(' '), c.edges('.step-on').length].join(' | '); })()`
+	want := eval[string](b, `(() => { const ids = (`+li+`).dataset.nodes.split(' '); return [ids.slice().sort().join(' '), ids.length - 1].join(' | '); })()`)
+	b.run(chromedp.Evaluate(`(`+li+`).querySelector('.ft').dispatchEvent(new MouseEvent('mouseover', { bubbles: true }))`, nil))
+	if got := eval[string](b, lit); got != want {
+		t.Errorf("hovering lights %q, want %q", got, want)
+	}
+	b.run(chromedp.Evaluate(`document.querySelector('.facts').dispatchEvent(new MouseEvent('mouseleave'))`, nil))
+	if got := eval[string](b, lit); got != " | 0" {
+		t.Errorf("leaving the steps leaves %q lit", got)
+	}
+	// The button (keyboard too): pinned, the established node selected and detailed.
+	// Headless, the page has no focus, so focus events need emulating.
+	b.run(emulation.SetFocusEmulationEnabled(true))
+	b.run(chromedp.Evaluate(`(`+li+`).querySelector('.step-loc').id = 'loc-test'`, nil), chromedp.Focus(`#loc-test`, chromedp.ByQuery))
+	if got := eval[string](b, lit); got != want {
+		t.Errorf("focusing the button lights %q, want %q", got, want)
+	}
+	b.run(chromedp.Evaluate(`(`+li+`).querySelector('.step-loc').click()`, nil))
+	b.run(chromedp.Evaluate(`document.activeElement.blur()`, nil))
+	got := eval[string](b, `(() => { const c = `+cy+`, l = `+li+`; return [l.classList.contains('pinned'), c.nodes(':selected').map((n) => n.id()).join(' ') === l.dataset.nodes.split(' ')[0],
+		(document.querySelector('#node-detail-title')?.textContent || '').includes('folder:root')].join(' | '); })()`)
+	if got != "true | true | true" {
+		t.Errorf("pinning: %q (pinned | top node selected | detail)", got)
+	}
+	if got := eval[string](b, lit); got != want {
+		t.Errorf("pinned step lights %q, want %q", got, want)
+	}
+	// Selecting the user's node marks the first step; the background clears it all.
+	b.run(chromedp.Evaluate(`(() => { const c = `+cy+`; c.nodes('[kind = "subject"]')[0].emit('tap'); })()`, nil))
+	if got := eval[string](b, `[...document.querySelectorAll('.facts ol.steps[data-reading="up"] > li.step.covers > .ft')].map((e) => e.textContent).join(' / ')`); got != "user:eng-002 has member on group:eng" {
+		t.Errorf("the user's node covers %q", got)
+	}
+	b.run(chromedp.Evaluate(`(() => { const c = `+cy+`; c.emit('tap'); })()`, nil))
+	if got := eval[string](b, lit+` + ' | ' + document.querySelectorAll('.facts li.step.pinned, .facts li.step.covers').length`); got != " | 0 | 0" {
+		t.Errorf("tapping the background leaves %q", got)
+	}
+	b.checkClean("step graph")
 }
 
 // "show N more" under a who-has list extends the same list, which then
@@ -882,17 +953,17 @@ func TestBrowserCheckReturnKeepsView(t *testing.T) {
 	b := newBrowser(t, x)
 	const check = `~/check?user=user:eng-002&relation=can_view&object=document:doc-0007&context=` +
 		`%7B%22current_time%22%3A%222026-11-24T12%3A00%3A00Z%22%2C%22user_ip%22%3A%2210.1.2.3%22%7D`
-	const state = `JSON.stringify({ why: document.querySelector('.facts')?.open, step: document.querySelector('.player .step-count')?.textContent,
+	const state = `JSON.stringify({ pane: document.querySelector('#rpanel-why')?.scrollTop, step: document.querySelector('.player .step-count')?.textContent,
 		play: document.querySelector('.player [data-act="play"]')?.textContent, tab: document.querySelector('#inspector [role="tab"][aria-selected="true"]')?.dataset.tab,
 		zoom: document.querySelector('#trace-canvas')?._cyreg?.cy?.zoom().toFixed(2) })`
 	for _, how := range []string{"reloaded URL", "Check tab"} {
 		b.open(check)
-		b.waitFor("result", `document.querySelector('#check-result .verdict .facts')`)
-		b.run(chromedp.Evaluate(`document.querySelector('.player [data-act="final"]').click(); document.querySelector('.facts').open = true;
-			document.querySelector('#rtab-others').click(); document.querySelector('#trace-canvas')._cyreg.cy.zoom(1.37); void 0`, nil), chromedp.Sleep(500*time.Millisecond))
+		b.waitFor("result", `document.querySelector('#check-result .facts')`)
+		b.run(chromedp.Evaluate(`document.querySelector('.player [data-act="final"]').click(); document.querySelector('#rpanel-why').scrollTop = 90;
+			document.querySelector('#trace-canvas')._cyreg.cy.zoom(1.37); void 0`, nil), chromedp.Sleep(500*time.Millisecond))
 		var before, after, href string
 		b.run(chromedp.Evaluate(state, &before), chromedp.Evaluate(`location.href`, &href))
-		b.run(chromedp.Click(`.facts .fref a`, chromedp.ByQuery))
+		b.run(chromedp.Evaluate(`document.querySelector('.facts .fref a').click()`, nil))
 		b.run(chromedp.Sleep(1500*time.Millisecond), chromedp.WaitReady(`html[data-ready="true"]`, chromedp.ByQuery))
 		if how == "reloaded URL" {
 			b.run(chromedp.Navigate(href))
@@ -900,7 +971,7 @@ func TestBrowserCheckReturnKeepsView(t *testing.T) {
 			b.run(chromedp.Click(`a[href$="/check"]:not([href*="?"])`, chromedp.ByQuery))
 		}
 		b.run(chromedp.Sleep(1000*time.Millisecond), chromedp.WaitReady(`html[data-ready="true"]`, chromedp.ByQuery))
-		b.waitFor("result back", `document.querySelector('#check-result .verdict .facts') && document.querySelector('#trace-canvas')?._cyreg?.cy`)
+		b.waitFor("result back", `document.querySelector('#check-result .facts') && document.querySelector('#trace-canvas')?._cyreg?.cy`)
 		b.run(chromedp.Sleep(1500 * time.Millisecond))
 		b.run(chromedp.Evaluate(state, &after))
 		if after != before {

@@ -106,6 +106,12 @@ export function traceStyle(p) {
     { selector: 'node.visiting', style: { 'overlay-color': p.accent, 'overlay-opacity': 0.25, 'overlay-padding': 8, opacity: 1 } },
     { selector: 'node:selected', style: { 'overlay-color': p.accent, 'overlay-opacity': 0.18, 'overlay-padding': 6 } },
     { selector: '.hl', style: { 'overlay-color': p.accent, 'overlay-opacity': 0.22, 'overlay-padding': 6 } },
+    // A "Why" step pointed at or pinned: its nodes and the edges between them.
+    { selector: 'node.step-on', style: { 'border-color': p.accent, 'border-width': 4, 'underlay-color': p.accent, 'underlay-opacity': 0.25, 'underlay-padding': 7, 'z-index': 50 } },
+    // Everything else while a step is lit: shapes recede, labels stay legible (as .dim).
+    { selector: 'node.step-dim', style: { 'border-opacity': 0.4, 'background-opacity': 0.45, color: p.muted } },
+    { selector: 'edge.step-dim', style: { 'line-color': p.skipped, 'target-arrow-color': p.skipped, width: 1.1, color: p.muted } },
+    { selector: 'edge.step-on', style: { 'line-color': p.accent, 'target-arrow-color': p.accent, 'line-style': 'solid', width: 5, 'arrow-scale': 1.3, 'z-index': 50 } },
   );
   return s;
 }

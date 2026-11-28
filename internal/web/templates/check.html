@@ -77,60 +77,98 @@
 
 {{define "check-result"}}{{with .Data}}{{$t := .Trace}}
 <fga-trace>
+{{/* The verdict: the answer, how it was reached (stats), and saving it. */}}
 <div class="verdict v-{{.Decision}}" data-user="{{$t.Request.User}}" data-relation="{{$t.Request.Relation}}" data-object="{{$t.Request.Object}}" data-context="{{.Context}}" data-contextual="{{.Contextual}}" data-summary="{{.Summary}}" data-done-path="{{.Done.Path}}" data-done-nofocus="{{.Done.NoFocus}}" data-done-other="{{.Done.Other}}">
-  <h2 class="big">{{if eq .Decision "allowed"}}✓ Allowed{{else if eq .Decision "denied"}}✗ Denied{{else}}? Undecided{{end}}</h2>
-  <p class="headline">{{trimVerdict .Explanation.Headline}}</p>
-  <p class="jump sm">Jump to <a href="#trace-graph">graph</a> · <a href="#inspector">details</a></p>
-  {{with .Explanation}}{{if .Steps}}<details class="facts"><summary>Why: {{.Summary}}</summary>
-    <div class="seg reading-seg" role="group" aria-label="Read the steps">
-      <button type="button" class="sm" data-act="reading" data-reading="up" aria-pressed="true" title="From the user up to the object: each step builds on the ones before">User → object</button>
-      <button type="button" class="sm" data-act="reading" data-reading="down" aria-pressed="false" title="From the object down to the user, the way the walk reasons: each step, then what it rests on, nested">Object → user (nested)</button>
-      <button type="button" class="sm" data-act="reading" data-reading="flat" aria-pressed="false" title="From the object down to the user, as a numbered list: each step says which steps it rests on">Object → user (numbered)</button>
+  <div class="vtop">
+    <h2 class="big">{{if eq .Decision "allowed"}}✓ Allowed{{else if eq .Decision "denied"}}✗ Denied{{else}}? Undecided{{end}}</h2>
+    <div class="stats">
+      <span>walker <b class="o-{{.Walker}}">{{.Walker}}</b></span>
+      <span>server {{with $t.Root.Server}}{{if .Err}}<b class="o-error" title="{{.Err}}">error</b>{{else if .Allowed}}<b class="o-allowed">allowed</b>{{else}}<b class="o-denied">denied</b>{{end}}{{else}}<b>not verified</b>{{end}}</span>
+      <span>{{$t.TuplesRead}} tuple{{if ne $t.TuplesRead 1}}s{{end}} read{{with $t.TuplesCached}} ({{.}} from the explorer's cache){{end}} · {{$t.Calls}} walk + {{$t.VerifyCalls}} verify calls {{template "opt-q" (dict "ID" "calls" "Name" "tuples read and calls")}}</span>
+      <span>{{$t.Duration.Round 1000000}}</span>
     </div>
-    <ol class="steps" data-reading="up">{{range $.Data.Why}}{{template "why-step" .}}{{end}}</ol>
-    <ul class="steps steps-down" data-reading="down" hidden>{{template "why-down" $.Data.WhyDown}}</ul>
-    <ol class="steps" data-reading="flat" hidden>{{range $.Data.WhyFlat}}{{template "why-step" .}}{{end}}</ol></details>{{end}}{{end}}
-  <div class="vgroups">
-  <div class="vrow" role="group" aria-labelledby="vl-result">
-    <span class="vlabel" id="vl-result">Result</span>
-    <div class="vbody">
-      <div class="stats">
-        <span>walker <b class="o-{{.Walker}}">{{.Walker}}</b></span>
-        <span>server {{with $t.Root.Server}}{{if .Err}}<b class="o-error" title="{{.Err}}">error</b>{{else if .Allowed}}<b class="o-allowed">allowed</b>{{else}}<b class="o-denied">denied</b>{{end}}{{else}}<b>not verified</b>{{end}}</span>
-        <span>{{$t.TuplesRead}} tuple{{if ne $t.TuplesRead 1}}s{{end}} read{{with $t.TuplesCached}} ({{.}} from the explorer's cache){{end}} · {{$t.Calls}} walk + {{$t.VerifyCalls}} verify calls {{template "opt-q" (dict "ID" "calls" "Name" "tuples read and calls")}}</span>
-        <span>{{$t.Duration.Round 1000000}}</span>
+    <span class="spacer"></span>
+    <a href="{{.Link}}" class="permalink sm" title="A link that re-runs this check with the same options">Permalink</a>
+    <details class="save-menu">
+      <summary class="btn ghost sm" title="Add this check to your Scenarios draft">Save to scenario ▾</summary>
+      <div class="capture" role="group" aria-label="Add to scenario">
+        <div class="capture-row"><button type="button" class="ghost sm" data-act="capture">Add to scenario</button>
+          <label class="sm"><input type="checkbox" data-act="capture-mask" checked> rename IDs <span class="muted">(user:anne → user:user-1)</span></label></div>
+        <p class="sm muted capture-help">Adds this check, with the tuples on its granting path, to your Scenarios draft so it can be re-run in the sandbox. Renaming IDs keeps real names out of the scenario.</p>
+        <span class="capture-msg sm" role="status"></span>
       </div>
-      <p class="opt-help" id="h-calls" hidden><b>Tuples read and calls</b>: the walk made {{$t.ReadCalls}} Read call{{if ne $t.ReadCalls 1}}s{{end}}, which returned {{$t.TuplesRead}} tuple{{if ne $t.TuplesRead 1}}s{{end}}{{if $t.CachedReads}}.
-        {{$t.CachedReads}} of those calls ({{$t.TuplesCached}} tuple{{if ne $t.TuplesCached 1}}s{{end}}) were answered by the explorer's own read cache, which keeps a page for {{.CacheTTL}} so that related checks don't re-read the same tuples;
-        {{sub $t.TuplesRead $t.TuplesCached}} came from the store. Choose “higher consistency” to skip the cache.
-        The walk also made{{else}} from the store;{{end}}
-        {{$t.CheckCalls}} Check call{{if ne $t.CheckCalls 1}}s{{end}} to the server (the shortest explanation uses them to choose branches and rule out groups; the other orders make none); and {{$t.ListCalls}} ListObjects call{{if ne $t.ListCalls 1}}s{{end}} (probes of large edge lists).
-        Verification made {{$t.VerifyCalls}} more Check call{{if ne $t.VerifyCalls 1}}s{{end}}.
-        {{with $t.LookaheadUnused}}To save time, the walk also read {{.}} page{{if ne . 1}}s{{end}} ahead that it turned out not to need; they are not counted above.{{end}}
-        Computed relations (like <code>viewer</code> from <code>editor</code>) read nothing themselves: they are steps in the walk, not tuples.
-        The tuples OpenFGA reads inside its own Check and ListObjects calls are not reported by the server, so they are not counted here.</p>
-      {{if $t.Mismatches}}<div class="alert err">{{$t.Mismatches}} step{{if gt $t.Mismatches 1}}s{{end}} disagree with the server (outlined in magenta). This usually means a tuple changed during the walk, a consistency difference, or a walker bug worth reporting.</div>{{end}}
-      {{with $t.Root.Server}}{{if .Err}}<div class="alert err">Server check failed: {{.Err}}</div>{{end}}{{end}}
-    </div>
+    </details>
   </div>
-  {{$order := .Order}}
-  <div class="vrow" role="group" aria-labelledby="vl-expl">
-    <span class="vlabel" id="vl-expl">Explanation</span>
-    <div class="vbody">
+  <p class="headline">{{trimVerdict .Explanation.Headline}}</p>
+  <p class="opt-help" id="h-calls" hidden><b>Tuples read and calls</b>: the walk made {{$t.ReadCalls}} Read call{{if ne $t.ReadCalls 1}}s{{end}}, which returned {{$t.TuplesRead}} tuple{{if ne $t.TuplesRead 1}}s{{end}}{{if $t.CachedReads}}.
+    {{$t.CachedReads}} of those calls ({{$t.TuplesCached}} tuple{{if ne $t.TuplesCached 1}}s{{end}}) were answered by the explorer's own read cache, which keeps a page for {{.CacheTTL}} so that related checks don't re-read the same tuples;
+    {{sub $t.TuplesRead $t.TuplesCached}} came from the store. Choose “higher consistency” to skip the cache.
+    The walk also made{{else}} from the store;{{end}}
+    {{$t.CheckCalls}} Check call{{if ne $t.CheckCalls 1}}s{{end}} to the server (the shortest explanation uses them to choose branches and rule out groups; the other orders make none); and {{$t.ListCalls}} ListObjects call{{if ne $t.ListCalls 1}}s{{end}} (probes of large edge lists).
+    Verification made {{$t.VerifyCalls}} more Check call{{if ne $t.VerifyCalls 1}}s{{end}}.
+    {{with $t.LookaheadUnused}}To save time, the walk also read {{.}} page{{if ne . 1}}s{{end}} ahead that it turned out not to need; they are not counted above.{{end}}
+    Computed relations (like <code>viewer</code> from <code>editor</code>) read nothing themselves: they are steps in the walk, not tuples.
+    The tuples OpenFGA reads inside its own Check and ListObjects calls are not reported by the server, so they are not counted here.</p>
+  {{if $t.Mismatches}}<div class="alert err">{{$t.Mismatches}} step{{if gt $t.Mismatches 1}}s{{end}} disagree with the server (outlined in magenta). This usually means a tuple changed during the walk, a consistency difference, or a walker bug worth reporting.</div>{{end}}
+  {{with $t.Root.Server}}{{if .Err}}<div class="alert err">Server check failed: {{.Err}}</div>{{end}}{{end}}
+  <p class="jump sm">Jump to <a href="#trace-graph">graph</a></p>
+</div>
+{{/* Reading pane (left): the ways to read the decision, one at a time. Graph (right). */}}
+<div class="trace-views">
+  <aside class="inspector" id="inspector" aria-label="Read the decision">
+    <div class="insp-head">
+      <fga-tabs class="itabs rtabs" role="tablist" aria-label="Read the decision" data-remember="readTab" data-remember-in="local">
+        <button type="button" role="tab" id="rtab-why" data-tab="why" aria-controls="rpanel-why" aria-selected="true" title="The decision in plain steps, with the tuples and rules each rests on">Why</button>
+        <button type="button" role="tab" id="rtab-trace" data-tab="trace" aria-controls="rpanel-trace" aria-selected="false" tabindex="-1" title="Every path the walk evaluated, as a tree">Text trace</button>
+        <button type="button" role="tab" id="rtab-others" data-tab="others" aria-controls="rpanel-others" aria-selected="false" tabindex="-1" title="Who else has {{$t.Request.Relation}} on {{display $t.Request.Object}}?">Who else?</button>
+      </fga-tabs>
+      <button type="button" class="ghost sm" data-act="toggle-panel" aria-controls="inspector" aria-expanded="true" aria-label="Hide the reading pane" title="Hide the reading pane (T)">‹</button>
+    </div>
+    <section class="rpanel facts" id="rpanel-why" role="tabpanel" aria-labelledby="rtab-why" tabindex="-1">
+    {{with .Explanation}}{{if .Steps}}
+      <div class="facts-head">
+        <span class="facts-sum muted sm">{{.Summary}}</span>
+        <div class="seg reading-seg" role="group" aria-label="Read the steps">
+          <button type="button" class="sm" data-act="reading" data-reading="up" aria-pressed="true" title="From the user up to the object: each step builds on the ones before">User → object</button>
+          <button type="button" class="sm" data-act="reading" data-reading="down" aria-pressed="false" title="From the object down to the user, the way the walk reasons: each step, then what it rests on, nested">Object → user (nested)</button>
+          <button type="button" class="sm" data-act="reading" data-reading="flat" aria-pressed="false" title="From the object down to the user, as a numbered list: each step says which steps it rests on">Object → user (numbered)</button>
+        </div>
+      </div>
+      <ol class="steps" data-reading="up">{{range $.Data.Why}}{{template "why-step" .}}{{end}}</ol>
+      <ul class="steps steps-down" data-reading="down" hidden>{{template "why-down" $.Data.WhyDown}}</ul>
+      <ol class="steps" data-reading="flat" hidden>{{range $.Data.WhyFlat}}{{template "why-step" .}}{{end}}</ol>
+    {{else}}<p class="muted sm">No steps to show: the walk did not settle the decision. The text trace shows what it evaluated.</p>{{end}}{{end}}
+    </section>
+    <section class="rpanel trace-text" id="rpanel-trace" role="tabpanel" aria-labelledby="rtab-trace" tabindex="-1" hidden>
+    <div class="tree" role="tree" aria-label="evaluated paths; use the arrow keys to move and Enter to show details">{{range .Lines}}{{$l := .}}<div tabindex="-1" class="tl o-{{.Outcome}}{{if .Blocking}} blocking{{end}}{{if .Repeat}} repeat{{end}}" data-node="{{.ElementID}}" role="treeitem"><span class="pfx">{{.Prefix}}</span><span class="ic">{{icon .Outcome}}</span>{{with .Link}}<span class="lk">{{.}}</span>{{end}}<span class="lb">{{display .Label}}</span>{{with .Cond}}<span class="condtag">{{.}}</span>{{end}}{{if .Probe}}<span class="probetag">probe</span>{{end}}{{with .Server}}{{if .Mismatch}}<span class="mm">server: {{if .Allowed}}allowed{{else}}denied{{end}}</span>{{end}}{{end}}{{with .Detail}}<div class="dt"><span class="pfx">{{$l.Cont}}</span>{{.}}</div>{{end}}</div>
+{{end}}</div>
+    </section>
+    <section class="rpanel others" id="rpanel-others" role="tabpanel" aria-labelledby="rtab-others" hidden>
+      <p class="sm">Who else has <b>{{$t.Request.Relation}}</b> on <code>{{display $t.Request.Object}}</code>?</p>
+      {{template "whohas" (dict "Base" $.Base "Object" $t.Request.Object "Relation" $t.Request.Relation "Holders" .Holders "Selected" .UserType
+          "Mode" "check" "Context" .Context "Contextual" .Contextual "Current" $t.Request.User)}}
+    </section>
+  </aside>
+  <div class="splitter" role="separator" aria-orientation="vertical" aria-label="resize the reading pane" tabindex="0"></div>
+  <section class="trace-graph-wrap" id="trace-graph" aria-label="Evaluation graph" tabindex="-1">
+    {{$order := .Order}}
+    {{/* How the walk chose branches: changing it re-runs the check and redraws the graph. */}}
+    <div class="walkbar">
+      <span class="wlabel sm">Walk</span>
       <div class="seg order-seg" role="group" aria-label="How the walk chooses branches (re-runs the check)">
         <button type="button" class="sm" data-act="order" data-order="guided" aria-pressed="{{eq $order "guided"}}" title="Let the server's Check pick the deciding branch: the shortest explanation, fewest calls">Shortest</button>
         <button type="button" class="sm" data-act="order" data-order="model" aria-pressed="{{eq $order "model"}}" title="Try branches in the order the model lists them, stopping at the first that decides, as a step-by-step evaluator would">Model order</button>
         <button type="button" class="sm" data-act="order" data-order="all" aria-pressed="{{eq $order "all"}}" title="Evaluate every branch, so every way {{if eq .Decision "allowed"}}this user gets access{{else}}access could be granted{{end}} is shown. Uses more calls">Every path</button>
       </div>
-      <p class="order-note muted sm">{{if eq $order "guided"}}{{with $t.GroupsRuledOut}}<b>{{.}} group{{if ne . 1}}s{{end}} {{if eq . 1}}was{{else}}were{{end}} not walked</b>: the server's Check says {{$t.Request.User}} is not in {{if eq . 1}}it{{else}}them{{end}}. Click one to trace why, or <button type="button" class="linkish" data-act="order" data-order="model" title="Re-run walking every group (uses more calls; large group trees may run out of budget)">walk every group</button>. {{end}}Showing the shortest explanation, not a replay of the server's evaluation{{if $t.GuidedSkips}}: {{$t.GuidedSkips}} branch{{if ne $t.GuidedSkips 1}}es were{{else}} was{{end}} skipped after the server's Check showed which branch decides. Skipped branches show the server's verdict; click one to trace it{{end}}.
-      {{- else if eq $order "model"}}Branches were tried in the order the model lists them, stopping at the first that decides.
-      {{- else}}Every branch was evaluated; nothing was skipped.{{end}}</p>
-      {{if and (eq .Decision "allowed") $t.Options.AllPaths}}<div class="paths">
+      {{if and (eq .Decision "allowed") $t.Options.AllPaths}}<span class="paths">
         {{if .Grants}}<button type="button" class="ghost sm" data-act="show-grants" aria-pressed="false" title="Highlight the tuples that grant access, on every granting path, and list them">{{.Grants}} granting tuple{{if ne .Grants 1}}s{{end}}</button>{{end}}
         {{if not .Gaps}}<span class="paths-note sm" title="Every branch was examined completely (large edge lists were ruled out by ListObjects probes), so these are all the ways this user gets access">all granting paths · exhaustive</span>
         {{else if .Grants}}<span class="paths-note partial sm">found so far · not exhaustive</span>
         {{else}}<span class="paths-note partial sm">the server allows access, but the walk found no route within its limits · not exhaustive</span>{{end}}
-      </div>{{end}}
+      </span>{{end}}
+      <p class="order-note muted sm">{{if eq $order "guided"}}{{with $t.GroupsRuledOut}}<b>{{.}} group{{if ne . 1}}s{{end}} {{if eq . 1}}was{{else}}were{{end}} not walked</b>: the server's Check says {{$t.Request.User}} is not in {{if eq . 1}}it{{else}}them{{end}}. Click one to trace why, or <button type="button" class="linkish" data-act="order" data-order="model" title="Re-run walking every group (uses more calls; large group trees may run out of budget)">walk every group</button>. {{end}}Showing the shortest explanation, not a replay of the server's evaluation{{if $t.GuidedSkips}}: {{$t.GuidedSkips}} branch{{if ne $t.GuidedSkips 1}}es were{{else}} was{{end}} skipped after the server's Check showed which branch decides. Skipped branches show the server's verdict; click one to trace it{{end}}.
+      {{- else if eq $order "model"}}Branches were tried in the order the model lists them, stopping at the first that decides.
+      {{- else}}Every branch was evaluated; nothing was skipped.{{end}}</p>
       {{if and $t.Options.AllPaths .Gaps}}
       <div class="alert warn gaps">
         <b>Not every path was examined{{if eq .Decision "allowed"}}, so this user may have more ways in than are shown{{end}}.</b> The walk was cut short:
@@ -140,22 +178,6 @@
       </div>
       {{else if $t.Exhausted}}<div class="alert warn">The walk budget ran out, so some branches are undecided (amber). Their server verdicts are shown where verified. Raise the call budget, or select an undecided node and choose <i>Trace from here</i>.</div>{{end}}
     </div>
-  </div>
-  <div class="vrow" role="group" aria-labelledby="vl-save">
-    <div class="vhead"><span class="vlabel" id="vl-save">Save</span><a href="{{.Link}}" class="permalink sm" title="A link that re-runs this check with the same options">Permalink</a></div>
-    <div class="vbody">
-      <div class="capture" role="group" aria-label="Add to scenario">
-        <div class="capture-row"><button type="button" class="ghost sm" data-act="capture">Add to scenario</button>
-          <label class="sm"><input type="checkbox" data-act="capture-mask" checked> rename IDs <span class="muted">(user:anne → user:user-1)</span></label></div>
-        <p class="sm muted capture-help" title="Adds this check, with the tuples on its granting path, to your Scenarios draft so it can be re-run in the sandbox. Renaming IDs keeps real names out of the scenario.">Adds this check and its tuples to your Scenarios draft.</p>
-        <span class="capture-msg sm" role="status"></span>
-      </div>
-    </div>
-  </div>
-  </div>
-</div>
-<div class="trace-views">
-  <section class="trace-graph-wrap" id="trace-graph" aria-label="Evaluation graph" tabindex="-1">
     <div class="player" role="toolbar" aria-label="walk replay">
       <button type="button" data-act="play" class="primary sm" title="Replay the evaluation step by step, in the order the explorer evaluated it">▶ Replay walk</button>
       <button type="button" data-act="step" class="ghost sm" title="Advance the replay by one evaluation step (pauses playback)">Step ›</button>
@@ -168,40 +190,22 @@
       <span class="spacer"></span>
       <button type="button" data-act="copy-md" class="ghost sm" title="Copy the explanation and trace as Markdown (for tickets)">Copy</button>
       <button type="button" data-act="png" class="ghost sm" title="Save the graph as a PNG image">PNG</button>
-      <button type="button" data-act="toggle-panel" class="ghost sm" aria-controls="inspector" aria-expanded="true" title="Show or hide the side panel: node details, text trace, who else has access (T)">Panel</button>
       <button type="button" data-act="help" class="ghost sm" title="Keyboard shortcuts (?)">?</button>
     </div>
     <div class="player-status sm" aria-live="polite"></div>
-    <div id="trace-canvas" class="canvas"></div>
-    <button type="button" class="panel-rail" data-act="toggle-panel" aria-controls="inspector" aria-expanded="true" title="Show the side panel (T)">‹ Details</button>
+    <div class="canvas-box">
+      <div id="trace-canvas" class="canvas"></div>
+      {{/* The selected node's details: a card over the graph, shown while something is selected. */}}
+      <section id="node-detail" class="node-detail" aria-live="polite" aria-label="Selected node">
+        <p class="nd-empty muted sm">Select a node in the graph or a line of the text trace to see what it means and where to go next.</p>
+      </section>
+      <button type="button" class="panel-rail" data-act="toggle-panel" aria-controls="inspector" aria-expanded="true" title="Show the reading pane (T)">Why ›</button>
+    </div>
     <div class="legend">
       <span><i class="nd allowed"></i>grants</span><span><i class="nd denied"></i>fails</span><span><i class="nd unknown"></i>undecided</span><span><i class="nd skipped"></i>not evaluated</span>
       <span><i class="ln blocking"></i>blocking edge</span><span><i class="ln probe"></i>found via ListObjects probe</span><span><i class="nd mismatch"></i>server disagrees</span>
     </div>
   </section>
-  <div class="splitter" role="separator" aria-orientation="vertical" aria-label="resize side panel" tabindex="0"></div>
-  <aside class="inspector" id="inspector" aria-label="Result details">
-    <div class="insp-head">
-      <h2 class="sect">Details</h2>
-      <button type="button" class="ghost sm" data-act="toggle-panel" aria-controls="inspector" aria-expanded="true" aria-label="Hide the side panel" title="Hide the side panel (T)">›</button>
-    </div>
-    <section id="node-detail" class="node-detail" aria-live="polite" aria-label="Selected node">
-      <p class="nd-empty muted sm">Select a node in the graph or a line of the text trace to see what it means and where to go next.</p>
-    </section>
-    <fga-tabs class="itabs rtabs" role="tablist" aria-label="Result views" data-remember="resultTab" data-remember-in="local">
-      <button type="button" role="tab" id="rtab-trace" data-tab="trace" aria-controls="rpanel-trace" aria-selected="true">Text trace</button>
-      <button type="button" role="tab" id="rtab-others" data-tab="others" aria-controls="rpanel-others" aria-selected="false" tabindex="-1" title="Who else has {{$t.Request.Relation}} on {{display $t.Request.Object}}?">Who else?</button>
-    </fga-tabs>
-    <section class="rpanel trace-text" id="rpanel-trace" role="tabpanel" aria-labelledby="rtab-trace" tabindex="-1">
-    <div class="tree" role="tree" aria-label="evaluated paths; use the arrow keys to move and Enter to show details">{{range .Lines}}{{$l := .}}<div tabindex="-1" class="tl o-{{.Outcome}}{{if .Blocking}} blocking{{end}}{{if .Repeat}} repeat{{end}}" data-node="{{.ElementID}}" role="treeitem"><span class="pfx">{{.Prefix}}</span><span class="ic">{{icon .Outcome}}</span>{{with .Link}}<span class="lk">{{.}}</span>{{end}}<span class="lb">{{display .Label}}</span>{{with .Cond}}<span class="condtag">{{.}}</span>{{end}}{{if .Probe}}<span class="probetag">probe</span>{{end}}{{with .Server}}{{if .Mismatch}}<span class="mm">server: {{if .Allowed}}allowed{{else}}denied{{end}}</span>{{end}}{{end}}{{with .Detail}}<div class="dt"><span class="pfx">{{$l.Cont}}</span>{{.}}</div>{{end}}</div>
-{{end}}</div>
-    </section>
-    <section class="rpanel others" id="rpanel-others" role="tabpanel" aria-labelledby="rtab-others" hidden>
-      <p class="sm">Who else has <b>{{$t.Request.Relation}}</b> on <code>{{display $t.Request.Object}}</code>?</p>
-      {{template "whohas" (dict "Base" $.Base "Object" $t.Request.Object "Relation" $t.Request.Relation "Holders" .Holders "Selected" .UserType
-          "Mode" "check" "Context" .Context "Contextual" .Contextual "Current" $t.Request.User)}}
-    </section>
-  </aside>
 </div>
 <script type="application/json" id="trace-data">{{json .Graph}}</script>
 <script type="text/plain" id="trace-plain">{{.Text}}</script>
@@ -217,7 +221,10 @@
   {{- if .Rel}}<span class="fref"><a href="{{.Href}}" title="{{.Ref.Relation}} on {{display .Ref.Object}} in Explore">{{.Rel}}</a>{{if .ShowDef}} <code title="{{.Rel}} = {{.Def}}">= {{.Pre}}{{with .Hit}}<b>{{.}}</b>{{end}}{{.Post}}</code>{{end}}{{with .Module}} <span class="fmod" title="module that defines it">{{.}}</span>{{end}}</span>{{end}}</span></li>{{end}}</ul>{{end}}{{end}}
 
 {{/* The top-down reading: each step, its evidence, then the steps it rests on, nested. */}}
-{{define "why-down"}}{{range .}}<li class="step{{if .Reason}} reason{{end}}{{if .Repeat}} repeat{{end}}"><span class="ft">{{.Text}}{{if .Repeat}} <span class="muted">(see above)</span>{{end}}</span>
+{{define "why-down"}}{{range .}}<li class="step{{if .Reason}} reason{{end}}{{if .Repeat}} repeat{{end}}"{{template "step-nodes" .}}><span class="ft">{{.Text}}{{if .Repeat}} <span class="muted">(see above)</span>{{end}}</span>{{template "step-loc" .}}
   {{- if not .Repeat}}{{template "why-ev" .Evidence}}{{with .Under}}<ul class="steps-down">{{template "why-down" .}}</ul>{{end}}{{end}}</li>{{end}}{{end}}
-{{/* One "Why" step in a flat reading (user up, or numbered top-down): the sentence, then its evidence. */}}
-{{define "why-step"}}<li class="step{{if .Reason}} reason{{end}}"><span class="ft">{{.Text}}</span>{{template "why-ev" .Evidence}}</li>{{end}}
+{{/* A step's graph nodes, and the button that shows them in the graph (trace.js). */}}
+{{define "step-nodes"}}{{with .Nodes}} data-nodes="{{.}}"{{end}}{{end}}
+{{define "step-loc"}}{{with .Nodes}}<button type="button" class="step-loc" data-act="step-graph" aria-label="Show this step in the graph" title="Show this step in the graph">◎</button>{{end}}{{end}}
+{{/* One "Why" step in a flat reading (user up, or numbered top-down): the sentence, its graph link, then its evidence. */}}
+{{define "why-step"}}<li class="step{{if .Reason}} reason{{end}}"{{template "step-nodes" .}}><span class="ft">{{.Text}}</span>{{template "step-loc" .}}{{template "why-ev" .Evidence}}</li>{{end}}

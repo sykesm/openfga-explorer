@@ -60,7 +60,6 @@ function toggleGrants(t, btn) {
     ${list(grants)}
     ${others.length ? `<h4 class="sm">Also on the granting paths</h4>
     <p class="muted sm">Tuples the paths go through on the way (parents, group memberships, …).</p>${list(others)}` : ''}`;
-  togglePanel(t, false);
 }
 
 /** Shows the server-computed detail for a node. @param {FgaTrace} t @param {any} node */
@@ -77,8 +76,6 @@ function showDetail(t, node) {
     : esc(r.value)}</dd>`).join('');
   box.innerHTML = `<button type="button" class="close" aria-label="Clear the selection">×</button>
     <h3 id="node-detail-title">${esc(d.title)}</h3><dl>${rows}</dl><div class="links">${(d.links || []).map(link).join(' ')}</div>`;
-  // Selecting a node is a request to see its details: open the panel.
-  togglePanel(t, false);
 }
 
 const EMPTY_DETAIL = '<p class="nd-empty muted sm">Select a node in the graph or a line of the text trace to see what it means and where to go next.</p>';
@@ -95,7 +92,7 @@ function clearDetail(t) {
 function copyMarkdown(t, btn) {
   const v = $('.verdict', t);
   // The steps as numbered from the user up to the object, whatever reading is shown.
-  const facts = $$('.facts ol.steps[data-reading="up"] > li.step', v).map((li) => `${li.classList.contains('reason') ? '✗ ' : ''}${$('.ft', li)?.textContent.trim() || ''}`);
+  const facts = $$('.facts ol.steps[data-reading="up"] > li.step', t).map((li) => `${li.classList.contains('reason') ? '✗ ' : ''}${$('.ft', li)?.textContent.trim() || ''}`);
   const md = [
     `**${$('.big', v)?.textContent.trim() || ''}**: ${$('.headline', v)?.textContent.trim() || ''}`,
     ...(facts.length ? ['', 'Why:', ...facts.map((f, i) => `${i + 1}. ${f}`)] : []),
@@ -125,7 +122,7 @@ function savePNG(t, cy) {
 const fitTrace = (t) => { if (t.view) { t.view.player.flow.userView = true; fitCapped(t.view.cy, undefined, 24, 1.3); } };
 
 /**
- * Collapses or opens the side panel (details, text trace, who else).
+ * Collapses or opens the reading pane (Why, Text trace, Who else?).
  * @param {FgaTrace} t
  * @param {boolean} [collapse] collapse (true) or open (false); toggles when omitted
  */
@@ -136,7 +133,7 @@ function togglePanel(t, collapse) {
   const now = collapse ?? !was;
   tv.classList.toggle('panel-collapsed', now);
   for (const b of $$('[data-act="toggle-panel"]', t)) b.setAttribute('aria-expanded', String(!now));
-  store.set('panelCollapsed', now);
+  store.set('readingCollapsed', now);
   if (t.view && now !== was) resizeGraph(t.view);
 }
 
@@ -191,6 +188,101 @@ function selectNode(t, n, { zoom = false } = {}) {
   showDetail(t, n);
 }
 
+// ---- linking the "Why" steps to the graph (prototype) ----
+// Each step lists the graph nodes it covers (data-nodes, from the node it
+// establishes down to the one it rests on). Pointing at a step (hover, or
+// focus on its ◎ button) lights up those nodes and the edges between them;
+// the button pins the highlight, selects the established node, and brings
+// the path into view. Selecting a node in the graph marks the steps that
+// cover it.
+
+/** The nodes and edges a step covers. @param {TraceView} v @param {Element} li */
+function stepElements({ cy, player }, li) {
+  const ids = (/** @type {HTMLElement} */ (li).dataset.nodes || '').split(' ').filter(Boolean);
+  let eles = cy.collection();
+  ids.forEach((id, i) => {
+    eles = eles.union(cy.getElementById(id));
+    if (i > 0) eles = eles.union(player.byEnds.get(`${ids[i - 1]}>${id}`) || cy.collection());
+  });
+  return eles;
+}
+
+/** @param {FgaTrace} t */
+function linkSteps(t) {
+  const v = /** @type {TraceView} */ (t.view);
+  const { cy, player: { flow } } = v;
+  const facts = $('#rpanel-why', t);
+  if (!facts) return;
+  /** @type {Element | null} the pinned step */
+  let pinned = null;
+  /** @param {Element | null} li */
+  const light = (li) => {
+    $$('li.step.pointed', facts).forEach((l) => l.classList.remove('pointed'));
+    li?.classList.add('pointed');
+    cy.batch(() => {
+      cy.elements('.step-on, .step-dim').removeClass('step-on step-dim');
+      const on = li || pinned;
+      if (!on) return;
+      // The rest recedes, so the path stands out even with the whole graph in view.
+      const eles = stepElements(v, on);
+      eles.addClass('step-on');
+      cy.elements().not(eles).addClass('step-dim');
+    });
+  };
+  /** @param {Element | null} li */
+  const pin = (li) => {
+    $$('li.step.pinned', facts).forEach((l) => l.classList.remove('pinned'));
+    pinned = li;
+    if (!li) { light(null); return; }
+    li.classList.add('pinned');
+    const ids = (/** @type {HTMLElement} */ (li).dataset.nodes || '').split(' ');
+    let laid = false;
+    for (const id of ids) if (cy.getElementById(id).style('display') === 'none' && reveal(cy, id)) laid = true;
+    if (laid) traceLayout(cy);
+    light(li);
+    const eles = stepElements(v, li);
+    const top = cy.getElementById(ids[0]);
+    flow.userView = true;
+    cy.elements().unselect();
+    top.select();
+    showDetail(t, top);
+    // Frame the path in the part of the graph the details card leaves clear (its left).
+    const card = $('#node-detail', t);
+    const clear = Math.max(0, (card?.offsetWidth || 0) + 16);
+    cy.animate({ fit: { eles, padding: 60 }, duration: reducedMotion() ? 0 : 260,
+      complete: () => {
+        if (cy.zoom() > 1.3) { cy.zoom(1.3); cy.center(eles); }
+        const box = eles.renderedBoundingBox();
+        const room = cy.width() - clear;
+        if (room > 120 && box.x2 > room) {
+          if (box.w > room - 40) cy.zoom({ level: cy.zoom() * (room - 40) / box.w, renderedPosition: { x: box.x1, y: (box.y1 + box.y2) / 2 } });
+          const b2 = eles.renderedBoundingBox();
+          cy.panBy({ x: (room - b2.w) / 2 - b2.x1, y: 0 });
+        }
+      } });
+    const canvas = $('#trace-canvas', t);
+    const r = canvas?.getBoundingClientRect();
+    if (r && (r.bottom < 0 || r.top > innerHeight)) canvas?.scrollIntoView({ block: 'nearest', behavior: scrollBehavior() });
+  };
+  /** @param {Event} e */
+  const stepOf = (e) => /** @type {Element} */ (e.target).closest?.('li.step[data-nodes]') || null;
+  facts.addEventListener('mouseover', (e) => light(stepOf(e)));
+  facts.addEventListener('mouseleave', () => light(null));
+  facts.addEventListener('focusin', (e) => { if (/** @type {Element} */ (e.target).matches('.step-loc')) light(stepOf(e)); });
+  facts.addEventListener('focusout', () => light(null));
+  facts.addEventListener('click', (e) => {
+    if (!/** @type {Element} */ (e.target).closest('.step-loc')) return;
+    const li = stepOf(e);
+    pin(li === pinned ? null : li);
+  });
+  // Tapping a node marks the steps that cover it; the background clears both.
+  cy.on('tap', (/** @type {any} */ e) => {
+    const id = e.target === cy ? '' : e.target.id();
+    for (const li of $$('li.step[data-nodes]', facts)) li.classList.toggle('covers', !!id && (li.dataset.nodes || '').split(' ').includes(id));
+    if (e.target === cy || !pinned || !stepElements(v, pinned).contains(e.target)) pin(null);
+  });
+}
+
 /** Text trace as a tree: ↑/↓/Home/End move, Enter shows details. @param {FgaTrace} t */
 function initTreeKeys(t) {
   const { tree, cy } = /** @type {TraceView} */ (t.view);
@@ -224,9 +316,9 @@ function initTreeKeys(t) {
 
 /**
  * The view kept for a result: the graph (zoom, pan, opened folds, selected
- * node) and, saved when leaving the page, what else was open: "Why", the
- * side panel tab, and the scroll position.
- * @typedef {{ sig: string, zoom: number, pan: { x: number, y: number }, open: string[], sel: string, why?: boolean, tab?: string, scroll?: number }} SavedView
+ * node) and, saved when leaving the page, the reading pane's tab and its
+ * scroll position, and the page's.
+ * @typedef {{ sig: string, zoom: number, pan: { x: number, y: number }, open: string[], sel: string, tab?: string, scroll?: number, paneScroll?: number }} SavedView
  */
 
 const viewKey = () => stateKey('checkView');
@@ -271,8 +363,8 @@ function restoreView(t, cy, v, phase) {
     for (const id of v.open) { const f = cy.getElementById(id); if (f.nonempty()) expandFold(cy, f); }
     return;
   }
-  if (v.why) { const why = /** @type {HTMLDetailsElement | null} */ ($('.verdict .facts', t)); if (why) why.open = true; }
   if (v.tab) tabsOf($(`#rtab-${CSS.escape(v.tab)}`, t))?.select(v.tab);
+  if (v.paneScroll) requestAnimationFrame(() => { const p = $('#inspector .rpanel:not([hidden])', t); if (p) p.scrollTop = v.paneScroll || 0; });
   if (v.scroll) requestAnimationFrame(() => window.scrollTo({ top: v.scroll }));
   cy.stop();
   cy.viewport({ zoom: v.zoom, pan: v.pan });
@@ -291,16 +383,25 @@ function restoreView(t, cy, v, phase) {
  * inside it, so more than one can be on a page.
  *
  * Parts (rendered by the server):
- *   .verdict             the decision, its "Why" (.facts) and data-* texts
- *                        for the player's closing status
- *   .player              replay controls ([data-act]: play, step, final,
- *                        fit, speed, autoplay, focus, copy-md, png,
- *                        toggle-panel) and .player-status (a live region)
- *   #trace-canvas        where the graph is drawn
- *   .trace-views         graph and side panel; .splitter resizes them
- *   #inspector           the side panel: #node-detail, the text trace
- *                        (#rpanel-trace .tree, #trace-plain), its tabs
+ *   .verdict             the decision header, with data-* texts for the
+ *                        player's closing status
+ *   .trace-views         the reading pane and the graph; .splitter resizes
+ *                        them
+ *   #inspector           the reading pane, as tabs: Why (#rpanel-why), the
+ *                        text trace (#rpanel-trace .tree), Who else?
+ *   li.step[data-nodes]  a Why step: data-nodes lists the graph node IDs
+ *                        (trace.NodeID) it covers, from the node it
+ *                        establishes down to the one it rests on, each
+ *                        joined to the next by an edge; its .step-loc
+ *                        button pins it in the graph
+ *   #trace-graph         the graph's bar (walk order, granting tuples,
+ *                        notes), .player (replay controls, [data-act]:
+ *                        play, step, final, fit, speed, autoplay, focus,
+ *                        copy-md, png, toggle-panel), .player-status (a
+ *                        live region), #trace-canvas (where the graph is
+ *                        drawn) and #node-detail (the selected node's card)
  *   #trace-data          the graph as JSON (GraphData)
+ *   #trace-plain         the text trace, for Copy
  *
  * Methods: play(), step(), back(), clearDetail(), togglePanel(), fit().
  *
@@ -332,11 +433,10 @@ class FgaTrace extends HTMLElement {
     // was left.
     this.onPageHide = () => {
       if (!this.view || this.view.cy.destroyed()) return;
-      const why = /** @type {HTMLDetailsElement | null} */ ($('.verdict .facts', this));
       session.set(viewKey(), {
         ...graphView(this.view),
-        why: !!why?.open,
         tab: $('#inspector [role="tab"][aria-selected="true"]', this)?.dataset.tab || '',
+        paneScroll: Math.round($('#inspector .rpanel:not([hidden])', this)?.scrollTop || 0),
         scroll: Math.round(window.scrollY),
       });
     };
@@ -486,21 +586,21 @@ function renderTrace(t, { replay = true, restore = false } = {}) {
       cy.animate({ center: { eles: edge }, zoom: Math.max(cy.zoom(), 0.9), duration: reducedMotion() ? 0 : 220 });
     }
   });
-  const grantsBtn = /** @type {HTMLButtonElement | null} */ ($('.verdict [data-act="show-grants"]', t));
+  const grantsBtn = /** @type {HTMLButtonElement | null} */ ($('#trace-graph [data-act="show-grants"]', t));
   grantsBtn?.addEventListener('click', () => toggleGrants(t, grantsBtn));
   $('.inspector', t)?.addEventListener('click', (/** @type {any} */ e) => {
     if (e.target.closest('.insp-head [data-act="toggle-panel"]')) togglePanel(t);
   });
   $('.panel-rail', t)?.addEventListener('click', () => togglePanel(t, false));
   initTreeKeys(t);
-  // On phones the panel is a bottom sheet: closed until asked for (or a node is selected).
-  togglePanel(t, store.get('panelCollapsed', matchMedia('(max-width: 700px)').matches));
+  linkSteps(t);
+  togglePanel(t, store.get('readingCollapsed', false));
   const views = /** @type {HTMLElement | null} */ ($('.trace-views', t));
   const setTextW = (/** @type {number} */ w) => { if (views) sizeHolder(views).style.setProperty('--text-w', `${Math.round(Math.max(w, 260))}px`); return w; };
   initResizer($('.splitter', views || t), (x) => {
     const r = (views || t).getBoundingClientRect();
-    return setTextW(Math.min(r.right - x, r.width * 0.7));
-  }, setTextW, 'textWidth', () => cy.resize());
+    return setTextW(Math.min(x - r.left, r.width * 0.7));
+  }, setTextW, 'readingWidth', () => cy.resize());
   // Last, so nothing above (panel width, panel state) refits the restored view.
   if (kept) { restoreView(t, cy, kept, 'viewport'); flow.userView = true; }
   keepView(view);

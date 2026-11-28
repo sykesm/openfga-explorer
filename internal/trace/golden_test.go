@@ -63,6 +63,7 @@ func TestGolden(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			checkStepNodes(t, tr)
 			got := render(tr)
 			path := filepath.Join("testdata", tc.name+".golden")
 			if *update {
@@ -134,4 +135,36 @@ func diff(want, got string) string {
 		}
 	}
 	return b.String()
+}
+
+// checkStepNodes checks that every step of the explanation names the graph
+// nodes it covers, that they are in the graph, and that each consecutive
+// pair is joined by an edge (so the page can light up the path).
+func checkStepNodes(t *testing.T, tr *trace.Trace) {
+	t.Helper()
+	g := tr.Graph()
+	nodes, edges := map[string]bool{}, map[string]bool{}
+	for _, e := range g.Elements {
+		if e.Group == "nodes" {
+			nodes[e.Data.ID] = true
+		} else {
+			edges[e.Data.Source+">"+e.Data.Target] = true
+		}
+	}
+	for _, s := range tr.Explanation(nil).Steps {
+		if len(s.Nodes) == 0 {
+			if s.Reason && len(s.Evidence) == 0 {
+				continue // e.g. groups the server ruled out: nothing in the graph
+			}
+			t.Errorf("step %q covers no graph nodes", s.Text)
+		}
+		for i, id := range s.Nodes {
+			if !nodes[id] {
+				t.Errorf("step %q: node %s is not in the graph", s.Text, id)
+			}
+			if i > 0 && !edges[s.Nodes[i-1]+">"+id] {
+				t.Errorf("step %q: no edge %s → %s", s.Text, s.Nodes[i-1], id)
+			}
+		}
+	}
 }

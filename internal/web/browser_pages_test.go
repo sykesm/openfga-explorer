@@ -165,7 +165,7 @@ func TestBrowserCapture(t *testing.T) {
 	if !eval[bool](b, `document.querySelector('[data-act="capture-mask"]').checked`) {
 		t.Error("renaming IDs should be on by default")
 	}
-	b.run(chromedp.Click(`.verdict [data-act="capture"]`, chromedp.ByQuery))
+	b.run(chromedp.Click(`.verdict .save-menu > summary`, chromedp.ByQuery), chromedp.Click(`.verdict [data-act="capture"]`, chromedp.ByQuery))
 	b.waitFor("added", `document.querySelector('.capture-msg')?.textContent.startsWith('Added “user:user-1 can_view document:document-1”')`)
 	b.open("~/scenarios")
 	b.waitFor("draft", `document.querySelector('#scn-doc').value.includes('user:user-1 can_view document:document-1')`)
