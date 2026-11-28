@@ -643,7 +643,8 @@ function clearDetail() {
 /** @param {HTMLButtonElement} btn */
 function copyMarkdown(btn) {
   const v = $('.verdict');
-  const facts = $$('.facts li', v).map((li) => `${li.dataset.kind}: ${$('.ft', li).textContent.trim()}`);
+  // The steps as numbered from the user up to the object, whatever reading is shown.
+  const facts = $$('.facts ol.steps[data-reading="up"] > li.step', v).map((li) => `${li.classList.contains('reason') ? '✗ ' : ''}${$('.ft', li)?.textContent.trim() || ''}`);
   const md = [
     `**${$('.big', v).textContent.trim()}**: ${$('.headline', v)?.textContent.trim() || ''}`,
     ...(facts.length ? ['', 'Why:', ...facts.map((f, i) => `${i + 1}. ${f}`)] : []),
@@ -707,7 +708,6 @@ function resizeGraph(v) {
   cy.pan({ x: cy.width() / 2 - mid.x * z, y: cy.height() / 2 - mid.y * z });
 }
 
-/** Sizes the check view to reach the bottom of the window on wide screens (CSS applies it). */
 /**
  * Where the trace views' sizes (--trace-h, --text-w) are set: the result
  * container, which a re-run keeps while swapping its content, so the new views
@@ -717,6 +717,7 @@ function resizeGraph(v) {
  */
 const sizeHolder = (tv) => /** @type {HTMLElement} */ (tv.closest('#check-result') || tv);
 
+/** Sizes the check view to reach the bottom of the window on wide screens (CSS applies it). */
 function sizeTraceViews() {
   const tv = /** @type {HTMLElement | null} */ ($('.trace-views'));
   if (!tv) return;
@@ -801,8 +802,16 @@ function initTreeKeys(tree, cy) {
 
 const viewKey = () => stateKey('checkView');
 
-/** Identifies a result: the same check with the same graph. @param {string} graph */
-const viewSig = (graph) => `${$('#check-result .verdict')?.dataset.summary || ''}|${graph.length}`;
+/**
+ * Identifies a result: the same check with the same graph (a hash of its
+ * JSON, so two graphs of equal size do not pass for each other).
+ * @param {string} graph
+ */
+const viewSig = (graph) => {
+  let h = 0x811c9dc5; // FNV-1a, 32 bits
+  for (let i = 0; i < graph.length; i++) h = Math.imul(h ^ graph.charCodeAt(i), 0x01000193);
+  return `${$('#check-result .verdict')?.dataset.summary || ''}|${graph.length}|${(h >>> 0).toString(36)}`;
+};
 
 /** The graph part of the kept view. @param {any} cy @param {Fold[]} folds @param {string} sig @returns {SavedView} */
 const graphView = (cy, folds, sig) => ({
@@ -884,6 +893,8 @@ class FgaTrace extends HTMLElement {
   disconnectedCallback() {
     view?.player.pause();
     view?.player.flow.stop();
+    // Cytoscape keeps window listeners per instance: release the old graph.
+    view?.cy.destroy();
     view = null;
   }
 }
@@ -935,17 +946,21 @@ function renderTrace({ replay = true, restore = false } = {}) {
       player.update();
     });
   }
-  const speed = $('.player [data-act="speed"]');
-  const auto = $('.player [data-act="autoplay"]');
-  // Replaying is motion: off by default when the viewer asks for less.
-  auto.checked = store.get('autoplay', !reducedMotion());
-  speed.value = store.get('speed', 6);
-  player.speed = +speed.value;
-  if (replay && auto.checked) player.play(); else player.final();
-  speed.addEventListener('input', () => { player.speed = +speed.value; store.set('speed', player.speed); });
-  auto.addEventListener('change', () => store.set('autoplay', auto.checked));
+  const speed = /** @type {HTMLInputElement | null} */ ($('.player [data-act="speed"]'));
+  const auto = /** @type {HTMLInputElement | null} */ ($('.player [data-act="autoplay"]'));
+  if (speed && auto) {
+    // Replaying is motion: off by default when the viewer asks for less.
+    auto.checked = store.get('autoplay', !reducedMotion());
+    speed.value = store.get('speed', 6);
+    player.speed = +speed.value;
+    if (replay && auto.checked) player.play(); else player.final();
+    speed.addEventListener('input', () => { player.speed = +speed.value; store.set('speed', player.speed); });
+    auto.addEventListener('change', () => store.set('autoplay', auto.checked));
+  } else {
+    player.final(); // no player bar: show the result as it ends
+  }
 
-  $('.player').addEventListener('click', (/** @type {any} */ e) => {
+  $('.player')?.addEventListener('click', (/** @type {any} */ e) => {
     switch (e.target.closest('[data-act]')?.dataset.act) {
       case 'play': player.play(); break;
       case 'step': player.pause(); player.step(); break;

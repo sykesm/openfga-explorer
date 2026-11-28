@@ -338,7 +338,7 @@
 {{if .Err}}<span class="errc">{{.Err}}</span>
 {{else if not .Users}}<span class="muted">No {{.Filter}} has {{.Relation}} on {{display .Object}}.</span>
 {{else}}
-  <div class="muted sm">{{len .Users}} {{.Noun}} {{if eq (len .Users) 1}}has{{else}}have{{end}} {{.Relation}}{{if ge (len .Users) 1000}} (the server caps this list at 1000){{end}}.
+  <div class="muted sm">{{len .Users}} {{.Noun}} {{if eq (len .Users) 1}}has{{else}}have{{end}} {{.Relation}}{{if .Capped}} (the server caps this list, so there may be more){{end}}.
     {{if eq .Mode "check"}}Click one to trace its path.{{else}}<i>why?</i> explains each one.{{end}}</div>
   {{/* One list: "show more" reveals the rest in place, and the whole list scrolls. */}}
   <ul class="edgelist lu-list">{{range .First}}{{template "lu-row" (dict "U" . "Base" $.Base "Rel" $.Data.Relation "Obj" $.Data.Object "Mode" $.Data.Mode "Current" $.Data.Current)}}{{end}}

@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
-	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -346,11 +346,8 @@ func (s *Server) handleInstance(w http.ResponseWriter, r *http.Request) {
 	for _, e := range v.Model.TypeGraph() {
 		if e.To == typ && e.Kind != "ttu" {
 			k := e.From
-			if e.Kind == "userset" {
-				// e.Label is "relation ← #member"
-				if i := strings.LastIndex(e.Label, "#"); i >= 0 {
-					k += e.Label[i:]
-				}
+			if e.UsersetRelation != "" {
+				k += "#" + e.UsersetRelation
 			}
 			if !seen[k] {
 				seen[k] = true
@@ -358,7 +355,7 @@ func (s *Server) handleInstance(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	sort.Strings(p.UserType)
+	slices.Sort(p.UserType)
 	v.Data = p
 	s.render(w, "instance", v)
 }
@@ -659,7 +656,7 @@ func (s *Server) readEdges(ctx context.Context, q tuples.Query, self string) edg
 	for _, k := range page.Tuples {
 		es.Edges = append(es.Edges, s.edgeOf(q.Dir, k, self))
 	}
-	es.Count, es.N = fmt.Sprint(len(es.Edges)), len(es.Edges)
+	es.Count, es.N = strconv.Itoa(len(es.Edges)), len(es.Edges)
 	if es.More {
 		es.Count, es.N = fmt.Sprintf("%d+", len(es.Edges)), -1
 		// Without budget left for the count, the relation shows as "100+".
@@ -724,7 +721,7 @@ func (s *Server) handleEdges(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	c := &edgeChooser{Object: q.Get("object"), Relation: q.Get("relation"), Dir: q.Get("dir"), User: q.Get("user"), ObjectType: q.Get("object_type"),
 		Filter: strings.TrimSpace(q.Get("filter")), Source: s.source(q.Get("source"))}
-	fmt.Sscan(q.Get("offset"), &c.Offset)
+	c.Offset, _ = strconv.Atoi(q.Get("offset")) // 0 when absent or not a number
 	tq := tuples.Query{Store: v.StoreID, Relation: c.Relation, Cursor: q.Get("cursor"), Limit: 100}
 	if c.Dir == "in" {
 		tq.Dir, tq.User, tq.ObjectType = tuples.In, c.User, c.ObjectType
@@ -733,7 +730,7 @@ func (s *Server) handleEdges(w http.ResponseWriter, r *http.Request) {
 		tq.Dir, tq.Object = tuples.Out, c.Object
 	}
 	if c.Filter != "" {
-		if c.Source.FilterMode() == "prefix" {
+		if c.Source.FilterMode() == tuples.FilterPrefix {
 			c.Prefixes = s.edgePrefixes(v.Model, tq, c.Filter)
 			tq.Prefixes = c.Prefixes
 			if len(tq.Prefixes) == 0 {
@@ -757,7 +754,7 @@ func (s *Server) handleEdges(w http.ResponseWriter, r *http.Request) {
 			c.Scanned, c.More, c.Note = page.Scanned, page.More, page.Note
 			if c.More {
 				next := url.Values{"object": {c.Object}, "relation": {c.Relation}, "dir": {c.Dir}, "user": {c.User}, "object_type": {c.ObjectType},
-					"cursor": {page.Cursor}, "offset": {fmt.Sprint(c.Offset + len(c.Shown))}, "filter": {c.Filter}, "source": {c.Source.Name()}}
+					"cursor": {page.Cursor}, "offset": {strconv.Itoa(c.Offset + len(c.Shown))}, "filter": {c.Filter}, "source": {c.Source.Name()}}
 				c.NextQuery = next.Encode()
 			}
 		}
@@ -808,6 +805,24 @@ func (s *Server) edgePrefixes(m *schema.Model, q tuples.Query, filter string) []
 
 // ---- ListUsers ---------------------------------------------------------------
 
+// listUsersData is "who else has this?" (the listusers template): the users
+// ListUsers returned, the first few shown and the rest behind "show more".
+type listUsersData struct {
+	Object, Relation, Filter string
+	// Mode is "check" from the Check view (rows trace the user; Current is
+	// the user already traced), else rows open the user in Explore.
+	Mode, Current string
+	Err           string
+	Users         []string
+	First, Rest   []string
+	Noun          string
+	// Capped: the list is as long as the server returns, so may be cut off.
+	Capped bool
+}
+
+// handleListUsers answers "who else has this?" with one ListUsers call. It is
+// not a live query in the AGENTS.md sense: it asks one question about one
+// object, bounded by the server's own result limit, like a check.
 func (s *Server) handleListUsers(w http.ResponseWriter, r *http.Request) {
 	v, _, err := s.resolve(r)
 	if err != nil {
@@ -824,52 +839,37 @@ func (s *Server) handleListUsers(w http.ResponseWriter, r *http.Request) {
 		Relation:    q.Get("relation"),
 		UserFilters: []*openfgav1.UserTypeFilter{{Type: ft, Relation: frel}},
 	}
+	d := &listUsersData{Object: q.Get("object"), Relation: q.Get("relation"), Filter: filter, Mode: q.Get("mode"), Current: q.Get("current")}
+	v.Data = d
 	// From the Check view, evaluate with the same context and contextual
-	// tuples as the check, so conditional grants are decided the same way.
-	data := map[string]any{"Object": q.Get("object"), "Relation": q.Get("relation"), "Filter": filter,
-		"Mode": q.Get("mode"), "Current": q.Get("current")}
-	// A bad context or contextual tuple is reported, not dropped: listing
-	// without it would answer a different question.
-	reqCtx, err := trace.ParseContext(q.Get("context"))
-	var ct []*openfgav1.TupleKey
-	if err == nil {
-		ct, err = parseContextual(q.Get("contextual"))
-	}
-	if err == nil {
-		req.Context, req.ContextualTuples = reqCtx, ct
+	// tuples as the check, so conditional grants are decided the same way. A
+	// bad one is reported, not dropped: listing without it would answer a
+	// different question.
+	if req.Context, err = trace.ParseContext(q.Get("context")); err == nil {
+		req.ContextualTuples, err = parseContextual(q.Get("contextual"))
 	}
 	var resp *openfgav1.ListUsersResponse
 	if err == nil {
 		resp, err = s.fga.ListUsers(r.Context(), req)
 	}
 	if err != nil {
-		data["Err"] = err.Error()
-	} else {
-		var users []string
-		for _, u := range resp.GetUsers() {
-			switch x := u.GetUser().(type) {
-			case *openfgav1.User_Object:
-				users = append(users, x.Object.GetType()+":"+x.Object.GetId())
-			case *openfgav1.User_Userset:
-				users = append(users, x.Userset.GetType()+":"+x.Userset.GetId()+"#"+x.Userset.GetRelation())
-			case *openfgav1.User_Wildcard:
-				users = append(users, x.Wildcard.GetType()+":*")
-			}
-		}
-		sort.Strings(users)
-		data["Users"] = users
-		shown := 20
-		if q.Get("mode") == "check" {
-			shown = 10
-		}
-		if len(users) > shown {
-			data["First"], data["Rest"] = users[:shown], users[shown:]
-		} else {
-			data["First"] = users
-		}
-		data["Noun"] = plural(filter, len(users))
+		d.Err = err.Error()
+		s.render(w, "listusers", v)
+		return
 	}
-	v.Data = data
+	for _, u := range resp.GetUsers() {
+		if us := userString(u); us != "" {
+			d.Users = append(d.Users, us)
+		}
+	}
+	slices.Sort(d.Users)
+	n := 20
+	if d.Mode == "check" {
+		n = 10
+	}
+	d.First, d.Rest = d.Users[:min(n, len(d.Users))], d.Users[min(n, len(d.Users)):]
+	d.Noun = plural(filter, len(d.Users))
+	d.Capped = len(resp.GetUsers()) >= fga.ListMax
 	s.render(w, "listusers", v)
 }
 
@@ -933,6 +933,16 @@ type searchResults struct {
 	// so an empty result can be explained from the model.
 	AsObject []string
 	AsUser   []string
+}
+
+// Places counts where the type's IDs appear in tuples, as the search lists
+// them: once as an object (whatever the relations), once per relation as user.
+func (r *searchResults) Places() int {
+	n := len(r.AsUser)
+	if len(r.AsObject) > 0 {
+		n++
+	}
+	return n
 }
 
 func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {

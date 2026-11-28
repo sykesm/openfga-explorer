@@ -5,11 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 
 	openfgav1 "github.com/openfga/api/proto/openfga/v1"
+	"github.com/sykesm/openfga-explorer/internal/fga"
 	"github.com/sykesm/openfga-explorer/internal/schema"
 	"github.com/sykesm/openfga-explorer/internal/trace"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -126,7 +127,7 @@ func (s *Server) handleImpact(w http.ResponseWriter, r *http.Request) {
 	for k := range kinds {
 		kindList = append(kindList, k)
 	}
-	sort.Strings(kindList)
+	slices.Sort(kindList)
 	for _, obj := range objects {
 		oi := objectImpact{Object: obj}
 		old, oldErr := s.holders(ctx, b, v.StoreID, res.BaseID, obj, res.Relation, kindList, reqCtx, &res.Truncated)
@@ -142,8 +143,8 @@ func (s *Server) handleImpact(w http.ResponseWriter, r *http.Request) {
 				oi.Gained = append(oi.Gained, u)
 			}
 		}
-		sort.Strings(oi.Lost)
-		sort.Strings(oi.Gained)
+		slices.Sort(oi.Lost)
+		slices.Sort(oi.Gained)
 		res.Lost += len(oi.Lost)
 		res.Gained += len(oi.Gained)
 		oi.Lost, oi.LostMore = shown(oi.Lost, impactShown)
@@ -212,10 +213,10 @@ func (s *Server) holders(ctx context.Context, b *budget, store, model, object, r
 			Object: &openfgav1.Object{Type: typ, Id: id}, Relation: rel, Context: reqCtx,
 			UserFilters: []*openfgav1.UserTypeFilter{{Type: ft, Relation: fr}}})
 		if err != nil {
-			errs = append(errs, fmt.Sprintf("%s (%s, model %s): %v", k, object, short(model), err))
+			errs = append(errs, fmt.Sprintf("%s (%s, model %s): %v", k, object, truncate(model, 10), err))
 			continue
 		}
-		if len(resp.GetUsers()) >= listObjectsMax {
+		if len(resp.GetUsers()) >= fga.ListMax {
 			*truncated = true
 		}
 		for _, u := range resp.GetUsers() {
@@ -223,13 +224,6 @@ func (s *Server) holders(ctx context.Context, b *budget, store, model, object, r
 		}
 	}
 	return out, errs
-}
-
-func short(s string) string {
-	if len(s) > 10 {
-		return s[:10] + "…"
-	}
-	return s
 }
 
 func userString(u *openfgav1.User) string {

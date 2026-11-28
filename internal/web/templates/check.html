@@ -87,9 +87,9 @@
       <button type="button" class="sm" data-act="reading" data-reading="down" aria-pressed="false" title="From the object down to the user, the way the walk reasons: each step, then what it rests on, nested">Object → user (nested)</button>
       <button type="button" class="sm" data-act="reading" data-reading="flat" aria-pressed="false" title="From the object down to the user, as a numbered list: each step says which steps it rests on">Object → user (numbered)</button>
     </div>
-    <ol class="steps" data-reading="up">{{range $.Data.Why}}<li class="step{{if .Reason}} reason{{end}}"><span class="ft">{{.Text}}</span>{{template "why-ev" .Evidence}}</li>{{end}}</ol>
+    <ol class="steps" data-reading="up">{{range $.Data.Why}}{{template "why-step" .}}{{end}}</ol>
     <ul class="steps steps-down" data-reading="down" hidden>{{template "why-down" $.Data.WhyDown}}</ul>
-    <ol class="steps" data-reading="flat" hidden>{{range $.Data.WhyFlat}}<li class="step{{if .Reason}} reason{{end}}"><span class="ft">{{.Text}}</span>{{template "why-ev" .Evidence}}</li>{{end}}</ol></details>{{end}}{{end}}
+    <ol class="steps" data-reading="flat" hidden>{{range $.Data.WhyFlat}}{{template "why-step" .}}{{end}}</ol></details>{{end}}{{end}}
   <div class="vgroups">
   <div class="vrow" role="group" aria-labelledby="vl-result">
     <span class="vlabel" id="vl-result">Result</span>
@@ -113,7 +113,7 @@
       {{with $t.Root.Server}}{{if .Err}}<div class="alert err">Server check failed: {{.Err}}</div>{{end}}{{end}}
     </div>
   </div>
-  {{$order := print $t.Options.Order}}
+  {{$order := .Order}}
   <div class="vrow" role="group" aria-labelledby="vl-expl">
     <span class="vlabel" id="vl-expl">Explanation</span>
     <div class="vbody">
@@ -219,3 +219,5 @@
 {{/* The top-down reading: each step, its evidence, then the steps it rests on, nested. */}}
 {{define "why-down"}}{{range .}}<li class="step{{if .Reason}} reason{{end}}{{if .Repeat}} repeat{{end}}"><span class="ft">{{.Text}}{{if .Repeat}} <span class="muted">(see above)</span>{{end}}</span>
   {{- if not .Repeat}}{{template "why-ev" .Evidence}}{{with .Under}}<ul class="steps-down">{{template "why-down" .}}</ul>{{end}}{{end}}</li>{{end}}{{end}}
+{{/* One "Why" step in a flat reading (user up, or numbered top-down): the sentence, then its evidence. */}}
+{{define "why-step"}}<li class="step{{if .Reason}} reason{{end}}"><span class="ft">{{.Text}}</span>{{template "why-ev" .Evidence}}</li>{{end}}

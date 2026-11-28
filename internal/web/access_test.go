@@ -68,7 +68,7 @@ func TestIdentityAndAdminFlag(t *testing.T) {
 	_, body = x.get("~/explore/instance?object=user:anne", http.StatusOK)
 	mustContain(t, "admin tab", body, `data-tab="access"`)
 	// …but a named identity is not upgraded by the flag.
-	req, _ := http.NewRequest("GET", x.url("~/explore/instance?object=user:anne"), nil)
+	req, _ := http.NewRequest(http.MethodGet, x.url("~/explore/instance?object=user:anne"), nil)
 	req.Header.Set("X-Email", "someone@example.com")
 	_, body = x.do(req, http.StatusOK)
 	if strings.Contains(body, `data-tab="access"`) {
@@ -84,7 +84,7 @@ func TestIdentityAndAdminFlag(t *testing.T) {
 		t.Error("default_role: admin made an anonymous request an admin")
 	}
 	x = explorerFor(t, st, live, withHeader, adminDefault)
-	req, _ = http.NewRequest("GET", x.url("~/explore/instance?object=user:anne"), nil)
+	req, _ = http.NewRequest(http.MethodGet, x.url("~/explore/instance?object=user:anne"), nil)
 	req.Header.Set("X-Email", "someone@example.com")
 	_, body = x.do(req, http.StatusOK)
 	mustContain(t, "named identity gets default_role", body, `data-tab="access"`)

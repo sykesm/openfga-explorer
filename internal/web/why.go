@@ -44,16 +44,66 @@ func (e whyEvidence) TupleText() string {
 // shortDef is the longest definition repeated in full at every mention.
 const shortDef = 40
 
-// whySteps ties each step's evidence to its relation in the model.
+// whyBuilder turns explanation steps into page steps, tying their evidence
+// to the model. One builder per reading: the first mention of a relation in
+// that reading shows its whole definition (see evidence).
+type whyBuilder struct {
+	m     *schema.Model
+	l     traceLinks
+	shown map[string]bool
+}
+
+func newWhyBuilder(m *schema.Model, l traceLinks) *whyBuilder {
+	return &whyBuilder{m: m, l: l, shown: map[string]bool{}}
+}
+
+// step is s as a page step, worded text for the reading it is in.
+func (b *whyBuilder) step(text string, s trace.WhyStep) whyStep {
+	ws := whyStep{Text: text, Reason: s.Reason}
+	for _, ev := range s.Evidence {
+		ws.Evidence = append(ws.Evidence, evidence(ev, b.m, b.l, b.shown))
+	}
+	return ws
+}
+
+// whySteps is the user-up reading: each step, its evidence tied to the model.
 func whySteps(steps []trace.WhyStep, m *schema.Model, l traceLinks) []whyStep {
+	b := newWhyBuilder(m, l)
 	out := make([]whyStep, 0, len(steps))
-	shown := map[string]bool{}
 	for _, s := range steps {
-		ws := whyStep{Text: s.Text, Reason: s.Reason}
-		for _, ev := range s.Evidence {
-			ws.Evidence = append(ws.Evidence, evidence(ev, m, l, shown))
+		out = append(out, b.step(s.Text, s))
+	}
+	return out
+}
+
+// whyDown is the top-down reading (object to user), nested: each step, then
+// the steps it rests on. A step already shown higher up is named, not
+// expanded.
+func whyDown(down []trace.DownStep, m *schema.Model, l traceLinks) []whyStep {
+	b := newWhyBuilder(m, l)
+	var conv func(ds []trace.DownStep) []whyStep
+	conv = func(ds []trace.DownStep) []whyStep {
+		out := make([]whyStep, 0, len(ds))
+		for _, d := range ds {
+			if d.Repeat {
+				out = append(out, whyStep{Text: d.Sentence, Reason: d.Reason, Repeat: true})
+				continue
+			}
+			ws := b.step(d.Sentence, d.WhyStep)
+			ws.Under = conv(d.Under)
+			out = append(out, ws)
 		}
-		out = append(out, ws)
+		return out
+	}
+	return conv(down)
+}
+
+// whyFlat is the top-down reading as a numbered list (see trace.DownFlat).
+func whyFlat(flat []trace.DownStep, m *schema.Model, l traceLinks) []whyStep {
+	b := newWhyBuilder(m, l)
+	out := make([]whyStep, 0, len(flat))
+	for _, d := range flat {
+		out = append(out, b.step(d.Sentence, d.WhyStep))
 	}
 	return out
 }
@@ -149,38 +199,3 @@ func relModule(m *schema.Model, typ, rel string) string {
 	return src
 }
 
-// whyDown is the top-down reading (object to user) of the steps, its
-// evidence tied to the model like whySteps (first mentions in this order).
-func whyDown(down []trace.DownStep, m *schema.Model, l traceLinks) []whyStep {
-	shown := map[string]bool{}
-	var conv func(ds []trace.DownStep) []whyStep
-	conv = func(ds []trace.DownStep) []whyStep {
-		out := make([]whyStep, 0, len(ds))
-		for _, d := range ds {
-			ws := whyStep{Text: d.Text, Reason: d.Reason, Repeat: d.Repeat}
-			if !d.Repeat {
-				for _, ev := range d.Evidence {
-					ws.Evidence = append(ws.Evidence, evidence(ev, m, l, shown))
-				}
-				ws.Under = conv(d.Under)
-			}
-			out = append(out, ws)
-		}
-		return out
-	}
-	return conv(down)
-}
-
-// whyFlat is the top-down reading as a numbered list (see trace.DownFlat).
-func whyFlat(flat []trace.DownStep, m *schema.Model, l traceLinks) []whyStep {
-	shown := map[string]bool{}
-	out := make([]whyStep, 0, len(flat))
-	for _, d := range flat {
-		ws := whyStep{Text: d.Text, Reason: d.Reason}
-		for _, ev := range d.Evidence {
-			ws.Evidence = append(ws.Evidence, evidence(ev, m, l, shown))
-		}
-		out = append(out, ws)
-	}
-	return out
-}

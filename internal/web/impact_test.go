@@ -1,7 +1,6 @@
 package web
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -19,7 +18,7 @@ import (
 // view, found by comparing who holds viewer on real objects.
 func TestImpactOnRealPeople(t *testing.T) {
 	srv := fgatest.Start(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	key := func(u, r, o string) *openfgav1.TupleKey { return &openfgav1.TupleKey{User: u, Relation: r, Object: o} }
 	st, err := srv.CreateStore(ctx, "impact", "model\n  schema 1.1\ntype user\ntype doc\n  relations\n    define editor: [user]\n    define viewer: [user] or editor\n",
 		[]*openfgav1.TupleKey{key("user:anne", "editor", "doc:1"), key("user:bob", "viewer", "doc:1"), key("user:carol", "editor", "doc:2"), key("user:carol", "viewer", "doc:2")})
@@ -63,7 +62,7 @@ func TestImpactOnRealPeople(t *testing.T) {
 // page lists the first few and counts the rest, while the totals stay exact.
 func TestImpactListsAreBounded(t *testing.T) {
 	srv := fgatest.Start(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	var keys []*openfgav1.TupleKey
 	for i := range 30 {
 		keys = append(keys, &openfgav1.TupleKey{User: fmt.Sprintf("user:u%02d", i), Relation: "editor", Object: "doc:1"})

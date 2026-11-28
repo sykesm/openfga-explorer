@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
-	"sort"
 	"strings"
 	"time"
 
 	openfgav1 "github.com/openfga/api/proto/openfga/v1"
+	"github.com/sykesm/openfga-explorer/internal/fga"
 	"github.com/sykesm/openfga-explorer/internal/schema"
 	"github.com/sykesm/openfga-explorer/internal/trace"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -48,10 +48,6 @@ type accessResult struct {
 	Truncated bool // the server returned its maximum; there may be more
 	Err       string
 }
-
-// listObjectsMax is OpenFGA's default ListObjects result limit; a result
-// that size may be cut off.
-const listObjectsMax = 1000
 
 // accessSubjects lists the subjects an instance can be checked as.
 func accessSubjects(m *schema.Model, obj string) []string {
@@ -179,8 +175,8 @@ func (s *Server) handleAccess(w http.ResponseWriter, r *http.Request) {
 			res.Err = err.Error()
 		default:
 			res.Objects = resp.GetObjects()
-			sort.Strings(res.Objects)
-			res.Truncated = len(res.Objects) >= listObjectsMax
+			slices.Sort(res.Objects)
+			res.Truncated = len(res.Objects) >= fga.ListMax
 		}
 		p.Results = append(p.Results, res)
 		if ctx.Err() != nil {

@@ -17,6 +17,17 @@ func TestParseContextual(t *testing.T) {
 	if _, err := parseContextual("only two"); err == nil {
 		t.Fatal("expected error")
 	}
+	// Any run of spaces or tabs separates fields; the context after the
+	// condition may contain spaces.
+	ks, err = parseContextual("user:anne  viewer\tdoc:1   grant  {\"grant_duration\": \"1h\", \"x\": 1}")
+	if err != nil {
+		t.Fatal(err)
+	}
+	k := ks[0]
+	if k.GetUser() != "user:anne" || k.GetRelation() != "viewer" || k.GetObject() != "doc:1" || k.GetCondition().GetName() != "grant" ||
+		k.GetCondition().GetContext().GetFields()["grant_duration"].GetStringValue() != "1h" {
+		t.Errorf("repeated spaces and tabs: %v", k)
+	}
 }
 
 func TestTrimVerdict(t *testing.T) {

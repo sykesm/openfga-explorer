@@ -3,12 +3,10 @@ package web
 import (
 	"html"
 	"html/template"
-	"net/url"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 )
-
-func urlQueryEscape(s string) string { return url.QueryEscape(s) }
 
 var (
 	dslKeyword = regexp.MustCompile(`\b(model|schema|type|relations|define|condition|module|extend)\b`)
@@ -36,4 +34,13 @@ func highlightDSL(src string) template.HTML {
 		}
 	}
 	return template.HTML(b.String())
+}
+
+// truncate shortens s to n characters (not bytes, so a multi-byte character
+// is never cut), marking the cut with "…".
+func truncate(s string, n int) string {
+	if utf8.RuneCountInString(s) <= n {
+		return s
+	}
+	return string([]rune(s)[:n]) + "…"
 }

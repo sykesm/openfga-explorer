@@ -1,7 +1,6 @@
 package web
 
 import (
-	"context"
 	"encoding/json"
 	"html"
 	"io"
@@ -88,13 +87,13 @@ func (x *testExplorer) url(path string) string {
 
 func (x *testExplorer) get(path string, want int) (*http.Response, string) {
 	x.t.Helper()
-	req, _ := http.NewRequest("GET", x.url(path), nil)
+	req, _ := http.NewRequest(http.MethodGet, x.url(path), nil)
 	return x.do(req, want)
 }
 
 func (x *testExplorer) post(path string, form url.Values) (*http.Response, string) {
 	x.t.Helper()
-	req, _ := http.NewRequest("POST", x.url(path), strings.NewReader(form.Encode()))
+	req, _ := http.NewRequest(http.MethodPost, x.url(path), strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("HX-Request", "true")
 	return x.do(req, http.StatusOK)
@@ -159,6 +158,17 @@ func TestSecurityHeadersAndAssets(t *testing.T) {
 	resp, _ = x.get("/static/v/stale/js/main.js", http.StatusOK)
 	if cc := resp.Header.Get("Cache-Control"); cc != "no-cache" {
 		t.Errorf("stale version Cache-Control = %q", cc)
+	}
+	// The stylesheet: kept for good only under its current hash.
+	css := regexp.MustCompile(`href="(/static/app\.css\?v=[0-9a-f]+)"`).FindStringSubmatch(body)
+	if css == nil {
+		t.Fatal("no fingerprinted stylesheet URL")
+	}
+	if resp, _ = x.get(css[1], http.StatusOK); !strings.Contains(resp.Header.Get("Cache-Control"), "immutable") {
+		t.Errorf("current stylesheet Cache-Control = %q", resp.Header.Get("Cache-Control"))
+	}
+	if resp, _ = x.get("/static/app.css?v=stale", http.StatusOK); resp.Header.Get("Cache-Control") != "no-cache" {
+		t.Errorf("stale stylesheet hash Cache-Control = %q", resp.Header.Get("Cache-Control"))
 	}
 }
 
@@ -307,7 +317,7 @@ func TestCheckRun(t *testing.T) {
 	}
 
 	// Bad input is reported, not a 500.
-	req, _ := http.NewRequest("POST", x.url("~/check/run"), strings.NewReader(url.Values{"user": {"nope"}, "relation": {"viewer"}, "object": {"document:x"}}.Encode()))
+	req, _ := http.NewRequest(http.MethodPost, x.url("~/check/run"), strings.NewReader(url.Values{"user": {"nope"}, "relation": {"viewer"}, "object": {"document:x"}}.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	x.do(req, http.StatusBadRequest)
 }
@@ -369,7 +379,7 @@ func TestModularModel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	st, err := srv.CreateModularStore(context.Background(), "modular-demo", dir, tuples)
+	st, err := srv.CreateModularStore(t.Context(), "modular-demo", dir, tuples)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -409,7 +419,7 @@ func TestModularModel(t *testing.T) {
 // the relations they concern. The model is one OpenFGA accepts.
 func TestModelChecksShown(t *testing.T) {
 	srv := fgatest.Start(t)
-	st, err := srv.CreateStore(context.Background(), "lint", `model
+	st, err := srv.CreateStore(t.Context(), "lint", `model
   schema 1.1
 type user
 type drone
@@ -445,7 +455,7 @@ type document
 // default, showing rule changes and their effect on who can hold what.
 func TestModelDiffPage(t *testing.T) {
 	srv := fgatest.Start(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	st, err := srv.CreateStore(ctx, "versions", "model\n  schema 1.1\ntype user\ntype group\n  relations\n    define member: [user]\ntype doc\n  relations\n    define editor: [user]\n    define viewer: [user] or editor\n", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -547,4 +557,16 @@ func TestCheckSaysGroupsWereRuledOut(t *testing.T) {
 		"25 groups were not walked</b>: the server's Check says user:nobody is not in them",
 		"walk every group",
 		"per the server&#39;s Check; those groups were not walked")
+}
+
+// An unknown store or model is the visitor's to fix (404), not a gateway
+// failure; error pages are HTML with their status.
+func TestUnknownStoreAndModel(t *testing.T) {
+	x := newTestExplorer(t)
+	resp, body := x.get("/s/01ARZ3NDEKTSV4RRFFQ69G5FAV/m/latest/explore", http.StatusNotFound)
+	if ct := resp.Header.Get("Content-Type"); !strings.HasPrefix(ct, "text/html") {
+		t.Errorf("error page Content-Type = %q", ct)
+	}
+	mustContain(t, "unknown store", body, "openfga:")
+	x.get(strings.Replace(x.base, "/m/latest", "/m/01ARZ3NDEKTSV4RRFFQ69G5FAV", 1)+"/explore", http.StatusNotFound)
 }

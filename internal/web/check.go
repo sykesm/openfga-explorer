@@ -5,13 +5,15 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"sort"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	openfgav1 "github.com/openfga/api/proto/openfga/v1"
+	"github.com/sykesm/openfga-explorer/internal/config"
 	"github.com/sykesm/openfga-explorer/internal/schema"
 	"github.com/sykesm/openfga-explorer/internal/trace"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -166,6 +168,8 @@ func (s *Server) handleCheckPage(w http.ResponseWriter, r *http.Request) {
 }
 
 type checkResult struct {
+	// Order is how the walk chose branches (trace.OrderGuided, OrderModel, OrderAll).
+	Order string
 	// CacheTTL is how long the walk's read cache keeps a page (walkCacheTTL).
 	CacheTTL time.Duration
 	Trace    *trace.Trace
@@ -387,13 +391,13 @@ func (s *Server) handleCheckRun(w http.ResponseWriter, r *http.Request) {
 	}
 	opt := s.cfg.Trace.Options()
 	if n, err := strconv.Atoi(r.PostForm.Get("max_calls")); err == nil && n > 0 {
-		opt.MaxCalls = min(n, 5000)
+		opt.MaxCalls = min(n, config.MaxTraceCalls)
 	}
 	if n, err := strconv.Atoi(r.PostForm.Get("max_fanout")); err == nil && n > 0 {
-		opt.MaxFanout = min(n, 1000)
+		opt.MaxFanout = min(n, config.MaxTraceFanout)
 	}
 	if n, err := strconv.Atoi(r.PostForm.Get("probe_limit")); err == nil && n > 0 {
-		opt.ProbeLimit = min(n, 1000)
+		opt.ProbeLimit = min(n, config.MaxTraceProbes)
 	}
 	order := orderParam(r.PostForm.Get("order"), r.PostForm.Get("all_paths"))
 	opt.SetOrder(order)
@@ -443,7 +447,7 @@ func (s *Server) handleCheckRun(w http.ResponseWriter, r *http.Request) {
 	ex := tr.Explanation(s.displayObject)
 	v.Data = &checkResult{Trace: tr, CacheTTL: walkCacheTTL, Lines: tr.Lines(), Graph: graph, Decision: tr.Decision(), Walker: tr.Root.Outcome, Link: link, Context: ctxText, Contextual: ctText, Grants: tr.GrantingTuples(), Gaps: gaps,
 		Explanation: ex, Why: whySteps(ex.Steps, me.m, links), WhyDown: whyDown(ex.Down(), me.m, links), WhyFlat: whyFlat(ex.DownFlat(), me.m, links), Text: tr.Text(),
-		Summary: checkSummary(req.User, req.Relation, req.Object, ctxText), Done: doneTexts(tr.Decision(), order, len(gaps) == 0)}
+		Summary: checkSummary(req.User, req.Relation, req.Object, ctxText), Done: doneTexts(tr.Decision(), order, len(gaps) == 0), Order: order}
 	if subj, err := schema.ParseSubject(req.User); err == nil {
 		res := v.Data.(*checkResult)
 		res.UserType = subj.Type
@@ -459,19 +463,16 @@ func (s *Server) handleCheckRun(w http.ResponseWriter, r *http.Request) {
 	s.render(w, "check-result", v)
 }
 
+// queryOf encodes the non-empty values as a query string (keys sorted, as
+// url.Values.Encode does), so equal checks get equal links.
 func queryOf(m map[string]string) string {
-	var parts []string
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		if m[k] != "" {
-			parts = append(parts, k+"="+urlQueryEscape(m[k]))
+	q := url.Values{}
+	for k, v := range m {
+		if v != "" {
+			q.Set(k, v)
 		}
 	}
-	return strings.Join(parts, "&")
+	return q.Encode()
 }
 
 // parseContextual accepts a JSON array of tuple keys, or one tuple per line:
@@ -503,22 +504,16 @@ func parseContextual(text string) ([]*openfgav1.TupleKey, error) {
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		parts := strings.SplitN(line, " ", 5)
-		var fields []string
-		for _, p := range parts {
-			if p != "" {
-				fields = append(fields, p)
-			}
-		}
+		fields, rest := cutFields(line, 4)
 		if len(fields) < 3 {
 			return nil, fmt.Errorf("contextual tuple line %d: expected \"user relation object [condition {context}]\"", i+1)
 		}
 		k := &openfgav1.TupleKey{User: fields[0], Relation: fields[1], Object: fields[2]}
 		if len(fields) >= 4 {
 			k.Condition = &openfgav1.RelationshipCondition{Name: fields[3]}
-			if len(fields) == 5 {
+			if rest != "" {
 				var m map[string]any
-				if err := json.Unmarshal([]byte(fields[4]), &m); err != nil {
+				if err := json.Unmarshal([]byte(rest), &m); err != nil {
 					return nil, fmt.Errorf("contextual tuple line %d: condition context: %w", i+1, err)
 				}
 				st, err := structpb.NewStruct(m)
@@ -531,4 +526,19 @@ func parseContextual(text string) ([]*openfgav1.TupleKey, error) {
 		out = append(out, k)
 	}
 	return out, nil
+}
+
+// cutFields splits up to n fields off s, separated by any run of white
+// space (spaces or tabs), and returns what follows them, trimmed (a
+// condition's JSON context, which may itself contain spaces).
+func cutFields(s string, n int) (fields []string, rest string) {
+	rest = strings.TrimSpace(s)
+	for len(fields) < n && rest != "" {
+		i := strings.IndexFunc(rest, unicode.IsSpace)
+		if i < 0 {
+			return append(fields, rest), ""
+		}
+		fields, rest = append(fields, rest[:i]), strings.TrimLeftFunc(rest[i:], unicode.IsSpace)
+	}
+	return fields, rest
 }

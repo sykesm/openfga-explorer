@@ -3,6 +3,8 @@
 package web
 
 import (
+	"bytes"
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"embed"
@@ -16,7 +18,6 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -58,14 +59,20 @@ type Server struct {
 	expand *guard
 	assets map[string]string // static path -> content hash
 
-	mu     sync.Mutex
-	models map[string]*modelEntry
-	latest map[string]latestEntry
+	mu       sync.Mutex
+	models   map[string]*modelEntry
+	modelSeq uint64 // counts model lookups, for evictModels
+	latest   map[string]latestEntry
 }
 
+// modelEntry is an analysed model in the cache (see Server.model). m, ev and
+// err are set before ready closes.
 type modelEntry struct {
-	m  *schema.Model
-	ev *cond.Evaluator
+	m     *schema.Model
+	ev    *cond.Evaluator
+	err   error
+	ready chan struct{}
+	used  uint64 // s.modelSeq when last asked for; guarded by s.mu
 }
 
 type latestEntry struct {
@@ -108,7 +115,7 @@ func New(cfg config.Config, client *fga.Client, searcher search.Searcher, source
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	static, _ := fs.Sub(staticFS, "static")
-	mux.Handle("GET /static/", http.StripPrefix("/static/", cacheStatic(http.FileServerFS(static))))
+	mux.Handle("GET /static/", http.StripPrefix("/static/", s.cacheStatic(http.FileServerFS(static))))
 	// JavaScript modules are served under a version prefix covering all of
 	// them, so their relative imports resolve to the same version.
 	mux.Handle("GET /static/v/{version}/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -149,12 +156,13 @@ func (s *Server) Handler() http.Handler {
 	return s.withIdentity(sameSite(securityHeaders(mux)))
 }
 
-// cacheStatic lets browsers keep fingerprinted asset URLs (?v=<hash>, see
-// assetVersions) forever; anything else must be revalidated, so a reload
-// always picks up a new build.
-func cacheStatic(h http.Handler) http.Handler {
+// cacheStatic lets browsers keep a fingerprinted asset URL (?v=<hash>, see
+// assetVersions) forever, but only when the hash is the file's current one:
+// an old or made-up hash must not pin stale content. Anything else must be
+// revalidated, so a reload always picks up a new build.
+func (s *Server) cacheStatic(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("v") != "" {
+		if v := r.URL.Query().Get("v"); v != "" && v == s.assets[r.URL.Path] {
 			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 		} else {
 			w.Header().Set("Cache-Control", "no-cache")
@@ -360,50 +368,114 @@ func (s *Server) latestModel(ctx context.Context, store string) (string, error) 
 	return id, nil
 }
 
+// maxModels bounds the analysed models kept in memory (most recently used
+// first): enough for a few stores and model versions being compared.
+const maxModels = 16
+
+// model returns the analysed model (fetched and loaded once, then kept).
+// Concurrent first requests share one load.
 func (s *Server) model(ctx context.Context, store, id string) (*modelEntry, error) {
 	key := store + "/" + id
 	s.mu.Lock()
 	me, ok := s.models[key]
-	s.mu.Unlock()
-	if ok {
-		return me, nil
+	if !ok {
+		me = &modelEntry{ready: make(chan struct{})}
+		s.models[key] = me
 	}
+	s.modelSeq++
+	me.used = s.modelSeq
+	s.evictModels()
+	s.mu.Unlock()
+	if !ok {
+		// The load outlives the request that started it: others may be waiting.
+		lctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+		me.m, me.ev, me.err = s.loadModel(lctx, store, id)
+		cancel()
+		if me.err != nil {
+			s.mu.Lock()
+			if s.models[key] == me {
+				delete(s.models, key) // let a later request try again
+			}
+			s.mu.Unlock()
+		}
+		close(me.ready)
+	}
+	select {
+	case <-me.ready:
+		return me, me.err
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
+func (s *Server) loadModel(ctx context.Context, store, id string) (*schema.Model, *cond.Evaluator, error) {
 	pm, err := s.fga.Model(ctx, store, id)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	m, err := schema.Load(pm)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	me = &modelEntry{m: m, ev: cond.New(m.Conditions)}
-	s.mu.Lock()
-	s.models[key] = me
-	s.mu.Unlock()
-	return me, nil
+	return m, cond.New(m.Conditions), nil
+}
+
+// evictModels drops the least recently used models beyond maxModels.
+// Call with s.mu held.
+func (s *Server) evictModels() {
+	for len(s.models) > maxModels {
+		oldest := ""
+		for k, e := range s.models {
+			if oldest == "" || e.used < s.models[oldest].used {
+				oldest = k
+			}
+		}
+		delete(s.models, oldest)
+	}
 }
 
 // ---- rendering -------------------------------------------------------------
 
 func (s *Server) render(w http.ResponseWriter, name string, data any) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.tpl.ExecuteTemplate(w, name, data); err != nil {
-		s.log.Error("render", "template", name, "err", err)
-	}
+	s.renderStatus(w, http.StatusOK, name, data)
 }
 
+// renderStatus renders a template into memory first, so a template error
+// sends a 500 rather than a page cut off under a success status.
+func (s *Server) renderStatus(w http.ResponseWriter, status int, name string, data any) {
+	var buf bytes.Buffer
+	if err := s.tpl.ExecuteTemplate(&buf, name, data); err != nil {
+		s.log.Error("render", "template", name, "err", err)
+		http.Error(w, "the page could not be rendered", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(status)
+	_, _ = buf.WriteTo(w)
+}
+
+// fail reports an error. When the caller blames OpenFGA (500 or 502), the
+// upstream answer refines it: something the request named that OpenFGA does
+// not have (404) or rejects (400) is the visitor's to fix; any other upstream
+// refusal (its credentials, rate limits) stays a gateway error.
 func (s *Server) fail(w http.ResponseWriter, r *http.Request, status int, err error) {
 	s.log.Warn("request failed", "path", r.URL.Path, "err", err)
 	var fe *fga.Error
-	if errors.As(err, &fe) && fe.Status/100 == 4 && status == http.StatusInternalServerError {
-		status = http.StatusBadGateway
+	if errors.As(err, &fe) && (status == http.StatusInternalServerError || status == http.StatusBadGateway) {
+		switch {
+		case fe.Status == http.StatusNotFound || strings.HasSuffix(fe.Code, "_not_found"): // OpenFGA sends an unknown model as 400
+			status = http.StatusNotFound
+		case fe.Status == http.StatusBadRequest:
+			status = http.StatusBadRequest
+		default:
+			status = http.StatusBadGateway
+		}
 	}
-	w.WriteHeader(status)
 	if r.Header.Get("HX-Request") != "" {
-		s.render(w, "error-fragment", err.Error())
+		s.renderStatus(w, status, "error-fragment", err.Error())
 		return
 	}
-	s.render(w, "error-page", &view{Title: "Error", User: identity(r), Data: err.Error()})
+	s.renderStatus(w, status, "error-page", &view{Title: "Error", User: identity(r), Data: err.Error()})
 }
 
 func (s *Server) funcs() template.FuncMap {
@@ -432,17 +504,10 @@ func (s *Server) funcs() template.FuncMap {
 		"split":    strings.Split,
 		"join":     strings.Join,
 		"contains": slices.Contains[[]string],
-		// manyTypes is the type count above which type choosers get a find box.
-		"manyTypes": func() int { return manyTypes },
-		"short": func(s string, n int) string {
-			if len(s) <= n {
-				return s
-			}
-			return s[:n] + "…"
-		},
-		"dsl": highlightDSL,
-		"add": func(a, b int) int { return a + b },
-		"sub": func(a, b int) int { return a - b },
+		"short":    truncate,
+		"dsl":      highlightDSL,
+		"add":      func(a, b int) int { return a + b },
+		"sub":      func(a, b int) int { return a - b },
 		"dict": func(kv ...any) (map[string]any, error) {
 			if len(kv)%2 != 0 {
 				return nil, fmt.Errorf("dict: odd arguments")
@@ -470,7 +535,6 @@ func (s *Server) funcs() template.FuncMap {
 		},
 		"graphPatch":  s.graphPatch,
 		"deref":       func(b *bool) bool { return b != nil && *b },
-		"min1":        func(n int) int { return min(n, 1) },
 		"trimVerdict": trimVerdict,
 		"impactShown": func() int { return impactShown },
 		// asset returns a fingerprinted static URL so browsers never run stale code.
@@ -520,7 +584,7 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/s/"+url.PathEscape(stores[0].GetId())+"/m/latest/explore", http.StatusFound)
 		return
 	}
-	sort.Slice(stores, func(i, j int) bool { return stores[i].GetName() < stores[j].GetName() })
+	slices.SortFunc(stores, func(a, b *openfgav1.Store) int { return cmp.Compare(a.GetName(), b.GetName()) })
 	s.render(w, "stores", &view{Title: "Stores", User: identity(r), Data: stores})
 }
 

@@ -318,7 +318,7 @@ func TestBrowserTypeCombobox(t *testing.T) {
 			dsl.WriteString("    define can_approve: [user]\n")
 		}
 	}
-	st, err := srv.CreateStore(context.Background(), "many-types", dsl.String(), nil)
+	st, err := srv.CreateStore(t.Context(), "many-types", dsl.String(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -556,7 +556,7 @@ func TestBrowserLargeModel(t *testing.T) {
 			fmt.Fprintf(&dsl, "    define parent: [kind_%02d]\n", i-1)
 		}
 	}
-	st, err := srv.CreateStore(context.Background(), "large", dsl.String(), nil)
+	st, err := srv.CreateStore(t.Context(), "large", dsl.String(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -641,7 +641,7 @@ func TestBrowserLargeModel(t *testing.T) {
 // its module group in Explore.
 func TestBrowserModules(t *testing.T) {
 	srv := fgatest.Start(t)
-	st, err := srv.CreateModularStore(context.Background(), "modular-demo", fgatest.SeedDir()+"/modular", nil)
+	st, err := srv.CreateModularStore(t.Context(), "modular-demo", fgatest.SeedDir()+"/modular", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -862,7 +862,7 @@ func foldedCheck(t *testing.T) (*testExplorer, string) {
 		tuples = append(tuples, &openfgav1.TupleKey{User: fmt.Sprintf("group:g%d#member", i), Relation: fmt.Sprintf("r%d", i), Object: "doc:d"})
 	}
 	model += "    define viewer: " + strings.Join(rels, " or ") + "\n"
-	st, err := srv.CreateStore(context.Background(), "folded", model, tuples)
+	st, err := srv.CreateStore(t.Context(), "folded", model, tuples)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1848,6 +1848,32 @@ func TestBrowserCheckWhyKinds(t *testing.T) {
 		`%7B%22current_time%22%3A%222026-11-24T12%3A00%3A00Z%22%2C%22user_ip%22%3A%2210.1.2.3%22%7D`)
 	b.waitFor("remembered reading", `document.querySelector('.facts ul.steps-down')?.hidden === false && document.querySelector('.facts ol.steps[data-reading="up"]').hidden`)
 	b.checkClean("why kinds")
+}
+
+// Copy puts the verdict, the numbered "Why" steps (once, from the user up),
+// the text trace and the permalink on the clipboard as Markdown.
+func TestBrowserCopyMarkdown(t *testing.T) {
+	x := newTestExplorer(t)
+	b := newBrowser(t, x)
+	b.open(`~/check?user=user:eng-002&relation=can_view&object=document:doc-0007&context=` +
+		`%7B%22current_time%22%3A%222026-11-24T12%3A00%3A00Z%22%2C%22user_ip%22%3A%2210.1.2.3%22%7D`)
+	b.waitFor("result", `document.querySelector('#check-result .verdict .facts')`)
+	b.settled()
+	b.run(chromedp.Evaluate(`window.__copied = null;
+		Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: (s) => { window.__copied = s; return Promise.resolve(); } } });
+		document.querySelector('.player [data-act="copy-md"]').click()`, nil))
+	b.waitFor("copied", `window.__copied !== null`)
+	md := eval[string](b, `window.__copied`)
+	steps := eval[int](b, `document.querySelectorAll('.facts ol.steps[data-reading="up"] > li.step').length`)
+	for _, want := range []string{"**✓ Allowed**:", "\nWhy:\n1. user:eng-002 has member on group:eng\n", fmt.Sprintf("\n%d. ", steps), "```text\n", "document:doc-0007#can_view", "Permalink: http"} {
+		if !strings.Contains(md, want) {
+			t.Errorf("copied Markdown lacks %q:\n%s", want, md)
+		}
+	}
+	if strings.Contains(md, fmt.Sprintf("\n%d. ", steps+1)) || strings.Contains(md, "undefined") {
+		t.Errorf("copied Markdown repeats steps or has undefined parts:\n%s", md)
+	}
+	b.checkClean("copy markdown")
 }
 
 // Objects used recently are kept in the browser and listed first by an empty

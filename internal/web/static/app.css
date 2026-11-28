@@ -58,7 +58,7 @@ html, body { height: 100%; }
 body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.45 var(--sans); display: flex; flex-direction: column; }
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
-code, pre, .mono { font-family: var(--mono); font-size: 12.5px; }
+code, pre { font-family: var(--mono); font-size: 12.5px; }
 h1 { font-size: 20px; margin: 0 0 12px; }
 h2 { font-size: 16px; margin: 0 0 8px; }
 h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 18px 0 6px; font-weight: 650; }
@@ -242,7 +242,6 @@ fga-type-finder { display: block; }
 .derived { list-style: none; padding: 0; margin: 0; }
 .derived > li { padding: 6px 0; border-bottom: 1px solid var(--soft); }
 .derived .expr { margin-left: 0; }
-.deps { font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 1px; margin: 3px 0; }
 .whohas { display: flex; gap: 6px; align-items: center; margin-top: 4px; flex-wrap: wrap; }
 .whohas select { font-size: 12px; padding: 1px 4px; }
 .lu { margin-top: 4px; }
@@ -292,8 +291,6 @@ fga-picker .picker-q { flex: 1; font-family: var(--mono); font-size: 13px; }
 .v-allowed .big { color: var(--allowed); }
 .v-denied .big { color: var(--denied); }
 .v-unknown .big, .v-error .big { color: var(--unknown); }
-.vq { margin: 2px 0 6px; word-break: break-all; }
-.vq .arrow { color: var(--muted); }
 .stats { display: flex; flex-wrap: wrap; gap: 16px; font-size: 12.5px; color: var(--muted); }
 .stats b { color: var(--fg); }
 .o-allowed { color: var(--allowed) !important; }

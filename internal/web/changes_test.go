@@ -1,7 +1,6 @@
 package web
 
 import (
-	"context"
 	"fmt"
 	"html"
 	"net/http"
@@ -44,7 +43,7 @@ func TestChangesPage(t *testing.T) {
 	for i := range 60 {
 		tuples = append(tuples, &openfgav1.TupleKey{User: fmt.Sprintf("user:u%02d", i), Relation: "member", Object: "group:g"})
 	}
-	st, err := srv.CreateStore(context.Background(), "changes", "model\n  schema 1.1\ntype user\ntype group\n  relations\n    define member: [user]\n", tuples)
+	st, err := srv.CreateStore(t.Context(), "changes", "model\n  schema 1.1\ntype user\ntype group\n  relations\n    define member: [user]\n", tuples)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +82,7 @@ func TestChangesPage(t *testing.T) {
 	next := html.UnescapeString(poll[1])
 	_, body = x.get(next, http.StatusOK) // the remaining 10
 	poll = regexp.MustCompile(`class="poller" hx-get="([^"]+)"`).FindStringSubmatch(body)
-	if _, err := srv.Client.Write(context.Background(), &openfgav1.WriteRequest{StoreId: st.ID,
+	if _, err := srv.Client.Write(t.Context(), &openfgav1.WriteRequest{StoreId: st.ID,
 		Deletes: &openfgav1.WriteRequestDeletes{TupleKeys: []*openfgav1.TupleKeyWithoutCondition{{User: "user:u07", Relation: "member", Object: "group:g"}}}}); err != nil {
 		t.Fatal(err)
 	}
@@ -103,7 +102,7 @@ func TestChangesByUserType(t *testing.T) {
 	for i := range 3 {
 		tuples = append(tuples, &openfgav1.TupleKey{User: fmt.Sprintf("group:s%d#member", i), Relation: "member", Object: "group:g"})
 	}
-	st, err := srv.CreateStore(context.Background(), "changes-users", "model\n  schema 1.1\ntype user\ntype group\n  relations\n    define member: [user, group#member]\n", tuples)
+	st, err := srv.CreateStore(t.Context(), "changes-users", "model\n  schema 1.1\ntype user\ntype group\n  relations\n    define member: [user, group#member]\n", tuples)
 	if err != nil {
 		t.Fatal(err)
 	}

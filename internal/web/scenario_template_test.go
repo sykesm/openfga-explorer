@@ -1,7 +1,6 @@
 package web
 
 import (
-	"context"
 	"testing"
 
 	openfgav1 "github.com/openfga/api/proto/openfga/v1"
@@ -78,7 +77,7 @@ type group
 // sandbox and every check passes, as someone opening Scenarios first sees it.
 func TestTemplateRuns(t *testing.T) {
 	st := fgatest.Seed(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	resp, err := st.Client.ReadAuthorizationModel(ctx, &openfgav1.ReadAuthorizationModelRequest{StoreId: st.ID, Id: st.Model})
 	if err != nil {
 		t.Fatal(err)

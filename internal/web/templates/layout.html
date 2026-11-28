@@ -173,7 +173,7 @@
 <div class="sr-explain">
   {{if and .Page (not .Results)}}<p><b>No {{.Type}} instances {{if .Browse}}found in this store{{else}}start with <code>{{.Normalized}}</code>{{end}}.</b></p>{{end}}
   {{if .NoSearch}}<p>Enter an exact {{.Type}} ID and choose <i>exact</i>. Listing and prefix search need a datastore connection (<code>--datastore-uri</code>).</p>{{end}}
-  {{$n := add (len .AsUser) (len (slice .AsObject 0 (min1 (len .AsObject))))}}
+  {{$n := .Places}}
   <details {{if le $n 4}}open{{end}}><summary>Where {{.Type}} IDs appear in tuples ({{$n}})</summary>
   <ul>
     {{if .AsObject}}<li>as the object of {{range $i, $r := .AsObject}}{{if $i}}, {{end}}<code>{{$r}}</code>{{end}}</li>{{end}}
