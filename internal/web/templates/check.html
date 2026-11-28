@@ -192,15 +192,16 @@
       {{/* One line for where the replay is: the step, then the status (a live region; the full text is its title). */}}
       <span class="player-line sm"><input type="range" class="scrub" min="0" max="0" value="0" step="1" data-act="scrub" aria-label="Replay position" title="Drag to any step of the walk"><span class="step-count muted"></span> <span class="player-status" aria-live="polite"></span></span>
       <details class="player-opts">
-        <summary class="btn ghost sm" title="Replay options: speed, replay on load, highlighting the granting path">Options ▾</summary>
-        <div class="popover" role="group" aria-label="Replay options">
+        <summary class="btn ghost sm" title="Replay options (speed, replay on load, highlighting the granting path) and exports (Markdown, PNG)">More ▾</summary>
+        <div class="popover" role="group" aria-label="Replay options and exports">
           <label class="sm" title="How fast the replay runs">speed <input type="range" min="1" max="10" value="6" data-act="speed"></label>
           <label class="sm" title="Start the replay automatically when a result loads"><input type="checkbox" data-act="autoplay"> replay on load</label>
           <label class="sm{{if ne (print .Walker) "allowed"}} hidden{{end}}" title="When access is allowed: zoom to the path that granted it, dim everything else, and animate the path"><input type="checkbox" data-act="focus" checked> highlight granting path</label>
+          <hr>
+          <button type="button" data-act="copy-md" class="ghost sm" title="Copy the explanation and trace as Markdown (for tickets)">Copy as Markdown</button>
+          <button type="button" data-act="png" class="ghost sm" title="Save the graph as a PNG image">Save graph as PNG</button>
         </div>
       </details>
-      <button type="button" data-act="copy-md" class="ghost sm" title="Copy the explanation and trace as Markdown (for tickets)">Copy</button>
-      <button type="button" data-act="png" class="ghost sm" title="Save the graph as a PNG image">PNG</button>
       <button type="button" data-act="help" class="ghost sm" title="Keyboard shortcuts (?)">?</button>
     </div>
     <div class="canvas-box">

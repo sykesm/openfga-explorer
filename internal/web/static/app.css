@@ -462,6 +462,8 @@ h2.sect { margin-top: 2px; font-size: 12px; text-transform: uppercase; letter-sp
 .player-opts > summary::-webkit-details-marker { display: none; }
 .player-opts > .popover { position: absolute; right: 0; top: calc(100% + 4px); z-index: 30; display: grid; gap: 8px; padding: 8px 12px; white-space: nowrap;
   background: var(--panel); border: 1px solid var(--line); border-radius: 7px; box-shadow: 0 8px 24px rgb(0 0 0 / .18); }
+.player-opts > .popover hr { width: 100%; margin: 0; border: 0; border-top: 1px solid var(--line); }
+.player-opts > .popover button { justify-self: start; }
 .paths-note { color: var(--allowed); }
 .paths-note.partial { color: var(--unknown); }
 .gaps ul { margin: 4px 0 6px; padding-left: 18px; }

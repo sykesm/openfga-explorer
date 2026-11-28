@@ -1082,6 +1082,11 @@ func TestBrowserCheckReadableZoom(t *testing.T) {
 	b.waitFor("graph", `document.querySelector('#trace-canvas')?._cyreg?.cy?.nodes().length > 0`)
 	b.settled()
 	b.run(chromedp.Evaluate(`document.querySelector('.player [data-act="final"]').click()`, nil), chromedp.Sleep(700*time.Millisecond))
+	// On a laptop the replay bar is one row: the exports are in its More menu.
+	if got := eval[string](b, `[document.querySelectorAll('.player-opts [data-act="copy-md"], .player-opts [data-act="png"]').length,
+		[...document.querySelector('.player').children].every((c) => Math.abs(c.getBoundingClientRect().top - document.querySelector('.player [data-act="play"]').getBoundingClientRect().top) < 8)].join(' ')`); got != "2 true" {
+		t.Errorf("replay bar (exports in More, one row): %q", got)
+	}
 	const cy = `document.querySelector('#trace-canvas')._cyreg.cy`
 	// The path does not fit readably here (else this test checks nothing).
 	if fit := eval[float64](b, `(() => { const c = `+cy+`, bb = c.elements('.flowpath').boundingBox(); return Math.min((c.width() - 120) / bb.w, (c.height() - 120) / bb.h); })()`); fit >= 0.8 {
