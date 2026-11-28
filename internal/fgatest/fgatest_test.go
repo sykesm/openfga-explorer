@@ -1,7 +1,6 @@
 package fgatest_test
 
 import (
-	"context"
 	"testing"
 
 	openfgav1 "github.com/openfga/api/proto/openfga/v1"
@@ -16,7 +15,7 @@ func TestSeedOverHTTP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx := context.Background()
+	ctx := t.Context()
 	id, err := c.LatestModelID(ctx, st.ID)
 	if err != nil || id != st.Model {
 		t.Fatalf("latest model: %q %v (want %q)", id, err, st.Model)

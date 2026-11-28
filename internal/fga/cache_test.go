@@ -31,7 +31,7 @@ func read(obj string, consistency openfgav1.ConsistencyPreference) *openfgav1.Re
 func TestCacheServesFreshPages(t *testing.T) {
 	api := &countingAPI{}
 	c := NewCache(api, time.Minute)
-	ctx := context.Background()
+	ctx := t.Context()
 	for range 3 {
 		resp, err := c.Read(ctx, read("doc:1", openfgav1.ConsistencyPreference_UNSPECIFIED))
 		if err != nil || resp.GetContinuationToken() != "doc:1" {
@@ -52,7 +52,7 @@ func TestCacheServesFreshPages(t *testing.T) {
 func TestCacheBypassAndExpiry(t *testing.T) {
 	api := &countingAPI{}
 	c := NewCache(api, time.Minute)
-	ctx := context.Background()
+	ctx := t.Context()
 	for range 2 {
 		c.Read(ctx, read("doc:1", openfgav1.ConsistencyPreference_HIGHER_CONSISTENCY))
 	}
@@ -76,7 +76,7 @@ func TestCacheBypassAndExpiry(t *testing.T) {
 func TestCacheErrorsAndEviction(t *testing.T) {
 	api := &countingAPI{fail: true}
 	c := NewCache(api, time.Minute)
-	ctx := context.Background()
+	ctx := t.Context()
 	for range 2 {
 		if _, err := c.Read(ctx, read("doc:1", 0)); err == nil {
 			t.Fatal("error not returned")
@@ -97,7 +97,7 @@ func TestCacheErrorsAndEviction(t *testing.T) {
 
 func TestCacheBatchCheckForwarding(t *testing.T) {
 	c := NewCache(&countingAPI{}, time.Minute) // no BatchCheck
-	_, err := c.BatchCheck(context.Background(), &openfgav1.BatchCheckRequest{})
+	_, err := c.BatchCheck(t.Context(), &openfgav1.BatchCheckRequest{})
 	var e *Error
 	if !errors.As(err, &e) || e.Status != 501 {
 		t.Errorf("BatchCheck without support: %v", err)
@@ -111,7 +111,7 @@ func TestCacheReport(t *testing.T) {
 	api := &countingAPI{}
 	c := NewCache(api, time.Minute)
 	hit := func(r *openfgav1.ReadRequest) bool {
-		ctx, hit := WithCacheReport(context.Background())
+		ctx, hit := WithCacheReport(t.Context())
 		if _, err := c.Read(ctx, r); err != nil {
 			t.Fatal(err)
 		}
@@ -129,7 +129,7 @@ func TestCacheReport(t *testing.T) {
 	if api.reads != 2 {
 		t.Errorf("the API was read %d times, want 2", api.reads)
 	}
-	if _, err := c.Read(context.Background(), read("doc:1", openfgav1.ConsistencyPreference_UNSPECIFIED)); err != nil {
+	if _, err := c.Read(t.Context(), read("doc:1", openfgav1.ConsistencyPreference_UNSPECIFIED)); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -11,8 +11,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	openfgav1 "github.com/openfga/api/proto/openfga/v1"
@@ -44,9 +44,6 @@ type Options struct {
 type Client struct {
 	base *url.URL
 	http *http.Client
-
-	mu     sync.Mutex
-	models map[string]*openfgav1.AuthorizationModel // immutable; keyed by store/model
 }
 
 // New creates a client.
@@ -72,7 +69,7 @@ func New(opts Options) (*Client, error) {
 	case opts.APIToken != "":
 		hc.Transport = bearer{token: opts.APIToken, next: tr}
 	}
-	return &Client{base: u, http: hc, models: map[string]*openfgav1.AuthorizationModel{}}, nil
+	return &Client{base: u, http: hc}, nil
 }
 
 // transport keeps enough idle connections for concurrent walks: each walk
@@ -98,7 +95,7 @@ func (b bearer) RoundTrip(r *http.Request) (*http.Response, error) {
 
 // Error is an error response from the OpenFGA API.
 type Error struct {
-	Status  int
+	Status  int    `json:"-"` // the HTTP status; a body's "status" field must not replace it
 	Code    string `json:"code"`
 	Message string `json:"message"`
 }
@@ -215,7 +212,7 @@ func (c *Client) ReadChanges(ctx context.Context, req *openfgav1.ReadChangesRequ
 		q.Set("type", req.GetType())
 	}
 	if req.GetPageSize() != nil {
-		q.Set("page_size", fmt.Sprint(req.GetPageSize().GetValue()))
+		q.Set("page_size", strconv.Itoa(int(req.GetPageSize().GetValue())))
 	}
 	if req.GetContinuationToken() != "" {
 		q.Set("continuation_token", req.GetContinuationToken())
@@ -234,29 +231,20 @@ func (c *Client) LatestModelID(ctx context.Context, store string) (string, error
 		return "", err
 	}
 	if len(resp.GetAuthorizationModels()) == 0 {
-		return "", fmt.Errorf("store %s has no authorization models", store)
+		// OpenFGA lists no models for an unknown store too: either way, not found.
+		return "", &Error{Status: http.StatusNotFound, Message: fmt.Sprintf("store %s has no authorization models", store)}
 	}
 	return resp.GetAuthorizationModels()[0].GetId(), nil
 }
 
-// Model returns an authorization model. Models are immutable, so results are cached.
+// Model returns an authorization model. Models never change, so callers may
+// keep them (the server caches the analysed model; see web.Server.model).
 func (c *Client) Model(ctx context.Context, store, id string) (*openfgav1.AuthorizationModel, error) {
-	key := store + "/" + id
-	c.mu.Lock()
-	m, ok := c.models[key]
-	c.mu.Unlock()
-	if ok {
-		return m, nil
-	}
 	var resp openfgav1.ReadAuthorizationModelResponse
 	if err := c.do(ctx, http.MethodGet, storePath(store, "/authorization-models/"+url.PathEscape(id)), nil, &resp); err != nil {
 		return nil, err
 	}
-	m = resp.GetAuthorizationModel()
-	c.mu.Lock()
-	c.models[key] = m
-	c.mu.Unlock()
-	return m, nil
+	return resp.GetAuthorizationModel(), nil
 }
 
 // Read reads tuples.
@@ -305,3 +293,8 @@ func ReadPage(ctx context.Context, api API, store string, key *openfgav1.ReadReq
 		Consistency:       consistency,
 	})
 }
+
+// ListMax is OpenFGA's default result limit for ListObjects and ListUsers
+// (OPENFGA_LIST_OBJECTS_MAX_RESULTS, OPENFGA_LIST_USERS_MAX_RESULTS): a
+// result this size may have been cut off.
+const ListMax = 1000

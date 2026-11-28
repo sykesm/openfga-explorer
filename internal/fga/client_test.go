@@ -1,7 +1,6 @@
 package fga_test
 
 import (
-	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -19,7 +18,7 @@ func TestClientAgainstServer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx := context.Background()
+	ctx := t.Context()
 	stores, err := c.ListStores(ctx)
 	if err != nil || len(stores) == 0 {
 		t.Fatalf("ListStores: %v %v", stores, err)
@@ -34,9 +33,6 @@ func TestClientAgainstServer(t *testing.T) {
 	m, err := c.Model(ctx, st.ID, st.Model)
 	if err != nil || len(m.GetTypeDefinitions()) == 0 {
 		t.Fatalf("Model: %v", err)
-	}
-	if again, _ := c.Model(ctx, st.ID, st.Model); again != m {
-		t.Error("models are immutable and should be cached")
 	}
 	reqCtx, _ := structpb.NewStruct(map[string]any{"current_time": "2026-11-24T12:00:00Z", "user_ip": "10.1.2.3"})
 
@@ -80,7 +76,7 @@ func TestClientOptions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = c.ListStores(context.Background())
+	_, err = c.ListStores(t.Context())
 	var fe *fga.Error
 	if !errors.As(err, &fe) || fe.Status != http.StatusBadGateway || fe.Message != "upstream unavailable" {
 		t.Errorf("error = %#v", err)
@@ -90,5 +86,24 @@ func TestClientOptions(t *testing.T) {
 	}
 	if fe.Error() == "" {
 		t.Error("empty error text")
+	}
+}
+
+// An error body's own "status" field (proxies send one) does not replace
+// the HTTP status.
+func TestErrorKeepsHTTPStatus(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"status": 500, "code": "store_id_not_found", "message": "store not found"}`))
+	}))
+	defer srv.Close()
+	c, err := fga.New(fga.Options{APIURL: srv.URL})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = c.ListStores(t.Context())
+	var fe *fga.Error
+	if !errors.As(err, &fe) || fe.Status != http.StatusNotFound || fe.Code != "store_id_not_found" {
+		t.Errorf("error = %#v", err)
 	}
 }
