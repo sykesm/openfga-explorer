@@ -743,10 +743,10 @@ func (w *walker) checkRelation(ctx context.Context, object, relation string, dep
 	switch v := rel.Rewrite.GetUserset().(type) {
 	case *openfgav1.Userset_Union:
 		n.Op = KindUnion
-		n.Outcome, n.Reason = w.union(ctx, n, object, rel, v.Union.GetChild(), depth)
+		n.Outcome, n.Reason = w.set(ctx, n, object, rel, v.Union.GetChild(), unionRule, depth)
 	case *openfgav1.Userset_Intersection:
 		n.Op = KindIntersection
-		n.Outcome, n.Reason = w.intersection(ctx, n, object, rel, v.Intersection.GetChild(), depth)
+		n.Outcome, n.Reason = w.set(ctx, n, object, rel, v.Intersection.GetChild(), intersectionRule, depth)
 	case *openfgav1.Userset_Difference:
 		n.Op = KindExclusion
 		n.Outcome, n.Reason = w.difference(ctx, n, object, rel, v.Difference, depth)
@@ -791,12 +791,12 @@ func (w *walker) eval(ctx context.Context, object string, rel *schema.Relation, 
 		return w.ttu(ctx, object, rel, v.TupleToUserset, depth), "from " + v.TupleToUserset.GetTupleset().GetRelation()
 	case *openfgav1.Userset_Union:
 		n := w.opNode(KindUnion, object, rel, u)
-		n.Outcome, n.Reason = w.union(ctx, n, object, rel, v.Union.GetChild(), depth)
+		n.Outcome, n.Reason = w.set(ctx, n, object, rel, v.Union.GetChild(), unionRule, depth)
 		w.step(Step{Phase: Exit, Node: n.ID, Outcome: n.Outcome})
 		return n, "or"
 	case *openfgav1.Userset_Intersection:
 		n := w.opNode(KindIntersection, object, rel, u)
-		n.Outcome, n.Reason = w.intersection(ctx, n, object, rel, v.Intersection.GetChild(), depth)
+		n.Outcome, n.Reason = w.set(ctx, n, object, rel, v.Intersection.GetChild(), intersectionRule, depth)
 		w.step(Step{Phase: Exit, Node: n.ID, Outcome: n.Outcome})
 		return n, "and"
 	case *openfgav1.Userset_Difference:
@@ -863,113 +863,76 @@ func combineUndecided(outs []Outcome) Outcome {
 	return Denied
 }
 
-func (w *walker) union(ctx context.Context, n *Node, object string, rel *schema.Relation, children []*openfgav1.Userset, depth int) (Outcome, string) {
-	links := make([]*Link, len(children))
-	outs := make([]Outcome, len(children))
-	var granted []string
-	eval := func(i int) Outcome {
-		child, label := w.eval(ctx, object, rel, children[i], depth)
-		links[i] = &Link{Label: label, Node: child, Outcome: child.Outcome}
-		w.traverse(n, links[i])
-		outs[i] = child.Outcome
-		if child.Outcome == Allowed {
-			granted = append(granted, branchName(children[i], rel))
-		}
-		return child.Outcome
-	}
-	// Guided: evaluate a branch the server says grants access first; if it
-	// does, the others are not needed (an "or" needs only one).
-	first := -1
-	var gs []guess
-	if !w.opt.AllPaths && !w.opt.Unguided && len(children) > 1 {
-		gs = w.guide(ctx, object, children)
-		for i, g := range gs {
-			if g.known && g.allowed {
-				first = i
-				break
-			}
-		}
-	}
-	decided := false
-	if first >= 0 && eval(first) == Allowed {
-		decided = true
-		why := fmt.Sprintf("not needed: %s grants access (the server's Check confirmed which branch grants)", branchName(children[first], rel))
-		for i, c := range children {
-			if i != first {
-				links[i] = w.skipped(object, rel, c, why, guessAt(gs, i))
-				w.guidedSkips.Add(1)
-			}
-		}
-	} else {
-		for i, c := range children {
-			if i == first {
-				continue
-			}
-			if decided && !w.opt.AllPaths {
-				links[i] = w.skipped(object, rel, c, "an earlier branch already granted access", guessAt(gs, i))
-				continue
-			}
-			if eval(i) == Allowed {
-				decided = true
-			}
-		}
-	}
-	n.Children = append(n.Children, links...)
-	if decided {
-		return Allowed, "granted by " + strings.Join(granted, ", ")
-	}
-	var evaluated []Outcome
-	for i, l := range links {
-		if l.Outcome != Skipped {
-			evaluated = append(evaluated, outs[i])
-		}
-	}
-	o := combineUndecided(evaluated)
-	if o == Denied {
-		return Denied, "no branch of the union grants access"
-	}
-	return o, "at least one branch could not be decided"
+// setRule is what distinguishes "or" from "and": the branch outcome that
+// settles the whole set (one granting branch settles an "or"; one failing
+// branch settles an "and"), and how to word the result.
+type setRule struct {
+	// settles is the branch outcome that decides the set; the set's outcome
+	// is then the same.
+	settles Outcome
+	// guidedWhy explains branches skipped after the server pointed at a
+	// settling branch (%s is that branch).
+	guidedWhy string
+	// earlierWhy explains branches skipped after one settled the set.
+	earlierWhy string
+	// settledWhy prefixes the settling branches' names.
+	settledWhy string
+	// unsettledWhy is the reason when every branch was evaluated and none
+	// settled the set.
+	unsettledWhy string
 }
 
-// traverse records the animation step for a link without attaching it
-// (union and intersection attach links in model order after evaluating).
-func (w *walker) traverse(parent *Node, l *Link) {
-	if l.Outcome != Skipped && l.Node != nil {
-		w.step(Step{Phase: Traverse, From: parent.ID, Node: l.Node.ID, Outcome: l.Outcome})
+var (
+	unionRule = setRule{
+		settles:      Allowed,
+		guidedWhy:    "not needed: %s grants access (the server's Check confirmed which branch grants)",
+		earlierWhy:   "an earlier branch already granted access",
+		settledWhy:   "granted by ",
+		unsettledWhy: "no branch of the union grants access",
 	}
-}
+	intersectionRule = setRule{
+		settles:      Denied,
+		guidedWhy:    "not needed: %s does not hold, so the intersection cannot (the server's Check confirmed it)",
+		earlierWhy:   "an earlier branch of the intersection already failed",
+		settledWhy:   "blocked: intersection requires ",
+		unsettledWhy: "every branch of the intersection is satisfied",
+	}
+)
 
-func (w *walker) intersection(ctx context.Context, n *Node, object string, rel *schema.Relation, children []*openfgav1.Userset, depth int) (Outcome, string) {
+// set evaluates the branches of an "or" or "and". It stops at the first
+// branch that settles the set (unless walking all paths), trying first a
+// branch the server's Check says settles it. Links are attached in model
+// order.
+func (w *walker) set(ctx context.Context, n *Node, object string, rel *schema.Relation, children []*openfgav1.Userset, rule setRule, depth int) (Outcome, string) {
 	links := make([]*Link, len(children))
 	outs := make([]Outcome, len(children))
-	var blocked []string
+	var settling []string
 	eval := func(i int) Outcome {
 		child, label := w.eval(ctx, object, rel, children[i], depth)
 		l := &Link{Label: label, Node: child, Outcome: child.Outcome}
-		if child.Outcome == Denied {
-			l.Blocking = true
-			blocked = append(blocked, branchName(children[i], rel))
+		if child.Outcome == rule.settles {
+			settling = append(settling, branchName(children[i], rel))
+			// A failing branch of an "and" is what blocks it.
+			l.Blocking = rule.settles == Denied
 		}
 		links[i] = l
 		w.traverse(n, l)
 		outs[i] = child.Outcome
 		return child.Outcome
 	}
-	// Guided: evaluate a branch the server says fails first; if it does, the
-	// others are not needed (an "and" fails if any branch fails).
 	first := -1
 	var gs []guess
 	if !w.opt.AllPaths && !w.opt.Unguided && len(children) > 1 {
 		gs = w.guide(ctx, object, children)
 		for i, g := range gs {
-			if g.known && !g.allowed {
+			if g.known && g.allowed == (rule.settles == Allowed) {
 				first = i
 				break
 			}
 		}
 	}
-	if first >= 0 && eval(first) == Denied {
-		why := fmt.Sprintf("not needed: %s does not hold, so the intersection cannot (the server's Check confirmed it)", branchName(children[first], rel))
+	if first >= 0 && eval(first) == rule.settles {
+		why := fmt.Sprintf(rule.guidedWhy, branchName(children[first], rel))
 		for i, c := range children {
 			if i != first {
 				links[i] = w.skipped(object, rel, c, why, guessAt(gs, i))
@@ -981,16 +944,16 @@ func (w *walker) intersection(ctx context.Context, n *Node, object string, rel *
 			if i == first {
 				continue
 			}
-			if len(blocked) > 0 && !w.opt.AllPaths {
-				links[i] = w.skipped(object, rel, c, "an earlier branch of the intersection already failed", guessAt(gs, i))
+			if len(settling) > 0 && !w.opt.AllPaths {
+				links[i] = w.skipped(object, rel, c, rule.earlierWhy, guessAt(gs, i))
 				continue
 			}
 			eval(i)
 		}
 	}
 	n.Children = append(n.Children, links...)
-	if len(blocked) > 0 {
-		return Denied, "blocked: intersection requires " + strings.Join(blocked, ", ")
+	if len(settling) > 0 {
+		return rule.settles, rule.settledWhy + strings.Join(settling, ", ")
 	}
 	var evaluated []Outcome
 	for i, l := range links {
@@ -998,12 +961,23 @@ func (w *walker) intersection(ctx context.Context, n *Node, object string, rel *
 			evaluated = append(evaluated, outs[i])
 		}
 	}
-	for _, o := range evaluated {
-		if o != Allowed {
-			return combineUndecided(evaluated), "at least one branch could not be decided"
-		}
+	// Nothing settled the set: it holds the other outcome only if every
+	// branch was decided.
+	if o := combineUndecided(evaluated); o == Unknown || o == Errored {
+		return o, "at least one branch could not be decided"
 	}
-	return Allowed, "every branch of the intersection is satisfied"
+	if rule.settles == Allowed {
+		return Denied, rule.unsettledWhy
+	}
+	return Allowed, rule.unsettledWhy
+}
+
+// traverse records the animation step for a link without attaching it
+// (set attaches links in model order after evaluating).
+func (w *walker) traverse(parent *Node, l *Link) {
+	if l.Outcome != Skipped && l.Node != nil {
+		w.step(Step{Phase: Traverse, From: parent.ID, Node: l.Node.ID, Outcome: l.Outcome})
+	}
 }
 
 // guess is a server-decided verdict for one rewrite branch.
@@ -1399,27 +1373,22 @@ func (w *walker) direct(ctx context.Context, object string, rel *schema.Relation
 		settled := found && !w.opt.AllPaths // a grant ends a short-circuiting walk
 		if truncated && !settled {
 			n.Truncated = &Truncation{Examined: evaluated, Found: len(edges), Read: len(recs), More: more, What: "userset", Object: object, Relation: rel.Name}
-			resolved, ok := w.probeUsersets(ctx, n, object, rel, usersets, examined, depth)
-			if ok {
-				found = true
+			var targets []probeTarget
+			for _, ref := range usersets {
+				targets = append(targets, probeTarget{typ: ref.GetType(), relation: ref.GetRelation(), suffix: "#" + ref.GetRelation()})
 			}
-			if !resolved {
-				n.Incomplete = n.Truncated.Summary() + "; the remaining edges could not all be ruled out"
-				if !found {
-					undecided = true
-				}
-			}
+			var stillUndecided bool
+			found, stillUndecided = w.probeRest(ctx, n, object, rel.Name, targets, examined, found, func(r record) bool {
+				return w.evalUsersetEdge(ctx, n, r, true, depth)
+			})
+			undecided = undecided || stillUndecided
 		}
 		if len(edges) == 0 && err == nil && !more {
 			n.Notes = append(n.Notes, "no userset tuples")
 		}
 	}
 
-	for _, l := range n.Children {
-		if l.Outcome == Unknown || l.Outcome == Errored {
-			undecided = true
-		}
-	}
+	undecided = undecided || anyUndecided(n.Children)
 	switch {
 	case found:
 		n.Outcome, n.Reason = Allowed, "a direct tuple grants access"
@@ -1467,31 +1436,45 @@ func (w *walker) ruledOutEdge(r record) *Link {
 	return l
 }
 
+// evalUsersetEdge walks a userset edge (object#relation@group:eng#member)
+// into the userset (member of group:eng).
 func (w *walker) evalUsersetEdge(ctx context.Context, n *Node, r record, probe bool, depth int) bool {
-	l, ok := w.tupleLink(r, usersetLabel(r))
+	s, _ := schema.ParseSubject(r.key.GetUser())
+	return w.walkEdge(ctx, n, r, usersetLabel(r), s.Type+":"+s.ID, s.Relation, probe, depth)
+}
+
+// walkEdge links tuple r under n and, when its condition allows, walks on
+// to relation on object. It reports whether that grants access.
+func (w *walker) walkEdge(ctx context.Context, n *Node, r record, label, object, relation string, probe bool, depth int) bool {
+	l, ok := w.tupleLink(r, label)
 	l.Probe = probe
 	if !ok {
 		l.Node = w.blockedNode(l)
 		w.link(n, l)
 		return false
 	}
-	s, _ := schema.ParseSubject(r.key.GetUser())
-	child := w.checkRelation(ctx, s.Type+":"+s.ID, s.Relation, depth+1)
+	child := w.checkRelation(ctx, object, relation, depth+1)
 	l.Node, l.Outcome = child, child.Outcome
 	w.link(n, l)
 	return child.Outcome == Allowed
 }
 
-// probeUsersets finds the userset edges that can matter when there are too many
-// to examine: ListObjects returns the usersets (e.g. groups) the user belongs
-// to, and each candidate is looked up with an exact read. resolved reports
-// whether the probe proved that no unexamined edge grants access.
-func (w *walker) probeUsersets(ctx context.Context, n *Node, object string, rel *schema.Relation, refs []*openfgav1.RelationReference, examined map[string]bool, depth int) (resolved, found bool) {
+// probeTarget is one kind of object the user may hold relation on: probe
+// lists them with ListObjects, and looks up each one as the user of a tuple
+// (with suffix appended, e.g. "#member" for a userset edge).
+type probeTarget struct{ typ, relation, suffix string }
+
+// probe finds the edges that can matter when there are too many to examine:
+// ListObjects returns the objects (e.g. groups) the user holds the target
+// relation on, and each candidate is looked up with an exact read of
+// object#relation and walked with edge. resolved reports whether the probe
+// proved that no unexamined edge grants access.
+func (w *walker) probe(ctx context.Context, n *Node, object, relation string, targets []probeTarget, examined map[string]bool, edge func(record) bool) (resolved, found bool) {
 	resolved = true
-	for _, ref := range refs {
-		cands, complete, err := w.listObjects(ctx, ref.GetType(), ref.GetRelation())
+	for _, t := range targets {
+		cands, complete, err := w.listObjects(ctx, t.typ, t.relation)
 		if err != nil {
-			n.Notes = append(n.Notes, fmt.Sprintf("probe %s#%s failed: %v", ref.GetType(), ref.GetRelation(), err))
+			n.Notes = append(n.Notes, fmt.Sprintf("probe %s#%s failed: %v", t.typ, t.relation, err))
 			resolved = false
 			continue
 		}
@@ -1500,14 +1483,14 @@ func (w *walker) probeUsersets(ctx context.Context, n *Node, object string, rel 
 			if i >= w.opt.ProbeLimit {
 				break
 			}
-			if u := c + "#" + ref.GetRelation(); !examined[u] {
-				ahead = append(ahead, readKey{object, rel.Name, u, ""})
+			if u := c + t.suffix; !examined[u] {
+				ahead = append(ahead, readKey{object, relation, u, ""})
 			}
 		}
 		w.prefetch(ctx, ahead)
 		looked := 0
 		for _, c := range cands {
-			u := c + "#" + ref.GetRelation()
+			u := c + t.suffix
 			if examined[u] {
 				continue
 			}
@@ -1516,14 +1499,14 @@ func (w *walker) probeUsersets(ctx context.Context, n *Node, object string, rel 
 				break
 			}
 			looked++
-			recs, _, err := w.read(ctx, object, rel.Name, u, "")
+			recs, _, err := w.read(ctx, object, relation, u, "")
 			if err != nil {
 				resolved = false
 				break
 			}
+			examined[u] = true
 			for _, r := range recs {
-				examined[u] = true
-				if w.evalUsersetEdge(ctx, n, r, true, depth) {
+				if edge(r) {
 					found = true
 				}
 			}
@@ -1534,12 +1517,31 @@ func (w *walker) probeUsersets(ctx context.Context, n *Node, object string, rel 
 		if !complete {
 			resolved = false
 		}
-		n.Notes = append(n.Notes, fmt.Sprintf("probe: user is %s of %d %s object(s); %d looked up", ref.GetRelation(), len(cands), ref.GetType(), looked))
+		n.Notes = append(n.Notes, fmt.Sprintf("probe: user is %s of %d %s object(s); %d looked up", t.relation, len(cands), t.typ, looked))
 		if found && !w.opt.AllPaths {
 			return true, true
 		}
 	}
 	return resolved, found
+}
+
+// probeRest probes for the edges a truncated node (n.Truncated set) did not
+// examine, and marks the node incomplete when the probe cannot rule them
+// out. It returns whether access is found (found, or a probe found it) and
+// whether the node is left undecided.
+func (w *walker) probeRest(ctx context.Context, n *Node, object, relation string, targets []probeTarget, examined map[string]bool, found bool, edge func(record) bool) (bool, bool) {
+	resolved, ok := w.probe(ctx, n, object, relation, targets, examined, edge)
+	found = found || ok
+	if resolved {
+		return found, false
+	}
+	n.Incomplete = n.Truncated.Summary() + "; the remaining edges could not all be ruled out"
+	return found, !found
+}
+
+// anyUndecided reports whether any link could not be decided.
+func anyUndecided(links []*Link) bool {
+	return slices.ContainsFunc(links, func(l *Link) bool { return l.Outcome == Unknown || l.Outcome == Errored })
 }
 
 // listObjects lists objects of a type the user has a relation with. complete
@@ -1588,7 +1590,6 @@ func (w *walker) ttu(ctx context.Context, object string, rel *schema.Relation, t
 	}
 	evaluated := 0
 	examined := map[string]bool{}
-	var targetTypes []string
 	for _, r := range recs {
 		if found && !w.opt.AllPaths {
 			break
@@ -1604,68 +1605,28 @@ func (w *walker) ttu(ctx context.Context, object string, rel *schema.Relation, t
 		}
 		evaluated++
 		examined[u] = true
-		if w.evalTTUEdge(ctx, n, r, target, false, depth) {
+		if w.walkEdge(ctx, n, r, r.key.GetRelation(), r.key.GetUser(), target, false, depth) {
 			found = true
 		}
 	}
 	settled := found && !w.opt.AllPaths // a grant ends a short-circuiting walk
 	if (more || evaluated < len(recs)) && !settled {
 		n.Truncated = &Truncation{Examined: evaluated, Found: len(recs), Read: len(recs), More: more, What: tupleset, Object: object, Relation: tupleset}
+		var targets []probeTarget
 		if tr, ok := w.model.Relation(rel.Type, tupleset); ok {
 			for _, ref := range tr.DirectTypes {
 				if _, has := w.model.Relation(ref.GetType(), target); has {
-					targetTypes = append(targetTypes, ref.GetType())
+					targets = append(targets, probeTarget{typ: ref.GetType(), relation: target})
 				}
 			}
 		}
-		resolved := true
-		for _, tt := range targetTypes {
-			cands, complete, err := w.listObjects(ctx, tt, target)
-			if err != nil || !complete {
-				resolved = false
-			}
-			var ahead []readKey
-			for i, c := range cands {
-				if i < w.opt.ProbeLimit && !examined[c] {
-					ahead = append(ahead, readKey{object, tupleset, c, ""})
-				}
-			}
-			w.prefetch(ctx, ahead)
-			looked := 0
-			for _, c := range cands {
-				if examined[c] || (found && !w.opt.AllPaths) {
-					continue
-				}
-				if looked >= w.opt.ProbeLimit {
-					resolved = false
-					break
-				}
-				looked++
-				prs, _, err := w.read(ctx, object, tupleset, c, "")
-				if err != nil {
-					resolved = false
-					break
-				}
-				for _, r := range prs {
-					if w.evalTTUEdge(ctx, n, r, target, true, depth) {
-						found = true
-					}
-				}
-			}
-			n.Notes = append(n.Notes, fmt.Sprintf("probe: user is %s of %d %s object(s); %d looked up", target, len(cands), tt, looked))
-		}
-		if !resolved {
-			n.Incomplete = n.Truncated.Summary() + "; the remaining edges could not all be ruled out"
-			if !found {
-				undecided = true
-			}
-		}
+		var stillUndecided bool
+		found, stillUndecided = w.probeRest(ctx, n, object, tupleset, targets, examined, found, func(r record) bool {
+			return w.walkEdge(ctx, n, r, r.key.GetRelation(), r.key.GetUser(), target, true, depth)
+		})
+		undecided = undecided || stillUndecided
 	}
-	for _, l := range n.Children {
-		if l.Outcome == Unknown || l.Outcome == Errored {
-			undecided = true
-		}
-	}
+	undecided = undecided || anyUndecided(n.Children)
 	switch {
 	case found:
 		n.Outcome, n.Reason = Allowed, fmt.Sprintf("granted through %s", tupleset)
@@ -1677,20 +1638,6 @@ func (w *walker) ttu(ctx context.Context, object string, rel *schema.Relation, t
 		n.Outcome, n.Reason = Denied, fmt.Sprintf("the user is not %s of any %s of %s", target, tupleset, object)
 	}
 	return n
-}
-
-func (w *walker) evalTTUEdge(ctx context.Context, n *Node, r record, target string, probe bool, depth int) bool {
-	l, ok := w.tupleLink(r, r.key.GetRelation())
-	l.Probe = probe
-	if !ok {
-		l.Node = w.blockedNode(l)
-		w.link(n, l)
-		return false
-	}
-	child := w.checkRelation(ctx, r.key.GetUser(), target, depth+1)
-	l.Node, l.Outcome = child, child.Outcome
-	w.link(n, l)
-	return child.Outcome == Allowed
 }
 
 // verify runs server Checks for relation nodes and records mismatches.
