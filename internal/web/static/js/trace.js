@@ -116,7 +116,10 @@ function savePNG(t, cy) {
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
 
-/** @typedef {{ cy: any, player: Player, tree: Element, folds: Fold[], sig: string }} TraceView */
+/**
+ * A drawn trace. steps is the Why steps' part in a graph tap (linkSteps).
+ * @typedef {{ cy: any, player: Player, tree: Element, folds: Fold[], sig: string, steps?: { tapped(target: any): void } }} TraceView
+ */
 
 /** Fits the whole graph; the view is the person's from then on. @param {FgaTrace} t */
 const fitTrace = (t) => { if (t.view) { t.view.player.flow.userView = true; fitCapped(t.view.cy, undefined, 24, 1.3); } };
@@ -229,7 +232,13 @@ function stepElements({ cy, player }, li) {
   return eles;
 }
 
-/** @param {FgaTrace} t */
+/**
+ * Links the Why steps to the graph. Returns what a graph tap does to the
+ * steps (the graph's one tap handler calls it, see onGraphTap), or nothing
+ * when there are no steps.
+ * @param {FgaTrace} t
+ * @returns {{ tapped(target: any): void } | undefined}
+ */
 function linkSteps(t) {
   const v = /** @type {TraceView} */ (t.view);
   const { cy, player: { flow } } = v;
@@ -301,12 +310,41 @@ function linkSteps(t) {
     const li = stepOf(e);
     pin(li === pinned ? null : li);
   });
-  // Tapping a node marks the steps that cover it; the background clears both.
-  cy.on('tap', (/** @type {any} */ e) => {
-    const id = e.target === cy ? '' : e.target.id();
-    for (const li of $$('li.step[data-nodes]', facts)) li.classList.toggle('covers', !!id && (li.dataset.nodes || '').split(' ').includes(id));
-    if (e.target === cy || !pinned || !stepElements(v, pinned).contains(e.target)) pin(null);
-  });
+  return {
+    // Tapping a node marks the steps that cover it, and lets go of a pinned
+    // step unless the node is on it; the background (null) clears both.
+    tapped(target) {
+      const id = target ? target.id() : '';
+      for (const li of $$('li.step[data-nodes]', facts)) li.classList.toggle('covers', !!id && (li.dataset.nodes || '').split(' ').includes(id));
+      if (!target || !pinned || !stepElements(v, pinned).contains(target)) pin(null);
+    },
+  };
+}
+
+/**
+ * The graph's one tap handler, so what a tap does happens in one order:
+ * a fold opens, a node shows its details (and its text trace lines), the
+ * background clears the selection; then the Why steps follow (linkSteps).
+ * @param {FgaTrace} t @param {any} e a Cytoscape tap event
+ */
+function onGraphTap(t, e) {
+  const v = t.view;
+  if (!v) return;
+  const { cy, tree } = v;
+  const target = e.target === cy ? null : e.target;
+  if (!target) {
+    clearDetail(t);
+  } else if (target.isNode() && target.hasClass('fold')) {
+    expandFold(cy, target);
+    traceLayout(cy);
+  } else if (target.isNode()) {
+    showDetail(t, target);
+    $$('.tl.sel', tree).forEach((l) => l.classList.remove('sel'));
+    const lines = $$(`.tl[data-node="${CSS.escape(target.id())}"]`, tree);
+    lines.forEach((l) => l.classList.add('sel'));
+    lines[0]?.scrollIntoView({ block: 'nearest', behavior: scrollBehavior() });
+  }
+  v.steps?.tapped(target);
 }
 
 /** Text trace as a tree: ↑/↓/Home/End move, Enter shows details. @param {FgaTrace} t */
@@ -581,16 +619,7 @@ function renderTrace(t, { replay = true, restore = false } = {}) {
     }
   });
 
-  cy.on('tap', 'node.fold', (/** @type {any} */ e) => { expandFold(cy, e.target); traceLayout(cy); });
-  cy.on('tap', 'node', (/** @type {any} */ e) => {
-    if (e.target.hasClass('fold')) return;
-    showDetail(t, e.target);
-    $$('.tl.sel', tree).forEach((l) => l.classList.remove('sel'));
-    const lines = $$(`.tl[data-node="${CSS.escape(e.target.id())}"]`, tree);
-    lines.forEach((l) => l.classList.add('sel'));
-    lines[0]?.scrollIntoView({ block: 'nearest', behavior: scrollBehavior() });
-  });
-  cy.on('tap', (/** @type {any} */ e) => { if (e.target === cy) clearDetail(t); });
+  cy.on('tap', (/** @type {any} */ e) => onGraphTap(t, e));
   tree.addEventListener('mouseover', (/** @type {any} */ e) => {
     const l = e.target.closest('.tl');
     cy.elements('.hl').removeClass('hl');
@@ -621,7 +650,7 @@ function renderTrace(t, { replay = true, restore = false } = {}) {
   });
   $('.panel-rail', t)?.addEventListener('click', () => togglePanel(t, false));
   initTreeKeys(t);
-  linkSteps(t);
+  view.steps = linkSteps(t);
   togglePanel(t, store.get('readingCollapsed', false));
   const views = /** @type {HTMLElement | null} */ ($('.trace-views', t));
   const setTextW = (/** @type {number} */ w) => { if (views) sizeHolder(views).style.setProperty('--text-w', `${Math.round(Math.max(w, 260))}px`); return w; };
