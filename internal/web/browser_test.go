@@ -1841,7 +1841,7 @@ func TestBrowserCheckWhyKinds(t *testing.T) {
 	down := eval[string](b, `[document.querySelector('.facts ol.steps[data-reading="up"]').hidden, document.querySelector('.facts ul.steps-down').hidden,
 		document.querySelector('.facts ul.steps-down > li > .ft').textContent,
 		document.querySelector('.facts ul.steps-down > li > ul.steps-down > li > .ft')?.textContent].join(' | ')`)
-	if down != "true | false | user:eng-002 has can_view on document:doc-0007: they do not have “blocked from org”, so “but not blocked from org” does not apply | user:eng-002 has viewer and “member from org” on document:doc-0007" {
+	if down != "true | false | user:eng-002 has can_view on document:doc-0007, because they have what it needs and do not have “blocked from org” | user:eng-002 has both viewer and “member from org” on document:doc-0007" {
 		t.Errorf("object-to-user reading: %q", down)
 	}
 	b.open(`~/check?user=user:eng-002&relation=can_view&object=document:doc-0007&context=` +

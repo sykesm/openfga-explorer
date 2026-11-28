@@ -28,6 +28,9 @@ type WhyStep struct {
 	from []string
 	// base is Text before cite added "(from step N)".
 	base string
+	// down is the sentence for the top-down reading ("X, because Y"); empty
+	// when Text reads both ways.
+	down string
 }
 
 func (s WhyStep) String() string { return s.Text }
@@ -105,6 +108,9 @@ func tupleEv(l *Link) Evidence {
 func ruleEv(ref Ref) Evidence { return Evidence{Kind: EvidenceRule, Ref: ref} }
 
 func step(text string, ev ...Evidence) WhyStep { return WhyStep{Text: text, Evidence: ev} }
+
+// withDown sets the sentence for the top-down reading.
+func (s WhyStep) withDown(text string) WhyStep { s.down = text; return s }
 
 func reason(ref Ref, format string, a ...any) WhyStep {
 	s := WhyStep{Text: fmt.Sprintf(format, a...), Reason: true}
@@ -259,10 +265,16 @@ func (x *explainer) grantNode(n *Node, seen map[int]bool, part bool) []WhyStep {
 			parts = append(parts, quoted(x.describeBranch(l)))
 		}
 		all := strings.Join(parts, " and ")
+		each := "both "
+		if len(parts) > 2 {
+			each = "all of "
+		}
 		if part {
-			out = append(out, WhyStep{Text: fmt.Sprintf("so %s has %s on %s", who, all, x.name(n.Object)), Evidence: []Evidence{ruleEv(on(n, ""))}, from: from})
+			out = append(out, WhyStep{Text: fmt.Sprintf("so %s has %s on %s", who, all, x.name(n.Object)), Evidence: []Evidence{ruleEv(on(n, ""))}, from: from,
+				down: fmt.Sprintf("%s has %s%s on %s", who, each, all, x.name(n.Object))})
 		} else {
-			out = append(out, WhyStep{Text: fmt.Sprintf("so %s has %s on %s, which requires %s", who, n.Relation, x.name(n.Object), all), Evidence: []Evidence{ruleEv(on(n, ""))}, from: from})
+			out = append(out, WhyStep{Text: fmt.Sprintf("so %s has %s on %s, which requires %s", who, n.Relation, x.name(n.Object), all), Evidence: []Evidence{ruleEv(on(n, ""))}, from: from,
+				down: fmt.Sprintf("%s has %s on %s, because they have %s%s", who, n.Relation, x.name(n.Object), each, all)})
 		}
 		if x.requires == "" {
 			x.requires = fmt.Sprintf("%s on %s requires %s, and each holds", n.Relation, x.name(n.Object), all)
@@ -278,7 +290,8 @@ func (x *explainer) grantNode(n *Node, seen map[int]bool, part bool) []WhyStep {
 				if part {
 					out = append(out, step(fmt.Sprintf("%s does not have %s, so “but not %s” does not apply", who, quoted(what), what), ev))
 				} else {
-					out = x.after(nil, out, step(fmt.Sprintf("so %s has %s on %s: they do not have %s, so “but not %s” does not apply", who, n.Relation, x.name(n.Object), quoted(what), what), ev))
+					out = x.after(nil, out, step(fmt.Sprintf("so %s has %s on %s: they do not have %s, so “but not %s” does not apply", who, n.Relation, x.name(n.Object), quoted(what), what), ev).
+						withDown(fmt.Sprintf("%s has %s on %s, because they have what it needs and do not have %s", who, n.Relation, x.name(n.Object), quoted(what))))
 				}
 				x.cleared = append(x.cleared, "“but not "+what+"”")
 			}
@@ -320,7 +333,8 @@ func (x *explainer) grantLink(parent *Node, l *Link, seen map[int]bool, part boo
 		if part {
 			rel = "a direct " + rel + " tuple"
 		}
-		return x.after(c, steps, step(fmt.Sprintf("so %s has %s on %s, granted to %s%s", who, rel, x.name(l.Tuple.Object), x.name(l.Tuple.User), cond), tupleEv(l)))
+		return x.after(c, steps, step(fmt.Sprintf("so %s has %s on %s, granted to %s%s", who, rel, x.name(l.Tuple.Object), x.name(l.Tuple.User), cond), tupleEv(l)).
+			withDown(fmt.Sprintf("%s has %s on %s, because %s has it%s", who, rel, x.name(l.Tuple.Object), x.name(l.Tuple.User), cond)))
 	case l.Tuple != nil && c.Kind == KindRelation:
 		// Tuple-to-userset edge: the object inherits through its parent (or org, …).
 		steps := x.grant(c, seen, false)
@@ -331,14 +345,16 @@ func (x *explainer) grantLink(parent *Node, l *Link, seen map[int]bool, part boo
 			rel = quoted(branch)
 		}
 		return x.after(c, steps, step(fmt.Sprintf("so %s has %s on %s, through %s on its %s %s%s", who, rel, x.name(l.Tuple.Object), c.Relation, l.Tuple.Relation, x.name(l.Tuple.User), cond),
-			tupleEv(l), ruleEv(on(parent, branch))))
+			tupleEv(l), ruleEv(on(parent, branch))).
+			withDown(fmt.Sprintf("%s has %s on %s, because they have %s on its %s %s%s", who, rel, x.name(l.Tuple.Object), c.Relation, l.Tuple.Relation, x.name(l.Tuple.User), cond)))
 	case c.Kind == KindRelation && c.Object == parent.Object && l.Label == "computed":
 		steps := x.grant(c, seen, false)
 		if part {
 			// The intersection or exclusion step names this branch.
 			return steps
 		}
-		return x.after(c, steps, step(fmt.Sprintf("so %s has %s on %s, as anyone with %s does", who, parent.Relation, x.name(parent.Object), c.Relation), ruleEv(on(parent, c.Relation))))
+		return x.after(c, steps, step(fmt.Sprintf("so %s has %s on %s, as anyone with %s does", who, parent.Relation, x.name(parent.Object), c.Relation), ruleEv(on(parent, c.Relation))).
+			withDown(fmt.Sprintf("%s has %s on %s, because anyone with %s has it", who, parent.Relation, x.name(parent.Object), c.Relation)))
 	default:
 		return x.grant(c, seen, part)
 	}
@@ -621,7 +637,11 @@ func (e Explanation) Down() []DownStep {
 	var build func(i int) DownStep
 	build = func(i int) DownStep {
 		s := e.Steps[i]
-		d := DownStep{WhyStep: s, Text: strings.TrimPrefix(s.base, "so ")}
+		text := s.down
+		if text == "" {
+			text = strings.TrimPrefix(s.base, "so ")
+		}
+		d := DownStep{WhyStep: s, Text: text}
 		if shown[i] {
 			d.Repeat = true
 			return d
@@ -682,7 +702,7 @@ func (e Explanation) FormatDown() string {
 // DownFlat is the top-down reading as a numbered list instead of a tree: the
 // steps in the same order as Down, each listed once, and a step whose
 // supporting steps are not simply the next one says which they are
-// ("(because of steps 3 and 7)").
+// ("(see steps 3 and 7)").
 func (e Explanation) DownFlat() []DownStep {
 	var out []DownStep
 	num := map[string]int{} // base text → number in out
@@ -715,9 +735,9 @@ func (e Explanation) DownFlat() []DownStep {
 			words[j] = strconv.Itoa(k)
 		}
 		if len(words) == 1 {
-			out[i].Text += " (because of step " + words[0] + ")"
+			out[i].Text += " (see step " + words[0] + ")"
 		} else {
-			out[i].Text += " (because of steps " + strings.Join(words[:len(words)-1], ", ") + " and " + words[len(words)-1] + ")"
+			out[i].Text += " (see steps " + strings.Join(words[:len(words)-1], ", ") + " and " + words[len(words)-1] + ")"
 		}
 	}
 	return out
