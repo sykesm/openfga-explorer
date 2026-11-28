@@ -340,7 +340,7 @@ fga-picker .picker-q { flex: 1; font-family: var(--mono); font-size: 13px; }
 /* The play button and step count change text as the replay runs; fixed
    widths keep the bar (and the graph under it) from reflowing. */
 .player [data-act="play"] { min-width: 8.5em; }
-.player .step-count { min-width: 14ch; font-variant-numeric: tabular-nums; }
+.player .step-count { font-variant-numeric: tabular-nums; }
 /* ---- reading pane (inspector): Why / Text trace / Who else? tabs, each scrolling on its own ---- */
 .inspector { display: flex; flex-direction: column; min-height: 0; max-height: 760px; margin-right: 4px;
   background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
@@ -415,7 +415,7 @@ h2.sect { margin-top: 2px; font-size: 12px; text-transform: uppercase; letter-sp
   .explore-layout { grid-template-columns: 1fr; grid-template-rows: 55vh auto; height: auto; }
   .side-resizer, .splitter { display: none; }
   .canvas-wrap { border-right: 0; border-bottom: 1px solid var(--line); }
-  .trace-views, .grid2, .model-page { grid-template-columns: 1fr; }
+  .trace-views, .grid2, .model-page { grid-template-columns: minmax(0, 1fr); }
   .trace-views .inspector { margin: 0 0 12px; max-height: 70vh; }
   .qrow { grid-template-columns: 1fr; }
 }
@@ -445,9 +445,18 @@ h2.sect { margin-top: 2px; font-size: 12px; text-transform: uppercase; letter-sp
 #relation-select option:disabled { color: var(--skipped); }
 .tl.onpath { box-shadow: inset 3px 0 0 var(--allowed); }
 .tl.onpath > .lb { color: var(--allowed); }
-/* Two lines reserved: the finished message is often two lines, and the graph
-   under it should not move when the replay starts or ends. */
-.player-status { padding: 5px 10px; border-bottom: 1px solid var(--line); color: var(--muted); min-height: calc(2lh + 10px); }
+/* Where the replay is, on one line in the controls (so the graph gets the
+   height): the step, then the status, cut short with its full text as the
+   title (trace.js). */
+.player-line { flex: 1 1 6ch; min-width: 0; min-height: 1lh; display: flex; gap: .5ch; align-items: baseline; color: var(--muted); }
+/* A fixed width, so the status beside it stays put as the count changes. */
+.player-line .step-count { flex: none; min-width: 14ch; }
+.player-line .player-status { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.player-opts { position: relative; flex: none; }
+.player-opts > summary { list-style: none; cursor: pointer; }
+.player-opts > summary::-webkit-details-marker { display: none; }
+.player-opts > .popover { position: absolute; right: 0; top: calc(100% + 4px); z-index: 30; display: grid; gap: 8px; padding: 8px 12px; white-space: nowrap;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 7px; box-shadow: 0 8px 24px rgb(0 0 0 / .18); }
 .paths-note { color: var(--allowed); }
 .paths-note.partial { color: var(--unknown); }
 .gaps ul { margin: 4px 0 6px; padding-left: 18px; }
@@ -602,10 +611,19 @@ input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; margin:
   *, ::before, ::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
 
-/* Phones: the reading pane sits above the graph (scrolling on its own), and
-   the details card spans the graph. */
+/* Phones: the page scrolls, nothing inside it does except what is wider than
+   the screen. The reading pane sits above the graph as part of the page; the
+   navigation and the reading switch scroll sideways in their own rows; the
+   details card spans the graph. */
 @media (max-width: 700px) {
-  .trace-views .inspector { max-height: 60vh; }
+  .trace-views .inspector { max-height: none; overflow: visible; }
+  .trace-views .rpanel { overflow: visible; }
+  .tabs { margin-left: 0; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+  .tabs a { flex: none; }
+  .reading-seg { max-width: 100%; overflow-x: auto; }
+  /* Tuples and rules are long unbroken strings: let them break anywhere. */
+  .evbody, .evbody code { overflow-wrap: anywhere; }
+  .reading-seg button { flex: none; }
   .node-detail { width: calc(100% - 16px); max-height: 50%; }
 }
 

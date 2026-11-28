@@ -718,7 +718,7 @@ func TestBrowserTraceRerunStable(t *testing.T) {
 	b.run(chromedp.Evaluate(`window.__shifts = []; window.__sizes = {};
 		new PerformanceObserver((l) => l.getEntries().forEach((e) => { if (!e.hadRecentInput) __shifts.push(e.value.toFixed(3) + ' ' +
 			(e.sources || []).map((s) => s.node?.id || s.node?.className || s.node?.nodeName).join(', ')); })).observe({ type: 'layout-shift' });
-		const watch = () => { for (const sel of ['#rpanel-trace', '.player', '.player-status', '#trace-canvas']) {
+		const watch = () => { for (const sel of ['#rpanel-trace', '.player', '.player-line', '#trace-canvas']) {
 				const el = document.querySelector(sel); if (!el) continue;
 				(__sizes[sel] ||= new Set()).add(Math.round(el.getBoundingClientRect().height)); }
 			if (!window.__stop) requestAnimationFrame(watch); };
@@ -979,4 +979,43 @@ func TestBrowserCheckReturnKeepsView(t *testing.T) {
 		}
 	}
 	b.checkClean("return keeps view")
+}
+
+// TestBrowserCheckPhone: on a phone the check page never scrolls sideways
+// (everything wraps or scrolls inside its own box), and the graph gets
+// most of the screen's height.
+func TestBrowserCheckPhone(t *testing.T) {
+	x := newTestExplorer(t)
+	b := newBrowser(t, x)
+	b.run(emulation.SetDeviceMetricsOverride(390, 844, 2, true))
+	b.open(`~/check?user=user:eng-002&relation=can_view&object=document:doc-0007&context=` +
+		`%7B%22current_time%22%3A%222026-11-24T12%3A00%3A00Z%22%2C%22user_ip%22%3A%2210.1.2.3%22%7D`)
+	b.waitFor("graph", `document.querySelector('#trace-canvas')?._cyreg?.cy?.nodes().length > 0`)
+	b.settled()
+	// What sticks out past the right edge, outside boxes that scroll on their
+	// own or cut short with an ellipsis (cut off by a box that hides its
+	// overflow counts: it can't be read).
+	const over = `(() => { const w = document.documentElement.clientWidth; const out = [];
+		for (const el of document.body.querySelectorAll('*')) {
+			const r = el.getBoundingClientRect();
+			if (r.width === 0 || r.right <= w + 1) continue;
+			let clipped = false;
+			// main is the page's own scroll box: scrolling it sideways is the page scrolling.
+			for (let p = el.parentElement; p && p.tagName !== 'MAIN' && p !== document.body; p = p.parentElement) {
+				const s = getComputedStyle(p);
+				if ((/(auto|scroll)/.test(s.overflowX) || s.textOverflow === 'ellipsis') && p.getBoundingClientRect().right <= w + 1) { clipped = true; break; }
+			}
+			if (!clipped) out.push(el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + (el.classList.length ? '.' + [...el.classList].join('.') : '') + ' ' + Math.round(r.right));
+		}
+		return out.slice(0, 12).join(', '); })()`
+	if got := eval[string](b, over); got != "" {
+		t.Errorf("past the right edge of a 390px screen: %s", got)
+	}
+	if sw := eval[int](b, `Math.max(document.scrollingElement.scrollWidth - document.documentElement.clientWidth, document.querySelector('main').scrollWidth - document.querySelector('main').clientWidth)`); sw > 0 {
+		t.Errorf("the page scrolls sideways by %dpx", sw)
+	}
+	if h := eval[float64](b, `document.querySelector('#trace-canvas').getBoundingClientRect().height / innerHeight`); h < 0.6 {
+		t.Errorf("the graph is %.0f%% of the screen's height, want at least 60%%", h*100)
+	}
+	b.checkClean("check phone")
 }

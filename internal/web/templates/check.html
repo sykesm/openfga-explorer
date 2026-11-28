@@ -183,16 +183,20 @@
       <button type="button" data-act="step" class="ghost sm" title="Advance the replay by one evaluation step (pauses playback)">Step ›</button>
       <button type="button" data-act="final" class="ghost sm" title="Stop the replay and show the finished result">Skip to end</button>
       <button type="button" data-act="fit" class="ghost sm" title="Fit the whole graph in view">Fit all</button>
-      <label class="sm" title="How fast the replay runs">speed <input type="range" min="1" max="10" value="6" data-act="speed"></label>
-      <label class="sm" title="Start the replay automatically when a result loads"><input type="checkbox" data-act="autoplay"> replay on load</label>
-      <label class="sm{{if ne (print .Walker) "allowed"}} hidden{{end}}" title="When access is allowed: zoom to the path that granted it, dim everything else, and animate the path"><input type="checkbox" data-act="focus" checked> highlight granting path</label>
-      <span class="step-count muted sm"></span>
-      <span class="spacer"></span>
+      {{/* One line for where the replay is: the step, then the status (a live region; the full text is its title). */}}
+      <span class="player-line sm"><span class="step-count muted"></span> <span class="player-status" aria-live="polite"></span></span>
+      <details class="player-opts">
+        <summary class="btn ghost sm" title="Replay options: speed, replay on load, highlighting the granting path">Options ▾</summary>
+        <div class="popover" role="group" aria-label="Replay options">
+          <label class="sm" title="How fast the replay runs">speed <input type="range" min="1" max="10" value="6" data-act="speed"></label>
+          <label class="sm" title="Start the replay automatically when a result loads"><input type="checkbox" data-act="autoplay"> replay on load</label>
+          <label class="sm{{if ne (print .Walker) "allowed"}} hidden{{end}}" title="When access is allowed: zoom to the path that granted it, dim everything else, and animate the path"><input type="checkbox" data-act="focus" checked> highlight granting path</label>
+        </div>
+      </details>
       <button type="button" data-act="copy-md" class="ghost sm" title="Copy the explanation and trace as Markdown (for tickets)">Copy</button>
       <button type="button" data-act="png" class="ghost sm" title="Save the graph as a PNG image">PNG</button>
       <button type="button" data-act="help" class="ghost sm" title="Keyboard shortcuts (?)">?</button>
     </div>
-    <div class="player-status sm" aria-live="polite"></div>
     <div class="canvas-box">
       <div id="trace-canvas" class="canvas"></div>
       {{/* The selected node's details: a card over the graph, shown while something is selected. */}}

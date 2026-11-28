@@ -313,14 +313,19 @@ export class Player {
     setText($('.player [data-act="play"]', this.root), playing ? '❚❚ Pause' : (this.i > 0 && !done ? '▶ Resume' : '▶ Replay walk'));
     const status = $('.player-status', this.root);
     if (!status) return;
+    let text;
     if (playing) {
       // A live region: rewrite it about once a second, not on every frame.
       const now = performance.now();
       if (now - this.said < 1000) return;
       this.said = now;
-      status.textContent = `Replaying the walk: step ${i} of ${n}${this.current ? ` — evaluating ${this.current}` : ''}`;
-    } else if (!done && this.i > 0) status.textContent = `Paused at step ${i} of ${n}. “Step ›” advances one step; “Resume” continues; “Skip to end” shows the result.`;
-    else if (done) status.textContent = this.doneText();
+      text = `Replaying the walk: step ${i} of ${n}${this.current ? ` — evaluating ${this.current}` : ''}`;
+    } else if (!done && this.i > 0) text = `Paused at step ${i} of ${n}. “Step ›” advances one step; “Resume” continues; “Skip to end” shows the result.`;
+    else if (done) text = this.doneText();
+    if (text === undefined) return;
+    status.textContent = text;
+    // The line is cut short to keep the graph tall: the full text is its title.
+    status.closest('.player-line')?.setAttribute('title', text);
   }
   /** The server phrases the closing status; this picks the variant for the highlight state. */
   doneText() {
