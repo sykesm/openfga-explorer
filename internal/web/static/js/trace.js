@@ -462,8 +462,9 @@ function restoreView(t, cy, v, phase) {
  *                        button pins it in the graph
  *   #trace-graph         the graph's bar (walk order, granting tuples,
  *                        notes), .player (replay controls, [data-act]:
- *                        play, step, final, fit, speed, autoplay, focus,
- *                        copy-md, png, toggle-panel), .player-status (a
+ *                        play, back, step, scrub, final, fit, speed,
+ *                        autoplay, focus, copy-md, png, toggle-panel),
+ *                        .player-status (a
  *                        live region), #trace-canvas (where the graph is
  *                        drawn) and #node-detail (the selected node's card)
  *   #trace-data          the graph as JSON (GraphData)
@@ -606,10 +607,15 @@ function renderTrace(t, { replay = true, restore = false } = {}) {
     player.final(); // no player bar: show the result as it ends
   }
 
+  // The scrubber: any step of the walk (dragging pauses the replay).
+  const scrub = /** @type {HTMLInputElement | null} */ ($('.player [data-act="scrub"]', t));
+  // Read the position first: pausing redraws the bar, scrubber included.
+  scrub?.addEventListener('input', () => { const to = +scrub.value; player.pause(); player.seek(to); });
   $('.player', t)?.addEventListener('click', (/** @type {any} */ e) => {
     switch (e.target.closest('[data-act]')?.dataset.act) {
       case 'play': player.play(); break;
       case 'step': player.pause(); player.step(); break;
+      case 'back': player.pause(); player.back(); break;
       case 'final': player.final(); break;
       case 'fit': fitTrace(t); break;
       case 'copy-md': copyMarkdown(t, e.target.closest('button')); break;

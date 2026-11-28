@@ -295,6 +295,23 @@ export class Player {
     this.follow();
     this.update();
   }
+  /**
+   * Shows the walk as it stood after visible step n (0: before the first),
+   * replaying silently up to it (the scrubber); n at or past the last step
+   * shows the finished result.
+   * @param {number} n
+   */
+  seek(n) {
+    const stops = this.stops();
+    if (n >= stops.length) { this.final(); return; }
+    this.flow.userView = true;
+    const target = n <= 0 ? 0 : stops[n - 1];
+    this.reset();
+    for (let k = 0; k < target; k++) this.apply(this.steps[k]);
+    this.i = target;
+    this.follow();
+    this.update();
+  }
   final() {
     this.pause();
     this.cy.elements().removeClass('pending visiting');
@@ -313,6 +330,12 @@ export class Player {
     const i = this.shownSteps();
     // Called every frame while playing: write only what changed.
     setText($('.player .step-count', this.root), `step ${i} / ${n}`);
+    const scrub = /** @type {HTMLInputElement | null} */ ($('.player [data-act="scrub"]', this.root));
+    if (scrub) {
+      if (scrub.max !== String(n)) scrub.max = String(n);
+      if (scrub.value !== String(i)) scrub.value = String(i);
+      scrub.setAttribute('aria-valuetext', `step ${i} of ${n}`);
+    }
     setText($('.player [data-act="play"]', this.root), playing ? '❚❚ Pause' : (this.i > 0 && !done ? '▶ Resume' : '▶ Replay walk'));
     const status = $('.player-status', this.root);
     if (!status) return;

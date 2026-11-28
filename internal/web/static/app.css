@@ -450,9 +450,12 @@ h2.sect { margin-top: 2px; font-size: 12px; text-transform: uppercase; letter-sp
 /* Where the replay is, on one line in the controls (so the graph gets the
    height): the step, then the status, cut short with its full text as the
    title (trace.js). */
-.player-line { flex: 1 1 6ch; min-width: 0; min-height: 1lh; display: flex; gap: .5ch; align-items: baseline; color: var(--muted); }
+/* At least the scrubber and the count: the bar wraps rather than overlap. */
+.player-line { flex: 1 1 6ch; min-width: calc(120px + 15ch); min-height: 1lh; display: flex; gap: .5ch; align-items: baseline; color: var(--muted); }
 /* A fixed width, so the status beside it stays put as the count changes. */
 .player-line .step-count { flex: none; min-width: 14ch; }
+/* The scrubber: a fixed width, so the count and status beside it stay put. */
+.player-line .scrub { flex: none; width: 120px; margin: 0; align-self: center; }
 .player-line .player-status { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .player-opts { position: relative; flex: none; }
 .player-opts > summary { list-style: none; cursor: pointer; }

@@ -1171,3 +1171,51 @@ func TestBrowserStepHighlightContrast(t *testing.T) {
 		})
 	}
 }
+
+// TestBrowserCheckScrub: the replay goes back as well as forward. The
+// scrubber shows the walk as it stood after any step, exactly as stepping
+// there does; ‹ goes back one step; the far end is the finished result.
+func TestBrowserCheckScrub(t *testing.T) {
+	x := newTestExplorer(t)
+	b := newBrowser(t, x)
+	b.open(`~/check?user=user:eng-002&relation=can_view&object=document:doc-0007&context=` +
+		`%7B%22current_time%22%3A%222026-11-24T12%3A00%3A00Z%22%2C%22user_ip%22%3A%2210.1.2.3%22%7D`)
+	b.waitFor("graph", `document.querySelector('#trace-canvas')?._cyreg?.cy?.nodes().length > 0`)
+	b.settled()
+	b.run(chromedp.Evaluate(`document.querySelector('.player [data-act="final"]').click()`, nil))
+	const scrub = `document.querySelector('.player [data-act="scrub"]')`
+	const count = `document.querySelector('.player .step-count').textContent`
+	// What the graph and text trace show: the nodes walked so far, and the current one.
+	const state = `(() => { const c = document.querySelector('#trace-canvas')._cyreg.cy;
+		return [c.nodes().not('.pending').map((n) => n.id()).sort().join(','), c.nodes('.visiting').map((n) => n.id()).join(','),
+			[...document.querySelectorAll('#rpanel-trace .tl.cur')].map((l) => l.dataset.node).join(',')].join(' | '); })()`
+	n := eval[int](b, `+`+scrub+`.max`)
+	if n < 4 || eval[int](b, `+`+scrub+`.value`) != n {
+		t.Fatalf("finished: scrubber at %s of %d", eval[string](b, scrub+`.value`), n)
+	}
+	// Step to step 3 from the start, then scrub there from the end: the same.
+	b.run(chromedp.Evaluate(scrub+`.value = 0; `+scrub+`.dispatchEvent(new Event('input'))`, nil))
+	for range 3 {
+		b.run(chromedp.Click(`.player [data-act="step"]`, chromedp.ByQuery))
+	}
+	stepped, steppedCount := eval[string](b, state), eval[string](b, count)
+	b.run(chromedp.Evaluate(scrub+`.value = `+scrub+`.max; `+scrub+`.dispatchEvent(new Event('input'))`, nil))
+	b.run(chromedp.Evaluate(scrub+`.value = 3; `+scrub+`.dispatchEvent(new Event('input'))`, nil))
+	if got := eval[string](b, state); got != stepped || eval[string](b, count) != steppedCount {
+		t.Errorf("scrubbed to step 3:\n %s (%s)\nstepped to step 3:\n %s (%s)", got, eval[string](b, count), stepped, steppedCount)
+	}
+	if !strings.HasPrefix(steppedCount, "step 3 /") {
+		t.Errorf("step count %q", steppedCount)
+	}
+	// ‹ goes back one step, and the scrubber follows.
+	b.run(chromedp.Click(`.player [data-act="back"]`, chromedp.ByQuery))
+	if got := eval[string](b, count+` + ' ' + `+scrub+`.value`); !strings.HasPrefix(got, "step 2 /") || !strings.HasSuffix(got, " 2") {
+		t.Errorf("after ‹: %q", got)
+	}
+	// The far end is the finished result: nothing pending, the replay done.
+	b.run(chromedp.Evaluate(scrub+`.value = `+scrub+`.max; `+scrub+`.dispatchEvent(new Event('input'))`, nil))
+	if got := eval[string](b, `document.querySelector('#trace-canvas')._cyreg.cy.nodes('.pending').length + ' ' + document.querySelector('.player [data-act="play"]').textContent`); got != "0 ▶ Replay walk" {
+		t.Errorf("at the end: %q (pending nodes, play button)", got)
+	}
+	b.checkClean("scrub")
+}
