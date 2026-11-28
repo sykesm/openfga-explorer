@@ -111,7 +111,11 @@
     The tuples OpenFGA reads inside its own Check and ListObjects calls are not reported by the server, so they are not counted here.</p>
   {{if $t.Mismatches}}<div class="alert err">{{$t.Mismatches}} step{{if gt $t.Mismatches 1}}s{{end}} disagree with the server (outlined in magenta). This usually means a tuple changed during the walk, a consistency difference, or a walker bug worth reporting.</div>{{end}}
   {{with $t.Root.Server}}{{if .Err}}<div class="alert err">Server check failed: {{.Err}}</div>{{end}}{{end}}
-  <p class="jump sm">Jump to <a href="#trace-graph">graph</a></p>
+</div>
+{{/* Phones show the reading pane or the graph, one at a time (trace.js). */}}
+<div class="view-switch seg" role="group" aria-label="Show">
+  <button type="button" data-act="show-view" data-view="read" aria-pressed="true">Explanation</button>
+  <button type="button" data-act="show-view" data-view="graph" aria-pressed="false">Graph</button>
 </div>
 {{/* Reading pane (left): the ways to read the decision, one at a time. Graph (right). */}}
 <div class="trace-views">

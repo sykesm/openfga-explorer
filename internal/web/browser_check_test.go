@@ -222,9 +222,10 @@ func TestBrowserInspector(t *testing.T) {
 	b.run(chromedp.Click(`.panel-rail`, chromedp.ByQuery))
 	b.waitFor("reopened", `!document.querySelector('.trace-views').classList.contains('panel-collapsed')`)
 
-	// Phones: the pane sits above the graph, in the page flow.
+	// Phones: a switch shows the pane or the graph (TestBrowserCheckPhone);
+	// the pane is part of the page, not floating over it.
 	b.run(emulation.SetDeviceMetricsOverride(390, 844, 2, true))
-	b.waitFor("stacked", `document.querySelector('.inspector').getBoundingClientRect().bottom <= document.querySelector('#trace-graph').getBoundingClientRect().top + 1`)
+	b.waitFor("switch", `getComputedStyle(document.querySelector('.view-switch')).display !== 'none'`)
 	if pos := eval[string](b, `getComputedStyle(document.querySelector('.inspector')).position`); pos == "fixed" {
 		t.Error("the reading pane should not float over the page on phones")
 	}
@@ -1020,8 +1021,28 @@ func TestBrowserCheckPhone(t *testing.T) {
 	if sw := eval[int](b, `Math.max(document.scrollingElement.scrollWidth - document.documentElement.clientWidth, document.querySelector('main').scrollWidth - document.querySelector('main').clientWidth)`); sw > 0 {
 		t.Errorf("the page scrolls sideways by %dpx", sw)
 	}
+	// One at a time: the explanation first; the switch shows the graph,
+	// measured and drawn at its size, and is remembered.
+	const shown = `[getComputedStyle(document.querySelector('#inspector')).display !== 'none', getComputedStyle(document.querySelector('#trace-graph')).display !== 'none'].join(' ')`
+	if got := eval[string](b, shown); got != "true false" {
+		t.Errorf("at first (pane, graph): %q, want the pane only", got)
+	}
+	b.run(chromedp.Click(`.view-switch [data-view="graph"]`, chromedp.ByQuery))
+	if got := eval[string](b, shown); got != "false true" {
+		t.Errorf("after Graph (pane, graph): %q, want the graph only", got)
+	}
+	const cy = `document.querySelector('#trace-canvas')._cyreg.cy`
+	b.waitFor("graph measured", cy+`.width() > 300 && `+cy+`.height() > 300`)
 	if h := eval[float64](b, `document.querySelector('#trace-canvas').getBoundingClientRect().height / innerHeight`); h < 0.6 {
 		t.Errorf("the graph is %.0f%% of the screen's height, want at least 60%%", h*100)
+	}
+	if got := eval[string](b, `document.querySelector('.view-switch [aria-pressed="true"]').dataset.view + ' ' + localStorage.getItem('fgax.phoneView')`); got != "graph \"graph\"" {
+		t.Errorf("pressed and remembered: %q", got)
+	}
+	// Pinning a step (◎) from the explanation shows it on the graph.
+	b.run(chromedp.Click(`.view-switch [data-view="read"]`, chromedp.ByQuery), chromedp.Click(`#rpanel-why li.step .step-loc`, chromedp.ByQuery))
+	if got := eval[string](b, shown); got != "false true" {
+		t.Errorf("after pinning a step (pane, graph): %q, want the graph", got)
 	}
 	b.checkClean("check phone")
 }

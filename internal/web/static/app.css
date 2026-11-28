@@ -404,11 +404,8 @@ h2.sect { margin-top: 2px; font-size: 12px; text-transform: uppercase; letter-sp
 .versions li { padding: 3px 6px; border-radius: 4px; }
 .versions li.on { background: var(--soft); font-weight: 650; }
 
-.jump { display: none; }
+.view-switch { display: none; }
 @media (max-width: 700px) {
-  /* Phones: the result header is long, so offer a way straight to the graph. */
-  .jump { display: block; margin: 0 0 6px; }
-  .jump a { display: inline-block; padding: 4px 2px; min-height: 24px; }
   .check-layout { padding: 10px 10px 32px; }
   .trace-graph-wrap { min-height: 0; }
   .trace-graph-wrap .canvas { min-height: 0; height: 70vh; }
@@ -616,10 +613,18 @@ input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; margin:
 }
 
 /* Phones: the page scrolls, nothing inside it does except what is wider than
-   the screen. The reading pane sits above the graph as part of the page; the
-   navigation and the reading switch scroll sideways in their own rows; the
-   details card spans the graph. */
+   the screen. A switch shows the reading pane (as part of the page) or the
+   graph, one at a time, in place of collapsing the pane; the navigation and
+   the reading switch scroll sideways in their own rows; the details card
+   spans the graph. */
 @media (max-width: 700px) {
+  .view-switch { display: flex; margin: 12px 0 0; }
+  .view-switch button { flex: 1 1 0; min-height: 36px; }
+  .view-switch button + button { border-left: 1px solid var(--line); }
+  .view-switch [aria-pressed="true"] { background: var(--soft); font-weight: 600; }
+  .trace-views[data-view="graph"] .inspector, .trace-views:not([data-view="graph"]) .trace-graph-wrap { display: none; }
+  .trace-views.panel-collapsed:not([data-view="graph"]) .inspector { display: flex; }
+  .trace-views .insp-head [data-act="toggle-panel"], .trace-views .panel-rail { display: none !important; }
   .trace-views .inspector { max-height: none; overflow: visible; }
   .trace-views .rpanel { overflow: visible; }
   .tabs { margin-left: 0; max-width: 100%; overflow-x: auto; scrollbar-width: none; }

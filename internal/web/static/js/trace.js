@@ -180,8 +180,26 @@ function sizeTraceViews(t) {
   if (holder.style.getPropertyValue('--trace-h') !== h) holder.style.setProperty('--trace-h', h);
 }
 
+/**
+ * Shows the reading pane or the graph, on phones, where only one shows at a
+ * time (the switch is hidden on wider screens, where both show; this does
+ * nothing there). The graph, drawn while hidden, is measured and framed
+ * when it shows.
+ * @param {FgaTrace} t @param {'read' | 'graph'} which
+ */
+function showView(t, which) {
+  const sw = $('.view-switch', t);
+  const tv = $('.trace-views', t);
+  if (!sw || !tv || !sw.offsetParent) return;
+  tv.dataset.view = which;
+  for (const b of $$('[data-view]', sw)) b.setAttribute('aria-pressed', String(b.dataset.view === which));
+  store.set('phoneView', which);
+  if (which === 'graph' && t.view) resizeGraph(t.view);
+}
+
 /** Selects a node from the text trace or the graph. @param {FgaTrace} t @param {any} n @param {{ zoom?: boolean }} [opts] */
 function selectNode(t, n, { zoom = false } = {}) {
+  showView(t, 'graph'); // on phones, the graph is where the node is
   const v = /** @type {TraceView} */ (t.view);
   const { cy } = v;
   v.player.flow.userView = true;
@@ -239,6 +257,7 @@ function linkSteps(t) {
     pinned = li;
     if (!li) { light(null); return; }
     li.classList.add('pinned');
+    showView(t, 'graph'); // on phones, show the path where it is
     const ids = (/** @type {HTMLElement} */ (li).dataset.nodes || '').split(' ');
     let laid = false;
     for (const id of ids) if (cy.getElementById(id).style('display') === 'none' && reveal(cy, id)) laid = true;
@@ -389,6 +408,8 @@ function restoreView(t, cy, v, phase) {
  * Parts (rendered by the server):
  *   .verdict             the decision header, with data-* texts for the
  *                        player's closing status
+ *   .view-switch         on phones, which of the two shows ([data-view]:
+ *                        read, graph); hidden on wider screens
  *   .trace-views         the reading pane and the graph; .splitter resizes
  *                        them
  *   #inspector           the reading pane, as tabs: Why (#rpanel-why), the
@@ -609,6 +630,12 @@ function renderTrace(t, { replay = true, restore = false } = {}) {
   if (kept) { restoreView(t, cy, kept, 'viewport'); flow.userView = true; }
   keepView(view);
   noteOutOfView(t);
+  // Phones: the reading pane or the graph (the last one chosen, else the pane).
+  $('.view-switch', t)?.addEventListener('click', (e) => {
+    const b = /** @type {HTMLElement | null} */ (/** @type {Element} */ (e.target).closest('[data-view]'));
+    if (b) showView(t, b.dataset.view === 'graph' ? 'graph' : 'read');
+  });
+  showView(t, store.get('phoneView', 'read') === 'graph' ? 'graph' : 'read');
 }
 
 /**
