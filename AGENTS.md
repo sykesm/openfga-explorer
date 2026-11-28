@@ -17,8 +17,10 @@ and for explaining check decisions. Go + htmx, server-rendered.
   stay in the browser.
 - **No JavaScript build step, no npm.** Browser code is plain ES modules in
   `internal/web/static/js/`, served as-is. JSDoc comments document types; there
-  is no TypeScript. `internal/web/package.json` only marks the modules as ES
-  modules for `node --test`.
+  is no TypeScript. Each module starts with `// @ts-check`, so editors check
+  those types (nothing in the build does); `$` returns `HTMLElement | null`,
+  so check for null or cast. `internal/web/package.json` only marks the
+  modules as ES modules for `node --test`.
 - **Stateless server.** Nothing about a person's work is kept between requests
   (drafts live in the browser; scenario runs start and discard an in-memory
   engine per request), so replicas scale horizontally. Rate limits and caches

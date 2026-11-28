@@ -1,3 +1,4 @@
+// @ts-check
 // The Check form: per-tab persistence, collapse to a summary after a run,
 // live walk progress and cancel, re-running with other options, and stepping
 // through "who else has this?" users.
@@ -83,7 +84,8 @@ function collapseForm(on) {
   const summary = $('#check-result .verdict')?.dataset.summary;
   if (on && !summary) return;
   f.classList.toggle('collapsed', on);
-  if (summary) $('.qsummary .qs-text', f).textContent = summary;
+  const text = $('.qsummary .qs-text', f);
+  if (summary && text) text.textContent = summary;
 }
 
 /**
@@ -111,6 +113,12 @@ function toggleOptionHelp(btn) {
   }
   help.hidden = !open;
   btn.setAttribute('aria-expanded', String(open));
+}
+
+/** Sets the walk order on the form. @param {HTMLFormElement} f @param {string} order */
+function setOrder(f, order) {
+  const sel = /** @type {HTMLSelectElement | null} */ ($('select[name="order"]', f));
+  if (sel) sel.value = order;
 }
 
 /** Re-runs the check with a field changed. @param {(f: HTMLFormElement) => void} change */
@@ -194,9 +202,9 @@ function onClick(e) {
     case 'order':
       // The order switch shows the current order pressed: choosing it again is a no-op.
       if (act.getAttribute('aria-pressed') === 'true') break;
-      rerun((f) => { $('select[name="order"]', f).value = act.dataset.order; });
+      rerun((f) => setOrder(f, act.dataset.order || ''));
       break;
-    case 'all-paths': rerun((f) => { $('select[name="order"]', f).value = 'all'; }); break;
+    case 'all-paths': rerun((f) => setOrder(f, 'all')); break;
     case 'bigger':
       rerun((f) => {
         for (const [name, cap] of /** @type {[string, number][]} */ ([['max_calls', 5000], ['max_fanout', 1000], ['probe_limit', 1000]])) {

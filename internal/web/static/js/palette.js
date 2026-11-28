@@ -1,3 +1,4 @@
+// @ts-check
 // The command palette (Ctrl+K / ⌘K): pages, actions, and every type of the
 // model (matched by name or relation, like the type finder). The type index
 // is fetched once per page, on first open.
@@ -94,7 +95,7 @@ export function initPalette() {
     else if (e.key === 'ArrowUp') { e.preventDefault(); move(active - 1); }
     else if (e.key === 'Enter') { e.preventDefault(); go(dlg, active); }
   });
-  $('#palette-list', el).addEventListener('click', (/** @type {MouseEvent} */ e) => {
+  $('#palette-list', el)?.addEventListener('click', (/** @type {MouseEvent} */ e) => {
     const li = /** @type {Element} */ (e.target).closest('[data-i]');
     if (li instanceof HTMLElement) go(dlg, Number(li.dataset.i));
   });

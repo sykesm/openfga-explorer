@@ -1,3 +1,4 @@
+// @ts-check
 // The Explore view: the type graph (schemagraph.js), the instance graph built
 // up as you open instances (instancegraph.js), the side panel (type and
 // instance panels, rendered by the server), and the per-tab persistence of

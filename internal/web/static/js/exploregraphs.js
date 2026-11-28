@@ -1,3 +1,4 @@
+// @ts-check
 // What the Explore view's two graphs share: the graphs themselves (the type
 // graph, schemagraph.js, and the instance graph, instancegraph.js), which one
 // is showing, and fitting and laying them out.

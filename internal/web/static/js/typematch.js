@@ -1,3 +1,4 @@
+// @ts-check
 // Type matching, shared by the Explore type finder and the Check type
 // combobox. Pure functions (no DOM), unit-tested with node:test.
 

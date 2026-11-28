@@ -1,3 +1,4 @@
+// @ts-check
 // Generic, accessible UI pieces: tabs, modal dialogs, drag resizers, and
 // request-failure reporting. Feature modules use these; nothing here knows
 // about OpenFGA.
@@ -182,7 +183,8 @@ export function initResizer(handle, apply, restore, key, done = () => {}) {
 export function notify(text) {
   const box = $('#page-alert');
   if (!box) return;
-  $('.pa-text', box).textContent = text;
+  const t = $('.pa-text', box);
+  if (t) t.textContent = text;
   box.hidden = false;
 }
 

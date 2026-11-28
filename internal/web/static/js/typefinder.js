@@ -1,3 +1,4 @@
+// @ts-check
 // <fga-type-finder>: the Explore type finder for models with many types. A
 // search whose matches (by type name or relation; "module:<name>" for a
 // module's types) are listed as you type (combobox.js), and, while it is
@@ -63,9 +64,10 @@ class FgaTypeFinder extends HTMLElement {
   /** @param {string} [current] the selected type, marked in the list */
   renderRecent(current) {
     const box = $('.type-recent', this);
-    if (!box) return;
+    const list = box && $('.ts-list', box);
+    if (!list) return;
     const names = this.recent;
-    $('.ts-list', box).innerHTML = names.map((t) => `<li>
+    list.innerHTML = names.map((t) => `<li>
         <button type="button" class="type-chip${t === current ? ' on' : ''}" data-type="${esc(t)}">${esc(t)}</button>
         <button type="button" class="ts-remove ghost sm" data-remove="${esc(t)}" aria-label="Remove ${esc(t)} from recent types" title="Remove from recent types">×</button>
       </li>`).join('');

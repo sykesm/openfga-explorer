@@ -1,3 +1,4 @@
+// @ts-check
 // <fga-edge-list>: edges (tuples) that can be put on the instance graph,
 // listed in the instance panel and in the edge chooser.
 //

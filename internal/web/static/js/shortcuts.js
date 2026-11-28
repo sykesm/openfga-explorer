@@ -1,3 +1,4 @@
+// @ts-check
 // Keyboard shortcuts and the shortcuts help dialog. Feature modules register
 // what each key does on their page, so this module knows no feature state.
 import { $ } from './core.js';

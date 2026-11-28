@@ -1,3 +1,4 @@
+// @ts-check
 // Shared helpers: DOM queries, escaping, storage, motion preference, colors,
 // and Cytoscape defaults. No feature logic lives here.
 
@@ -5,18 +6,22 @@
 export const base = () => document.body.dataset.base || '';
 
 /**
+ * The first element matching sel (in root, or the page), or null. Typed as
+ * an HTMLElement, which the page's elements are; cast to a narrower type
+ * (HTMLInputElement, …) where its properties are needed.
  * @param {string} sel
  * @param {ParentNode} [root]
- * @returns {any}
+ * @returns {HTMLElement | null}
  */
-export const $ = (sel, root = document) => root.querySelector(sel);
+export const $ = (sel, root = document) => /** @type {HTMLElement | null} */ (root.querySelector(sel));
 
 /**
+ * Every element matching sel (in root, or the page).
  * @param {string} sel
  * @param {ParentNode} [root]
- * @returns {any[]}
+ * @returns {HTMLElement[]}
  */
-export const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+export const $$ = (sel, root = document) => /** @type {HTMLElement[]} */ (Array.from(root.querySelectorAll(sel)));
 
 /** @param {unknown} s */
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] || c);

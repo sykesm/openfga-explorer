@@ -1,3 +1,4 @@
+// @ts-check
 // The shared request context (condition parameters): edited in the header
 // popover or the check form, kept per store, and sent with "who has it?"
 // lists that don't carry their own.
@@ -37,7 +38,7 @@ function showPopover(open, { focusButton = false } = {}) {
   if (!pop || !btn) return;
   pop.hidden = !open;
   btn.setAttribute('aria-expanded', String(open));
-  if (open) $('.ctx-text', pop).focus();
+  if (open) $('.ctx-text', pop)?.focus();
   else if (focusButton) btn.focus();
 }
 

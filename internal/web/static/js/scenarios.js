@@ -1,3 +1,4 @@
+// @ts-check
 // The Scenarios page: the document is a draft kept in this browser (per
 // store); runs go to the server, which keeps nothing. Results link each check
 // to the tuples that granted it.

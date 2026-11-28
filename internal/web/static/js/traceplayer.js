@@ -1,3 +1,4 @@
+// @ts-check
 // The check trace's replay: stepping through the walk on the graph and the
 // text trace (Player), and the flowing highlight of the granting path that
 // follows it (PathFlow).

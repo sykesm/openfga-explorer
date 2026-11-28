@@ -1,3 +1,4 @@
+// @ts-check
 // The popup list of a find-as-you-type box (WAI-ARIA combobox with a listbox
 // popup), shared by the picker's type box and the Explore type finder. It
 // renders the options, keeps one active (aria-selected on the option,

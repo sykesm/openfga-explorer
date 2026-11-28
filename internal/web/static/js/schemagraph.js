@@ -1,3 +1,4 @@
+// @ts-check
 // The Explore view's type graph: the model's types and how they relate, a
 // chosen type's neighborhood, and (in modular models) coloring by module.
 import { $, baseOpts, categoricalColor, dagre, labelWidth, pal, store, typeColor } from './core.js';

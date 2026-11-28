@@ -1,3 +1,4 @@
+// @ts-check
 // The check trace's graph: how it is drawn (outcome marks, styles), folding
 // failed branches, and its layout (the granting path straight down the
 // middle). The server computes what to show; this module draws it.

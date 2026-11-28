@@ -1,3 +1,4 @@
+// @ts-check
 // Instance pickers: <fga-picker>, a custom element. The server renders its
 // parts: a type (a <select>, or a find-as-you-type combobox when the model
 // has many types) plus an ID search whose results the server renders. The

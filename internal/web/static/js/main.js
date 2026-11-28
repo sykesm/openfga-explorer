@@ -1,3 +1,4 @@
+// @ts-check
 // OpenFGA Explorer client entry point. Pages are server-rendered and swapped
 // by htmx; these modules add the graphs, the walk replay, pickers, and
 // keyboard support. Each module owns its own state; this file only starts

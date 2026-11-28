@@ -1,3 +1,4 @@
+// @ts-check
 // The Explore view's instance graph: built up from the instances you open
 // (each panel carries its edges as an <fga-graph-patch>), edges added and
 // removed from edge lists, expanding in place (+1 hop), removing, undo, and

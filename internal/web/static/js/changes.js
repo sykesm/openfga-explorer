@@ -1,3 +1,4 @@
+// @ts-check
 // The Changes page: the browser's timezone for custom ranges, and showing
 // the custom range fields only when chosen. Paging and live updates are
 // plain htmx (the server renders each page and the poller).
@@ -10,7 +11,8 @@ export function initChanges() {
   for (const tz of $$('.tz-offset')) tz.value = String(new Date().getTimezoneOffset());
   const sync = () => {
     const range = $('input[name="range"]:checked', form)?.value;
-    $('.custom-range', form).hidden = range !== 'custom';
+    const custom = $('.custom-range', form);
+    if (custom) custom.hidden = range !== 'custom';
     for (const l of $$('.seg-radio label', form)) l.classList.toggle('on', !!$('input:checked', l));
   };
   form.addEventListener('change', (e) => {

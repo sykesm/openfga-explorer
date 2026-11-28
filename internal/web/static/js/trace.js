@@ -1,3 +1,4 @@
+// @ts-check
 // The check trace view: the evaluation graph (tracegraph.js) and its replay
 // (traceplayer.js), the highlighted granting tuples, the side panel (node
 // details, text trace), exports, and keeping the view across visits. The
