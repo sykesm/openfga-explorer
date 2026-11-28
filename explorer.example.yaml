@@ -31,7 +31,8 @@ auth:
   identity_header: X-Forwarded-Email
   require_identity: false
   # Role for identified users not listed in roles. Requests without an
-  # identity are always viewers.
+  # identity are always viewers. Roles: viewer, editor (reserved: the same as
+  # viewer while the explorer is read-only), admin (may run queries over real data).
   default_role: viewer
   roles: {}
     # alice@example.com: admin

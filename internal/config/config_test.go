@@ -81,6 +81,10 @@ func TestInvalid(t *testing.T) {
 		"bad listen":             {"listen: \"8090\"\n", "not host:port"},
 		"expansion over ceiling": {"graph_expansion:\n  max_reads: 100000\n", "graph_expansion: max_reads"},
 		"admin expansion zero":   {"graph_expansion:\n  admin:\n    per_minute: 0\n", "graph_expansion.admin: per_minute"},
+		"trace calls zero":       {"trace:\n  max_calls: 0\n", "trace: max_calls"},
+		"trace calls too high":   {"trace:\n  max_calls: 9000\n", "trace: max_calls"},
+		"live timeout zero":      {"live_queries:\n  enabled: true\n  timeout: 0s\n", "live_queries: timeout"},
+		"live runs zero":         {"live_queries:\n  enabled: true\n  runs_per_hour: 0\n", "live_queries: runs_per_hour"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, err := Load(write(t, tc.yaml))
@@ -103,5 +107,22 @@ func TestTraceOptions(t *testing.T) {
 	def := trace.DefaultOptions()
 	if got := (Trace{}).Options(); got.MaxCalls != def.MaxCalls || got.MaxFanout != def.MaxFanout || got.ProbeLimit != def.ProbeLimit || got.Timeout != def.Timeout {
 		t.Errorf("unset limits should keep the defaults: %+v", got)
+	}
+}
+
+// Overrides (command-line flags) apply before validation: a flag can supply
+// what the file needs, and a bad flag value is caught like a bad file value.
+func TestLoadOverrides(t *testing.T) {
+	p := write(t, "tuples:\n  source: datastore\n")
+	c, err := Load(p, func(c *Config) { c.Datastore.URI = "postgres://localhost/openfga" })
+	if err != nil || c.Datastore.URI == "" {
+		t.Errorf("a flag-supplied datastore URI should satisfy tuples.source: datastore: %v", err)
+	}
+	if _, err := Load("", func(c *Config) { c.Listen = "8090" }); err == nil || !strings.Contains(err.Error(), "not host:port") {
+		t.Errorf("a bad --listen should be rejected: %v", err)
+	}
+	// Live query limits matter only when live queries are enabled.
+	if _, err := Load(write(t, "live_queries:\n  timeout: 0s\n")); err != nil {
+		t.Errorf("disabled live queries with a zero timeout: %v", err)
 	}
 }

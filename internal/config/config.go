@@ -4,6 +4,7 @@ package config
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -130,6 +131,8 @@ type Auth struct {
 	// DefaultRole applies to named identities (from IdentityHeader) not listed
 	// in Roles: viewer, editor, or admin. Requests without an identity are
 	// always viewers (see DangerouslyTreatAnonymousAsAdmin).
+	// The explorer is read-only, so editor is reserved: today it is the same
+	// as viewer. Only admin changes anything (queries over real data).
 	DefaultRole string            `yaml:"default_role"`
 	Roles       map[string]string `yaml:"roles"`
 }
@@ -180,15 +183,17 @@ func Default() Config {
 	}
 }
 
-// Load reads a YAML file (optional) over the defaults, then applies environment variables.
-func Load(path string) (Config, error) {
+// Load reads a YAML file (optional) over the defaults, then applies
+// environment variables, then overrides (command-line flags), and validates
+// the result.
+func Load(path string, overrides ...func(*Config)) (Config, error) {
 	c := Default()
 	if path != "" {
 		b, err := os.ReadFile(path)
 		if err != nil {
 			return c, err
 		}
-		dec := yaml.NewDecoder(bytesReader(b))
+		dec := yaml.NewDecoder(bytes.NewReader(b))
 		dec.KnownFields(true)
 		if err := dec.Decode(&c); err != nil {
 			return c, fmt.Errorf("%s: %w", path, err)
@@ -209,6 +214,9 @@ func Load(path string) (Config, error) {
 	env("FGAX_DATASTORE_URI", &c.Datastore.URI)
 	env("FGAX_LISTEN", &c.Listen)
 	env("FGAX_TUPLE_SOURCE", &c.Tuples.Source)
+	for _, o := range overrides {
+		o(&c)
+	}
 	return c, c.Validate()
 }
 
@@ -225,7 +233,7 @@ func (c Config) Validate() error {
 	switch c.Auth.DefaultRole {
 	case "viewer", "editor", "admin":
 	default:
-		return fmt.Errorf("auth.default_role must be viewer, editor, or admin")
+		return errors.New("auth.default_role must be viewer, editor, or admin")
 	}
 	for id, r := range c.Auth.Roles {
 		switch r {
@@ -238,13 +246,13 @@ func (c Config) Validate() error {
 	case "", "auto", "api":
 	case "datastore":
 		if c.Datastore.URI == "" {
-			return fmt.Errorf("tuples.source: datastore needs datastore.uri")
+			return errors.New("tuples.source: datastore needs datastore.uri")
 		}
 	default:
 		return fmt.Errorf("tuples.source must be auto, api, or datastore; got %q", c.Tuples.Source)
 	}
 	if c.Auth.RequireIdentity && c.Auth.IdentityHeader == "" {
-		return fmt.Errorf("auth.require_identity needs auth.identity_header")
+		return errors.New("auth.require_identity needs auth.identity_header")
 	}
 	if err := c.GraphExpansion.validate(); err != nil {
 		return fmt.Errorf("graph_expansion: %w", err)
@@ -252,7 +260,51 @@ func (c Config) Validate() error {
 	if err := c.GraphExpansion.Admin.validate(); err != nil {
 		return fmt.Errorf("graph_expansion.admin: %w", err)
 	}
+	if err := c.Trace.validate(); err != nil {
+		return fmt.Errorf("trace: %w", err)
+	}
+	if c.LiveQueries.Enabled {
+		if err := c.LiveQueries.validate(); err != nil {
+			return fmt.Errorf("live_queries: %w", err)
+		}
+	}
 	return nil
 }
 
-func bytesReader(b []byte) *bytes.Reader { return bytes.NewReader(b) }
+// Ceilings for the walk limits: the check form caps what a person may ask
+// for at these too.
+const (
+	MaxTraceCalls  = 5000
+	MaxTraceFanout = 1000
+	MaxTraceProbes = 1000
+)
+
+func (t Trace) validate() error {
+	switch {
+	case t.MaxCalls < 1 || t.MaxCalls > MaxTraceCalls:
+		return fmt.Errorf("max_calls must be 1 to %d", MaxTraceCalls)
+	case t.MaxFanout < 1 || t.MaxFanout > MaxTraceFanout:
+		return fmt.Errorf("max_fanout must be 1 to %d", MaxTraceFanout)
+	case t.ProbeLimit < 1 || t.ProbeLimit > MaxTraceProbes:
+		return fmt.Errorf("probe_limit must be 1 to %d", MaxTraceProbes)
+	case t.Timeout <= 0:
+		return errors.New("timeout must be more than 0")
+	case t.MaxConcurrent < 1:
+		return errors.New("max_concurrent must be at least 1")
+	}
+	return nil
+}
+
+func (l LiveQueries) validate() error {
+	switch {
+	case l.MaxObjects < 1:
+		return errors.New("max_objects must be at least 1")
+	case l.MaxChecks < 1:
+		return errors.New("max_checks must be at least 1")
+	case l.Timeout <= 0:
+		return errors.New("timeout must be more than 0 (0 would end every query at once)")
+	case l.RunsPerHour < 1:
+		return errors.New("runs_per_hour must be at least 1 (0 would refuse every run)")
+	}
+	return nil
+}
