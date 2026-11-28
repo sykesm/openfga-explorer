@@ -1,7 +1,7 @@
 // The Check form: per-tab persistence, collapse to a summary after a run,
 // live walk progress and cancel, re-running with other options, and stepping
 // through "who else has this?" users.
-import { $, $$, base, load, session, stateKey, store } from './core.js';
+import { $, $$, base, load, rememberObject, session, stateKey, store } from './core.js';
 import { picker, pickersIn } from './pickers.js';
 import { onKey } from './shortcuts.js';
 import { tabsOf } from './ui.js';
@@ -247,6 +247,9 @@ function resultShown(e) {
   e.detail.restore = restoring;
   restoring = false;
   setReading(store.get('reading', 'up'), false);
+  // An allowed check found both in tuples: remember them for the ID search.
+  const v = /** @type {HTMLElement | null} */ ($('#check-result .verdict'));
+  if (v?.classList.contains('v-allowed')) for (const o of [v.dataset.object, v.dataset.user]) rememberObject(o || '');
   saveCheck({ ran: true });
   reopenOthers();
 }

@@ -15,7 +15,7 @@
 // .picker-type (a <select>, the source of truth for the type), an optional
 // .tcombo (type combobox: .tcombo-q and .tcombo-list), .picker-q (the ID
 // search box), .picker-value (the chosen "type:id") and .picker-results.
-import { $, $$, base, store } from './core.js';
+import { $, $$, base, recentObjects, store } from './core.js';
 import { Listbox } from './combobox.js';
 import { pushRecent, rankTypes, relTag, splitRels } from './typematch.js';
 import { onEscape } from './shortcuts.js';
@@ -38,6 +38,11 @@ export class FgaPicker extends HTMLElement {
     this.addEventListener('input', (e) => { if (e.target === this.q) this.valueInput.value = ''; });
     this.addEventListener('change', (e) => { if (e.target === this.typeSelect) this.typeChanged(); });
     this.addEventListener('keydown', (e) => { if (e.target === this.q) this.onKey(e); });
+    // An empty search lists the type's recent objects first: send them (they
+    // are kept in this browser, not on the server).
+    this.addEventListener('htmx:configRequest', (/** @type {any} */ e) => {
+      if (e.detail.elt === this.q && !this.q.value.trim()) e.detail.parameters.recent = JSON.stringify(recentObjects());
+    });
     // "Keep scanning" appends results: drop the note it came from.
     this.addEventListener('htmx:afterRequest', (/** @type {any} */ e) => {
       const btn = e.detail.elt;

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/sykesm/openfga-explorer/internal/ids"
+	"github.com/sykesm/openfga-explorer/internal/trace"
 	"gopkg.in/yaml.v3"
 )
 
@@ -126,7 +127,9 @@ type Auth struct {
 	IdentityHeader string `yaml:"identity_header"`
 	// RequireIdentity rejects requests without the identity header.
 	RequireIdentity bool `yaml:"require_identity"`
-	// DefaultRole applies to identities not listed in Roles: viewer, editor, or admin.
+	// DefaultRole applies to named identities (from IdentityHeader) not listed
+	// in Roles: viewer, editor, or admin. Requests without an identity are
+	// always viewers (see DangerouslyTreatAnonymousAsAdmin).
 	DefaultRole string            `yaml:"default_role"`
 	Roles       map[string]string `yaml:"roles"`
 }
@@ -138,6 +141,25 @@ type Trace struct {
 	ProbeLimit    int           `yaml:"probe_limit"`
 	Timeout       time.Duration `yaml:"timeout"`
 	MaxConcurrent int           `yaml:"max_concurrent"`
+}
+
+// Options are the walk options with these limits; every walk (check page,
+// scenario capture, CLI) starts from them. Unset limits keep the defaults.
+func (t Trace) Options() trace.Options {
+	opt := trace.DefaultOptions()
+	if t.MaxCalls > 0 {
+		opt.MaxCalls = t.MaxCalls
+	}
+	if t.MaxFanout > 0 {
+		opt.MaxFanout = t.MaxFanout
+	}
+	if t.ProbeLimit > 0 {
+		opt.ProbeLimit = t.ProbeLimit
+	}
+	if t.Timeout > 0 {
+		opt.Timeout = t.Timeout
+	}
+	return opt
 }
 
 // Default returns the default configuration.

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/sykesm/openfga-explorer/internal/trace"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/sykesm/openfga-explorer/internal/scenario"
 	"github.com/sykesm/openfga-explorer/internal/schema"
@@ -66,13 +65,12 @@ func (s *Server) handleScenarioRun(w http.ResponseWriter, r *http.Request) {
 		s.render(w, "scenario-result", v)
 		return
 	}
-	select {
-	case s.sandboxSem <- struct{}{}:
-		defer func() { <-s.sandboxSem }()
-	case <-time.After(5 * time.Second):
+	release, ok := acquire(r.Context(), s.sandboxSem)
+	if !ok {
 		s.fail(w, r, http.StatusTooManyRequests, errors.New("too many scenario runs; try again shortly"))
 		return
 	}
+	defer release()
 	ctx, cancel := context.WithTimeout(r.Context(), scenarioTimeout)
 	defer cancel()
 	report, err := scenario.Run(ctx, doc, v.Model.Proto)
@@ -190,31 +188,26 @@ func (s *Server) handleScenarioCapture(w http.ResponseWriter, r *http.Request) {
 		reply(http.StatusBadRequest, captureResponse{Error: "user, relation, and object are required"})
 		return
 	}
+	if req.Context, err = trace.ParseContext(f.Get("context")); err != nil {
+		reply(http.StatusBadRequest, captureResponse{Error: err.Error()})
+		return
+	}
 	var ctxMap map[string]any
-	if c := strings.TrimSpace(f.Get("context")); c != "" {
-		if err := json.Unmarshal([]byte(c), &ctxMap); err != nil {
-			reply(http.StatusBadRequest, captureResponse{Error: "the request context isn't a JSON object"})
-			return
-		}
-		if req.Context, err = structpb.NewStruct(ctxMap); err != nil {
-			reply(http.StatusBadRequest, captureResponse{Error: err.Error()})
-			return
-		}
+	if req.Context != nil {
+		ctxMap = req.Context.AsMap()
 	}
 	if req.Contextual, err = parseContextual(f.Get("contextual")); err != nil {
 		reply(http.StatusBadRequest, captureResponse{Error: err.Error()})
 		return
 	}
-	select {
-	case s.traceSem <- struct{}{}:
-		defer func() { <-s.traceSem }()
-	case <-time.After(5 * time.Second):
+	release, ok := acquire(r.Context(), s.traceSem)
+	if !ok {
 		reply(http.StatusTooManyRequests, captureResponse{Error: "too many traces are running; try again shortly"})
 		return
 	}
-	opt := trace.DefaultOptions()
+	defer release()
+	opt := s.cfg.Trace.Options()
 	opt.Verify = trace.VerifyRoot
-	opt.MaxCalls, opt.Timeout = s.cfg.Trace.MaxCalls, s.cfg.Trace.Timeout
 	tr, err := trace.Explain(r.Context(), s.walkAPI, me.m, me.ev, req, opt)
 	if err != nil {
 		reply(http.StatusBadRequest, captureResponse{Error: err.Error()})

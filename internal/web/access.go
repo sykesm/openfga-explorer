@@ -2,7 +2,6 @@ package web
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -12,6 +11,7 @@ import (
 
 	openfgav1 "github.com/openfga/api/proto/openfga/v1"
 	"github.com/sykesm/openfga-explorer/internal/schema"
+	"github.com/sykesm/openfga-explorer/internal/trace"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -143,7 +143,7 @@ func (s *Server) handleAccess(w http.ResponseWriter, r *http.Request) {
 	}
 	var reqCtx *structpb.Struct
 	if p.Context != "" {
-		if reqCtx, err = parseContext(p.Context); err != nil {
+		if reqCtx, err = trace.ParseContext(p.Context); err != nil {
 			p.Err = "request context: " + err.Error()
 			s.render(w, "access", v)
 			return
@@ -190,15 +190,6 @@ func (s *Server) handleAccess(w http.ResponseWriter, r *http.Request) {
 	s.log.Info("live query", "kind", "access", "identity", id.Name, "store", v.StoreID, "subject", p.Subject, "type", p.Type,
 		"relations", len(p.Rels), "calls", p.Calls, "duration", p.Elapsed)
 	s.render(w, "access", v)
-}
-
-// parseContext reads a request context (a JSON object).
-func parseContext(text string) (*structpb.Struct, error) {
-	var m map[string]any
-	if err := json.Unmarshal([]byte(text), &m); err != nil {
-		return nil, fmt.Errorf("not a JSON object: %w", err)
-	}
-	return structpb.NewStruct(m)
 }
 
 func contains(l []string, s string) bool {

@@ -5,6 +5,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/sykesm/openfga-explorer/internal/trace"
 )
 
 func write(t *testing.T, body string) string {
@@ -88,5 +91,17 @@ func TestInvalid(t *testing.T) {
 	}
 	if _, err := Load(filepath.Join(t.TempDir(), "missing.yaml")); err == nil {
 		t.Error("missing file accepted")
+	}
+}
+
+// Every walk starts from the configured limits; unset ones keep the defaults.
+func TestTraceOptions(t *testing.T) {
+	opt := Trace{MaxCalls: 900, MaxFanout: 40, ProbeLimit: 60, Timeout: 3 * time.Second}.Options()
+	if opt.MaxCalls != 900 || opt.MaxFanout != 40 || opt.ProbeLimit != 60 || opt.Timeout != 3*time.Second {
+		t.Errorf("configured limits not applied: %+v", opt)
+	}
+	def := trace.DefaultOptions()
+	if got := (Trace{}).Options(); got.MaxCalls != def.MaxCalls || got.MaxFanout != def.MaxFanout || got.ProbeLimit != def.ProbeLimit || got.Timeout != def.Timeout {
+		t.Errorf("unset limits should keep the defaults: %+v", got)
 	}
 }

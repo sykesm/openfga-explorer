@@ -203,7 +203,10 @@ type runState struct {
 	mu      sync.Mutex
 	calls   int
 	current string
+	// started is set when a run (not only a progress stream) uses the entry.
+	started bool
 	done    chan struct{}
+	once    sync.Once // closes done
 }
 
 func (r *runState) update(p trace.Progress) {
@@ -212,6 +215,10 @@ func (r *runState) update(p trace.Progress) {
 	r.mu.Unlock()
 }
 
+// progressRegistry pairs a check run with the progress stream the browser
+// opens for it (by a random run ID). Either may arrive first. Entries are
+// removed a minute after their run finishes (so a late stream still sees
+// "done"), or when a stream whose run never started goes away.
 type progressRegistry struct {
 	mu   sync.Mutex
 	runs map[string]*runState
@@ -219,7 +226,7 @@ type progressRegistry struct {
 
 func newProgressRegistry() *progressRegistry { return &progressRegistry{runs: map[string]*runState{}} }
 
-func (p *progressRegistry) start(id string) *runState {
+func (p *progressRegistry) entry(id string) *runState {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	st, ok := p.runs[id]
@@ -230,20 +237,50 @@ func (p *progressRegistry) start(id string) *runState {
 	return st
 }
 
-func (p *progressRegistry) get(id string) *runState {
-	return p.start(id) // the stream may connect before the run registers
+// start registers a run under id.
+func (p *progressRegistry) start(id string) *runState {
+	st := p.entry(id)
+	st.mu.Lock()
+	st.started = true
+	st.mu.Unlock()
+	return st
 }
 
+// watch returns the entry a progress stream follows; the stream may connect
+// before its run starts. Call unwatch when the stream ends.
+func (p *progressRegistry) watch(id string) *runState { return p.entry(id) }
+
+// unwatch drops the entry of a stream whose run never started, so streams
+// for IDs that no run uses don't accumulate.
+func (p *progressRegistry) unwatch(id string, st *runState) {
+	st.mu.Lock()
+	started := st.started
+	st.mu.Unlock()
+	if started {
+		return
+	}
+	p.mu.Lock()
+	if p.runs[id] == st {
+		delete(p.runs, id)
+	}
+	p.mu.Unlock()
+}
+
+// finish marks the run under id done (once, however often it is called) and
+// removes its entry a minute later.
 func (p *progressRegistry) finish(id string) {
 	p.mu.Lock()
 	st := p.runs[id]
 	p.mu.Unlock()
-	if st != nil {
-		close(st.done)
+	if st == nil {
+		return
 	}
+	st.once.Do(func() { close(st.done) })
 	time.AfterFunc(time.Minute, func() {
 		p.mu.Lock()
-		delete(p.runs, id)
+		if p.runs[id] == st {
+			delete(p.runs, id)
+		}
 		p.mu.Unlock()
 	})
 }
@@ -274,7 +311,8 @@ func (s *Server) handleCheckProgress(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
-	st := s.progress.get(id)
+	st := s.progress.watch(id)
+	defer s.progress.unwatch(id, st)
 	tick := time.NewTicker(150 * time.Millisecond)
 	defer tick.Stop()
 	limit := time.After(3 * time.Minute)
@@ -334,16 +372,9 @@ func (s *Server) handleCheckRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctxText := strings.TrimSpace(r.PostForm.Get("context"))
-	if ctxText != "" {
-		var m map[string]any
-		if err := json.Unmarshal([]byte(ctxText), &m); err != nil {
-			s.fail(w, r, http.StatusBadRequest, fmt.Errorf("context must be a JSON object: %w", err))
-			return
-		}
-		if req.Context, err = structpb.NewStruct(m); err != nil {
-			s.fail(w, r, http.StatusBadRequest, fmt.Errorf("context: %w", err))
-			return
-		}
+	if req.Context, err = trace.ParseContext(ctxText); err != nil {
+		s.fail(w, r, http.StatusBadRequest, err)
+		return
 	}
 	ctText := r.PostForm.Get("contextual")
 	if req.Contextual, err = parseContextual(ctText); err != nil {
@@ -353,10 +384,7 @@ func (s *Server) handleCheckRun(w http.ResponseWriter, r *http.Request) {
 	if r.PostForm.Get("consistency") == "higher" {
 		req.Consistency = openfgav1.ConsistencyPreference_HIGHER_CONSISTENCY
 	}
-	opt := trace.DefaultOptions()
-	opt.MaxFanout, opt.ProbeLimit = s.cfg.Trace.MaxFanout, s.cfg.Trace.ProbeLimit
-	opt.Timeout = s.cfg.Trace.Timeout
-	opt.MaxCalls = s.cfg.Trace.MaxCalls
+	opt := s.cfg.Trace.Options()
 	if n, err := strconv.Atoi(r.PostForm.Get("max_calls")); err == nil && n > 0 {
 		opt.MaxCalls = min(n, 5000)
 	}
@@ -377,20 +405,12 @@ func (s *Server) handleCheckRun(w http.ResponseWriter, r *http.Request) {
 		opt.Verify = trace.VerifyAll
 	}
 
-	select {
-	case s.traceSem <- struct{}{}:
-		defer func() { <-s.traceSem }()
-	case <-time.After(5 * time.Second):
+	release, ok := acquire(r.Context(), s.traceSem)
+	if !ok {
 		s.fail(w, r, http.StatusTooManyRequests, errors.New("too many traces are running; try again shortly"))
 		return
 	}
-	// Remember only IDs that appear in tuples, so typos don't come back as suggestions.
-	if t, id, ok := schema.SplitObject(req.Object); ok && s.exists(r.Context(), v, t, id) {
-		s.recent.add(v.User.Name, req.Object)
-	}
-	if subj, err := schema.ParseSubject(req.User); err == nil && !subj.IsWildcard() && s.exists(r.Context(), v, subj.Type, subj.ID) {
-		s.recent.add(v.User.Name, subj.Type+":"+subj.ID)
-	}
+	defer release()
 	// Live progress for the browser (see handleCheckProgress); the walk stops
 	// if the browser cancels the request.
 	if id := r.PostForm.Get("run_id"); validRunID(id) {

@@ -73,6 +73,24 @@ func TestIdentityAndAdminFlag(t *testing.T) {
 		t.Error("the flag upgraded a named identity")
 	}
 
+	// default_role: admin from the config file applies to named identities
+	// only; it never makes anonymous requests admins.
+	adminDefault := func(c *config.Config) { c.Auth.DefaultRole = "admin" }
+	x = explorerFor(t, st, live, adminDefault)
+	_, body = x.get("~/explore/instance?object=user:anne", http.StatusOK)
+	if strings.Contains(body, `data-tab="access"`) {
+		t.Error("default_role: admin made an anonymous request an admin")
+	}
+	x = explorerFor(t, st, live, withHeader, adminDefault)
+	req, _ = http.NewRequest("GET", x.url("~/explore/instance?object=user:anne"), nil)
+	req.Header.Set("X-Email", "someone@example.com")
+	_, body = x.do(req, http.StatusOK)
+	mustContain(t, "named identity gets default_role", body, `data-tab="access"`)
+	_, body = x.get("~/explore/instance?object=user:anne", http.StatusOK)
+	if strings.Contains(body, `data-tab="access"`) {
+		t.Error("default_role: admin made a request without the identity header an admin")
+	}
+
 	// Live queries must also be enabled.
 	x = explorerFor(t, st, flag)
 	_, body = x.get("~/explore/access?object=user:anne", http.StatusOK)

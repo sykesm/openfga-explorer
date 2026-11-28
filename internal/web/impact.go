@@ -11,6 +11,7 @@ import (
 
 	openfgav1 "github.com/openfga/api/proto/openfga/v1"
 	"github.com/sykesm/openfga-explorer/internal/schema"
+	"github.com/sykesm/openfga-explorer/internal/trace"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
@@ -88,7 +89,7 @@ func (s *Server) handleImpact(w http.ResponseWriter, r *http.Request) {
 	}
 	var reqCtx *structpb.Struct
 	if c := q.Get("context"); c != "" {
-		if reqCtx, err = parseContext(c); err != nil {
+		if reqCtx, err = trace.ParseContext(c); err != nil {
 			res.Err = "request context: " + err.Error()
 			s.render(w, "impact", v)
 			return

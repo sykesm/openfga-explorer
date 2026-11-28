@@ -30,6 +30,8 @@ auth:
   # Trust the identity header set by your SSO proxy (oauth2-proxy, Pomerium, ...).
   identity_header: X-Forwarded-Email
   require_identity: false
+  # Role for identified users not listed in roles. Requests without an
+  # identity are always viewers.
   default_role: viewer
   roles: {}
     # alice@example.com: admin

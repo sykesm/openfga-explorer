@@ -1850,6 +1850,30 @@ func TestBrowserCheckWhyKinds(t *testing.T) {
 	b.checkClean("why kinds")
 }
 
+// Objects used recently are kept in the browser and listed first by an empty
+// ID search: an instance opened in Explore, and both sides of an allowed check.
+func TestBrowserRecentObjects(t *testing.T) {
+	x := newTestExplorer(t)
+	b := newBrowser(t, x)
+	b.open("~/explore?type=group&id=eng")
+	b.waitFor("instance", `document.querySelector('#instance-panel .instance[data-object="group:eng"][data-exists="true"]')`)
+	b.settled()
+	if got := eval[string](b, `JSON.stringify(JSON.parse(localStorage.getItem('fgax.recentObjects:' + document.body.dataset.base) || '[]'))`); !strings.Contains(got, `"group:eng"`) {
+		t.Errorf("recent objects after opening group:eng: %s", got)
+	}
+	b.run(chromedp.Evaluate(`(() => { const q = document.querySelector('fga-picker[data-field="inst"] .picker-q'); q.value = ''; q.focus(); htmx.trigger(q, 'focus'); })()`, nil))
+	b.waitFor("recent in search", `[...document.querySelectorAll('fga-picker[data-field="inst"] .picker-results .pick')].some((p) => p.dataset.value === 'group:eng' && p.textContent.includes('recent'))`)
+
+	b.open(`~/check?user=user:eng-002&relation=can_view&object=document:doc-0007&context=` +
+		`%7B%22current_time%22%3A%222026-11-24T12%3A00%3A00Z%22%2C%22user_ip%22%3A%2210.1.2.3%22%7D`)
+	b.waitFor("allowed", `document.querySelector('#check-result .verdict.v-allowed')`)
+	got := eval[string](b, `localStorage.getItem('fgax.recentObjects:' + document.body.dataset.base) || ''`)
+	if !strings.Contains(got, `"document:doc-0007"`) || !strings.Contains(got, `"user:eng-002"`) || !strings.Contains(got, `"group:eng"`) {
+		t.Errorf("recent objects after an allowed check: %s", got)
+	}
+	b.checkClean("recent objects")
+}
+
 // "show N more" under a who-has list extends the same list, which then
 // scrolls as one, and can be folded back.
 func TestBrowserWhoHasShowMore(t *testing.T) {

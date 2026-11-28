@@ -28,7 +28,6 @@ import (
 	"github.com/sykesm/openfga-explorer/internal/trace"
 	"github.com/sykesm/openfga-explorer/internal/tuples"
 	"github.com/sykesm/openfga-explorer/internal/web"
-	"google.golang.org/protobuf/types/known/structpb"
 )
 
 func main() {
@@ -191,17 +190,10 @@ func runTrace(args []string, out io.Writer) error {
 		return err
 	}
 	req := trace.Request{Store: *store, Model: *model, User: *user, Relation: *relation, Object: *object}
-	if *ctxJSON != "" {
-		var mm map[string]any
-		if err := json.Unmarshal([]byte(*ctxJSON), &mm); err != nil {
-			return fmt.Errorf("--context: %w", err)
-		}
-		if req.Context, err = structpb.NewStruct(mm); err != nil {
-			return err
-		}
+	if req.Context, err = trace.ParseContext(*ctxJSON); err != nil {
+		return fmt.Errorf("--context: %w", err)
 	}
-	opt := trace.DefaultOptions()
-	opt.MaxCalls, opt.MaxFanout, opt.ProbeLimit, opt.Timeout = cfg.Trace.MaxCalls, cfg.Trace.MaxFanout, cfg.Trace.ProbeLimit, cfg.Trace.Timeout
+	opt := cfg.Trace.Options()
 	if *maxCalls > 0 {
 		opt.MaxCalls = *maxCalls
 	}

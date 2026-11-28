@@ -18,8 +18,8 @@ import (
 	"github.com/sykesm/openfga-explorer/internal/fga"
 	"github.com/sykesm/openfga-explorer/internal/schema"
 	"github.com/sykesm/openfga-explorer/internal/search"
+	"github.com/sykesm/openfga-explorer/internal/trace"
 	"github.com/sykesm/openfga-explorer/internal/tuples"
-	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // lowCardinality is the number of edges shown inline before switching to a count and chooser.
@@ -317,10 +317,6 @@ func (s *Server) handleInstance(w http.ResponseWriter, r *http.Request) {
 	if !p.Exists {
 		// Incoming edges load on demand; check existence cheaply instead.
 		p.Exists = s.exists(ctx, v, typ, id)
-	}
-	if p.Exists {
-		// Only remember instances that exist, so typos don't come back as suggestions.
-		s.recent.add(v.User.Name, obj)
 	}
 	seen := map[string]bool{}
 	for _, e := range v.Model.TypeGraph() {
@@ -817,16 +813,20 @@ func (s *Server) handleListUsers(w http.ResponseWriter, r *http.Request) {
 	// tuples as the check, so conditional grants are decided the same way.
 	data := map[string]any{"Object": q.Get("object"), "Relation": q.Get("relation"), "Filter": filter,
 		"Mode": q.Get("mode"), "Current": q.Get("current")}
-	if c := strings.TrimSpace(q.Get("context")); c != "" {
-		var m map[string]any
-		if err := json.Unmarshal([]byte(c), &m); err == nil {
-			req.Context, _ = structpb.NewStruct(m)
-		}
+	// A bad context or contextual tuple is reported, not dropped: listing
+	// without it would answer a different question.
+	reqCtx, err := trace.ParseContext(q.Get("context"))
+	var ct []*openfgav1.TupleKey
+	if err == nil {
+		ct, err = parseContextual(q.Get("contextual"))
 	}
-	if ct, err := parseContextual(q.Get("contextual")); err == nil && len(ct) > 0 {
-		req.ContextualTuples = ct
+	if err == nil {
+		req.Context, req.ContextualTuples = reqCtx, ct
 	}
-	resp, err := s.fga.ListUsers(r.Context(), req)
+	var resp *openfgav1.ListUsersResponse
+	if err == nil {
+		resp, err = s.fga.ListUsers(r.Context(), req)
+	}
 	if err != nil {
 		data["Err"] = err.Error()
 	} else {
@@ -959,11 +959,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		res.AsUser = append(res.AsUser, d)
 	}
 	if res.Normalized == "" {
-		for _, o := range s.recent.list(v.User.Name) {
-			if strings.HasPrefix(o, typ+":") {
-				res.Recent = append(res.Recent, strings.TrimPrefix(o, typ+":"))
-			}
-		}
+		res.Recent = recentOfType(q.Get("recent"), typ)
 	}
 	if s.search == nil {
 		res.NoSearch = true
@@ -1035,29 +1031,28 @@ func (s *Server) exists(ctx context.Context, v *view, typ, id string) bool {
 
 // ---- recently used -------------------------------------------------------------
 
-type recent struct {
-	mu sync.Mutex
-	m  map[string][]string
-}
+// maxRecent is the most recent objects a search lists.
+const maxRecent = 10
 
-func newRecent() *recent { return &recent{m: map[string][]string{}} }
-
-func (r *recent) add(user, obj string) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	l := []string{obj}
-	for _, o := range r.m[user] {
-		if o != obj && len(l) < 30 {
-			l = append(l, o)
+// recentOfType picks the IDs of type typ from the browser's recent objects
+// (a JSON list of "type:id", most recent first; see core.js recentObjects).
+// The server keeps no record of what anyone used.
+func recentOfType(raw, typ string) []string {
+	var objs []string
+	if raw == "" || len(raw) > 64<<10 || json.Unmarshal([]byte(raw), &objs) != nil {
+		return nil
+	}
+	var out []string
+	for _, o := range objs {
+		id, ok := strings.CutPrefix(o, typ+":")
+		if !ok || id == "" || slices.Contains(out, id) {
+			continue
+		}
+		if out = append(out, id); len(out) == maxRecent {
+			break
 		}
 	}
-	r.m[user] = l
-}
-
-func (r *recent) list(user string) []string {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return append([]string(nil), r.m[user]...)
+	return out
 }
 
 // graphPatch converts an instance panel into Cytoscape elements: the focus

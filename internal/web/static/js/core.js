@@ -42,6 +42,30 @@ export const store = {
 /** @param {string} view */
 export const stateKey = (view) => `${view}:${base()}`;
 
+// ---- recently used objects ----
+// Kept in this browser (the server keeps nothing about a person's work) and
+// sent with each ID search, which lists the type's recent ones first.
+const RECENT_MAX = 30;
+const recentKey = () => `recentObjects:${base()}`;
+
+/** The objects used recently in this store, most recent first. @returns {string[]} */
+export const recentObjects = () => store.get(recentKey(), []);
+
+/**
+ * Records an object ("type:id"; a userset's "#relation" is dropped) as the
+ * most recent. Record only objects known to be in tuples, so typos never
+ * come back as suggestions.
+ * @param {string} obj
+ */
+export function rememberObject(obj) {
+  const colon = obj.indexOf(':');
+  if (colon <= 0) return;
+  const hash = obj.indexOf('#', colon);
+  const o = hash > 0 ? obj.slice(0, hash) : obj;
+  if (o.endsWith(':*')) return;
+  store.set(recentKey(), [o, ...recentObjects().filter((x) => x !== o)].slice(0, RECENT_MAX));
+}
+
 export const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 /** @returns {ScrollBehavior} */
 export const scrollBehavior = () => (reducedMotion() ? 'auto' : 'smooth');

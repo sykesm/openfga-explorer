@@ -1,7 +1,7 @@
 // The Explore view: the type graph, the instance graph built up as you open
 // instances, the side panel (type and instance panels, rendered by the
 // server), and the per-tab persistence of all of it.
-import { $, $$, article, base, baseOpts, categoricalColor, dagre, fitCapped, labelWidth, load, pal, reducedMotion, scrollBehavior, session, stateKey, store, typeColor } from './core.js';
+import { $, $$, article, base, baseOpts, categoricalColor, dagre, fitCapped, labelWidth, load, pal, reducedMotion, rememberObject, scrollBehavior, session, stateKey, store, typeColor } from './core.js';
 import { initEdgeLists } from './edgelist.js';
 import { picker } from './pickers.js';
 import { onEscape, onKey } from './shortcuts.js';
@@ -307,7 +307,10 @@ function loadInstance(obj) {
 /** With an instance loaded, the side panel shows just it, scrolled into view. */
 function instanceShown() {
   const panel = $('#instance-panel');
-  if ($('.instance', panel)) setInstanceFocus(true);
+  const inst = /** @type {HTMLElement | null} */ ($('.instance', panel));
+  if (inst) setInstanceFocus(true);
+  // Only instances in tuples are remembered, so typos don't come back as suggestions.
+  if (inst?.dataset.exists === 'true') rememberObject(inst.dataset.object || '');
   const det = $('#type-panel .type-details');
   if (det) det.open = false;
   panel.scrollIntoView({ block: 'start', behavior: scrollBehavior() });

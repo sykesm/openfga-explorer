@@ -55,7 +55,6 @@ type Server struct {
 	// live limits queries over real data per person.
 	live   *guard
 	expand *guard
-	recent *recent
 	assets map[string]string // static path -> content hash
 
 	mu     sync.Mutex
@@ -87,7 +86,6 @@ func New(cfg config.Config, client *fga.Client, searcher search.Searcher, source
 		sandboxSem: make(chan struct{}, max(1, cfg.Trace.MaxConcurrent)),
 		live:       newLiveGuard(),
 		expand:     newGuard("graph expansion", "graph expansions", time.Minute, "minute"),
-		recent:     newRecent(),
 		models:     map[string]*modelEntry{},
 		latest:     map[string]latestEntry{},
 	}
@@ -272,12 +270,14 @@ type identityKey struct{}
 
 func (s *Server) withIdentity(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		id := Identity{Name: "local", Role: s.cfg.Auth.DefaultRole, Anonymous: true}
+		// Anonymous requests are viewers: only the serve flag below makes them
+		// admins, never the config file (default_role is for named identities).
+		id := Identity{Name: "local", Role: "viewer", Anonymous: true}
 		if hdr := s.cfg.Auth.IdentityHeader; hdr != "" {
 			v := strings.TrimSpace(r.Header.Get(hdr))
 			switch {
 			case v != "":
-				id.Name, id.Anonymous = v, false
+				id.Name, id.Role, id.Anonymous = v, s.cfg.Auth.DefaultRole, false
 			case s.cfg.Auth.RequireIdentity && r.URL.Path != "/healthz":
 				http.Error(w, "missing identity: this service must be accessed through the authenticating proxy", http.StatusUnauthorized)
 				return
@@ -710,4 +710,24 @@ func trimVerdict(h string) string {
 		h = strings.ToUpper(h[:1]) + h[1:]
 	}
 	return h
+}
+
+// slotWait is how long a request waits for a trace or sandbox slot before
+// it is turned away as too busy.
+const slotWait = 5 * time.Second
+
+// acquire takes a slot of sem (traceSem, sandboxSem), waiting up to slotWait,
+// or less if the request is canceled. ok is false when no slot came free;
+// otherwise call release when done.
+func acquire(ctx context.Context, sem chan struct{}) (release func(), ok bool) {
+	t := time.NewTimer(slotWait)
+	defer t.Stop()
+	select {
+	case sem <- struct{}{}:
+		return func() { <-sem }, true
+	case <-t.C:
+		return nil, false
+	case <-ctx.Done():
+		return nil, false
+	}
 }

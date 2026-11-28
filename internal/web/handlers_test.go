@@ -178,6 +178,9 @@ func TestExploreFragments(t *testing.T) {
 
 	_, body = x.get("~/explore/listusers?object=document:roadmap&relation=viewer&user_type=user", http.StatusOK)
 	mustContain(t, "listusers", body, "user:anne")
+	// A bad request context is reported, not silently dropped.
+	_, body = x.get("~/explore/listusers?object=document:roadmap&relation=viewer&user_type=user&context=not-json", http.StatusOK)
+	mustContain(t, "listusers bad context", body, "must be a JSON object")
 
 	// Without a datastore, search confirms exact IDs only.
 	_, body = x.get("~/search?field=inst&inst_type=group&inst_q=platform&mode=explore", http.StatusOK)
@@ -185,6 +188,19 @@ func TestExploreFragments(t *testing.T) {
 	// Typed IDs are normalized per type (upper-cased, percent-encoded).
 	_, body = x.get("~/search?field=user&user_type=principal&user_q=svc:build%23ci&mode=form", http.StatusOK)
 	mustContain(t, "normalized search", body, `data-value="principal:SVC%3ABUILD%23CI"`)
+
+	// An empty search lists the recent objects the browser sends, of this
+	// type only; the server keeps none of its own.
+	recent := url.QueryEscape(`["user:anne","group:eng","user:bob","user:anne"]`)
+	_, body = x.get("~/search?field=user&user_type=user&user_q=&mode=form&recent="+recent, http.StatusOK)
+	mustContain(t, "recent objects", body, `data-value="user:anne"`, `data-value="user:bob"`, ">recent<")
+	if strings.Contains(body, "group:eng") || strings.Count(body, `data-value="user:anne"`) > 1 {
+		t.Errorf("recent objects should be of the searched type, once each:\n%s", body)
+	}
+	_, body = x.get("~/search?field=user&user_type=user&user_q=&mode=form&recent=not-json", http.StatusOK)
+	if strings.Contains(body, ">recent<") {
+		t.Error("a malformed recent list should be ignored")
+	}
 
 	_, body = x.get("~/relations?object_type=document&user_type=organization", http.StatusOK)
 	if !strings.Contains(body, "disabled") {

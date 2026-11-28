@@ -168,7 +168,7 @@
 
 {{define "instance"}}{{$b := .Base}}{{with .Data}}
 {{$tab := "derived"}}{{if .Out}}{{$tab = "edges"}}{{else if .HasIncoming}}{{$tab = "incoming"}}{{end}}
-<div class="panel instance" data-object="{{.Object}}">
+<div class="panel instance" data-object="{{.Object}}" data-exists="{{.Exists}}">
   <fga-graph-patch><script type="application/json">{{json (graphPatch .)}}</script></fga-graph-patch>
   <h2 class="ptitle"><span class="k">instance</span> {{display .Object}}</h2>
   {{if ne (display .Object) .Object}}<div class="rawid">stored as <code>{{.Object}}</code></div>{{end}}
