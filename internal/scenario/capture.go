@@ -91,7 +91,7 @@ func AppendTest(draft []byte, t Test, docName string) ([]byte, error) {
 	}
 	var root yaml.Node
 	if err := yaml.Unmarshal(draft, &root); err != nil {
-		return nil, fmt.Errorf("%w: your draft isn't valid YAML, so the test can't be added: %v", ErrInvalid, err)
+		return nil, fmt.Errorf("%w: your draft isn't valid YAML, so the test can't be added: %w", ErrInvalid, err)
 	}
 	if root.Kind != yaml.DocumentNode || len(root.Content) == 0 || root.Content[0].Kind != yaml.MappingNode {
 		return nil, fmt.Errorf("%w: your draft isn't a scenario document (a mapping with tests:)", ErrInvalid)

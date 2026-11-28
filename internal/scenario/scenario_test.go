@@ -1,7 +1,6 @@
 package scenario
 
 import (
-	"context"
 	"encoding/json"
 	"os"
 	"strings"
@@ -37,7 +36,7 @@ func TestSampleScenariosPass(t *testing.T) {
 	if err := d.Validate(DefaultLimits); err != nil {
 		t.Fatal(err)
 	}
-	r, err := Run(context.Background(), d, seedModel(t))
+	r, err := Run(t.Context(), d, seedModel(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +91,7 @@ tests:
 	if err != nil {
 		t.Fatal(err)
 	}
-	r, err := Run(context.Background(), d, seedModel(t))
+	r, err := Run(t.Context(), d, seedModel(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,7 +124,7 @@ func TestJSONAndInlineModel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r, err := Run(context.Background(), d, nil)
+	r, err := Run(t.Context(), d, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -172,7 +171,7 @@ func TestValidation(t *testing.T) {
 // A tuple the model rejects fails its test with the reason, not the run.
 func TestRejectedTuple(t *testing.T) {
 	d, _ := Parse([]byte("tests: [{name: t, tuples: [{user: 'user:a', relation: nope, object: 'document:1'}], check: [{user: 'user:a', object: 'document:1', assertions: {viewer: false}}]}]\n"))
-	r, err := Run(context.Background(), d, seedModel(t))
+	r, err := Run(t.Context(), d, seedModel(t))
 	if err != nil {
 		t.Fatal(err)
 	}

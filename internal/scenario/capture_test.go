@@ -1,7 +1,6 @@
 package scenario
 
 import (
-	"context"
 	"strings"
 	"testing"
 )
@@ -34,7 +33,7 @@ func TestMask(t *testing.T) {
 	}
 	// The masked test still passes: renaming is consistent.
 	d := &Document{Tests: []Test{tc}}
-	r, err := Run(context.Background(), d, seedModel(t))
+	r, err := Run(t.Context(), d, seedModel(t))
 	if err != nil || r.Passed != 1 {
 		t.Errorf("masked test: %+v %v", r, err)
 	}

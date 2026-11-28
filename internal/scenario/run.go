@@ -3,7 +3,7 @@ package scenario
 import (
 	"context"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 
@@ -79,7 +79,7 @@ func Run(ctx context.Context, d *Document, base *openfgav1.AuthorizationModel) (
 	if strings.TrimSpace(d.Model) != "" {
 		pm, err := transformer.TransformDSLToProto(d.Model)
 		if err != nil {
-			return nil, fmt.Errorf("%w: model: %v", ErrInvalid, err)
+			return nil, fmt.Errorf("%w: model: %w", ErrInvalid, err)
 		}
 		model, r.ModelFrom = viaJSON(pm), "the document"
 	}
@@ -266,9 +266,9 @@ func compare(res SetResult, err error) SetResult {
 		res.Err = err.Error()
 		return res
 	}
-	in := func(l []string, s string) bool {
-		i := sort.SearchStrings(l, s)
-		return i < len(l) && l[i] == s
+	in := func(l []string, s string) bool { // l is sorted
+		_, found := slices.BinarySearch(l, s)
+		return found
 	}
 	for _, s := range res.Expected {
 		if !in(res.Got, s) {
@@ -321,13 +321,13 @@ func sortedKeys[V any](m map[string]V) []string {
 	for k := range m {
 		out = append(out, k)
 	}
-	sort.Strings(out)
+	slices.Sort(out)
 	return out
 }
 
 func sorted(l []string) []string {
 	out := append([]string(nil), l...)
-	sort.Strings(out)
+	slices.Sort(out)
 	return out
 }
 

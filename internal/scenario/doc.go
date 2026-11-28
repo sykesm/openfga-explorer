@@ -123,7 +123,7 @@ func Parse(data []byte) (*Document, error) {
 	dec.KnownFields(true)
 	var d Document
 	if err := dec.Decode(&d); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrInvalid, err)
+		return nil, fmt.Errorf("%w: %w", ErrInvalid, err)
 	}
 	return &d, nil
 }
