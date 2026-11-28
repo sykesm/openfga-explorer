@@ -1221,6 +1221,45 @@ func TestBrowserTraceReplacedMidReplay(t *testing.T) {
 	b.checkClean("replaced mid-replay")
 }
 
+// TestBrowserTwoTraces: each <fga-trace> works from its own parts, so a
+// second one on the page draws itself, and its controls drive its own replay
+// without touching the first.
+func TestBrowserTwoTraces(t *testing.T) {
+	x := newTestExplorer(t)
+	b := newBrowser(t, x)
+	b.open("~/check")
+	b.run(chromedp.Evaluate(`localStorage.setItem('fgax.autoplay', 'false')`, nil))
+	b.open(`~/check?user=user:eng-002&relation=can_view&object=document:doc-0007`)
+	b.waitFor("result", `document.querySelector('fga-trace .player .step-count')?.textContent`)
+	b.settled()
+	b.run(chromedp.Evaluate(`{
+		const c = document.createElement('div');
+		c.id = 'second';
+		// A copy of the trace as the server sent it: without the drawn graph.
+		const copy = document.querySelector('fga-trace').cloneNode(true);
+		const canvas = copy.querySelector('#trace-canvas');
+		canvas.replaceChildren();
+		canvas.removeAttribute('style');
+		canvas.className = 'canvas';
+		c.append(copy);
+		document.querySelector('#check-result').after(c);
+	}`, nil))
+	b.waitFor("second trace drawn", `document.querySelector('#second fga-trace')?.view?.cy.nodes().length > 0`)
+	const counts = `[...document.querySelectorAll('fga-trace .player .step-count')].map((e) => e.textContent)`
+	before := eval[[]string](b, counts)
+	if len(before) != 2 || before[0] != before[1] {
+		t.Fatalf("step counts %v: want two finished replays", before)
+	}
+	// Step the second trace from its start: only its count changes.
+	b.run(chromedp.Click(`#second .player [data-act="play"]`, chromedp.ByQuery))
+	b.run(chromedp.Click(`#second .player [data-act="step"]`, chromedp.ByQuery))
+	after := eval[[]string](b, counts)
+	if after[0] != before[0] || after[1] == before[1] {
+		t.Errorf("step counts %v → %v: the second trace's controls should drive only its own replay", before, after)
+	}
+	b.checkClean("two traces")
+}
+
 // TestBrowserExploreExpand: expanding in place (Shift+click, the node menu,
 // +1 hop) adds edges without opening anything or moving the nodes already
 // placed, says what it added, and can be undone.
