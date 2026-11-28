@@ -67,7 +67,7 @@ func TestParameterTypes(t *testing.T) {
 	}
 	// Parameters record where their values came from.
 	r = ev.Evaluate("i", nil, st(t, map[string]any{"x": 3.0}))
-	if len(r.Params) != 1 || r.Params[0].Source != "request" || r.Params[0].Type != "int" {
+	if len(r.Params) != 1 || r.Params[0].Source != "request" || r.Params[0].Type != "int" || r.Params[0].Raw.GetNumberValue() != 3 {
 		t.Errorf("params: %+v", r.Params)
 	}
 	var nilResult *Result

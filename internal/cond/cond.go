@@ -45,9 +45,11 @@ type Result struct {
 	Err     string
 }
 
-// Param is a parameter value used in an evaluation.
+// Param is a parameter value used in an evaluation: Value is for display,
+// Raw is the value as supplied.
 type Param struct {
 	Name, Type, Value, Source string
+	Raw                       *structpb.Value `json:"-"`
 }
 
 // OK reports whether the condition was met.
@@ -186,7 +188,7 @@ func (e *Evaluator) Evaluate(name string, tupleCtx, reqCtx *structpb.Struct) *Re
 			return res
 		}
 		vars[n] = v
-		res.Params = append(res.Params, Param{Name: n, Type: schema.ParamType(pt), Value: display(raw), Source: src})
+		res.Params = append(res.Params, Param{Name: n, Type: schema.ParamType(pt), Value: display(raw), Source: src, Raw: raw})
 	}
 	out, _, err := c.prg.Eval(vars)
 	if err != nil {

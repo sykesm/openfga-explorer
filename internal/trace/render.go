@@ -1,7 +1,6 @@
 package trace
 
 import (
-	"encoding/json"
 	"fmt"
 	"iter"
 	"strconv"
@@ -365,25 +364,12 @@ func (t *Trace) GrantingPathTuples() []PathTuple {
 				if pt.Context == nil {
 					pt.Context = map[string]any{}
 				}
-				pt.Context[p.Name] = paramValue(p.Type, p.Value)
+				pt.Context[p.Name] = p.Raw.AsInterface()
 			}
 		}
 		out = append(out, pt)
 	}
 	return out
-}
-
-// paramValue turns a displayed condition parameter back into its value:
-// strings are shown as-is, everything else as JSON.
-func paramValue(typ, v string) any {
-	if typ == "string" {
-		return v
-	}
-	var x any
-	if json.Unmarshal([]byte(v), &x) == nil {
-		return x
-	}
-	return v
 }
 
 // shortLabel is the compact label shown when the graph is zoomed out.
