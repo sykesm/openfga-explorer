@@ -7,9 +7,10 @@ STORE ?= $(shell fga store list --name explorer-demo --api-url http://localhost:
 GITLEAKS = go tool -modfile=tools.mod gitleaks
 STATICCHECK = go tool -modfile=tools.mod staticcheck
 MODERNIZE = go tool -modfile=tools.mod modernize
+GOVULNCHECK = go tool -modfile=tools.mod govulncheck
 DATASTORE_URI ?= postgres://openfga:openfga@localhost:5433/openfga?sslmode=disable
 
-.PHONY: build test test-short test-js test-integration cover lint leaks seed-data run up seed seed-modular
+.PHONY: build test test-short test-js test-integration cover lint vuln leaks seed-data run up seed seed-modular
 build:
 	go build -o bin/fgaexplorer ./cmd/fgaexplorer
 
@@ -49,6 +50,20 @@ lint:
 	go vet ./...
 	$(STATICCHECK) ./...
 	$(MODERNIZE) ./...
+
+# Known vulnerabilities (govulncheck, pinned in tools.mod): in the code the
+# explorer and its tests reach (the browser tests' Chrome driver has its own
+# dependencies), then in each pinned developer tool (built to a temporary
+# directory and scanned as a binary). Needs the Go vulnerability database
+# (vuln.go.dev), which is sent the list of modules; not part of make test.
+vuln:
+	$(GOVULNCHECK) -test ./...
+	@d=$$(mktemp -d); trap 'rm -rf "$$d"' EXIT; \
+	for t in $$(awk '/^tool \(/{f=1; next} f && /^\)/{f=0} f{print $$1}' tools.mod); do \
+		b="$$d/$$(echo $$t | tr / _)"; \
+		echo "== $$t"; \
+		go build -modfile=tools.mod -o "$$b" "$$t" && $(GOVULNCHECK) -mode=binary "$$b" || exit 1; \
+	done
 
 # Secret scan (gitleaks, pinned in tools.mod and run with go tool: nothing to
 # install): the commit history, then the working tree (honoring .gitignore).

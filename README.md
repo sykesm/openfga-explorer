@@ -383,6 +383,7 @@ make test-js           # JS unit tests (Node 18+, nothing to install)
 make test-integration  # the Postgres datastore and search tests, against `make up seed`
 make cover             # coverage across packages
 make lint              # go vet, staticcheck, and modernize (via go tool)
+make vuln              # known vulnerabilities: the explorer and the pinned tools (govulncheck; sends the module list to vuln.go.dev)
 make leaks             # secret scan of history and working tree (gitleaks, via go tool)
 make seed-data         # regenerate deploy/seed/*.json (go run ./deploy/seed/gen)
 ```
