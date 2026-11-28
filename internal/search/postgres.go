@@ -1,11 +1,10 @@
 package search
 
 import (
+	"cmp"
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/sykesm/openfga-explorer/internal/datastore"
@@ -77,22 +76,7 @@ type cursor struct {
 	UserDone   bool `json:"ud,omitempty"`
 }
 
-func decodeCursor(s string) (cursor, error) {
-	var c cursor
-	if s == "" {
-		return c, nil
-	}
-	b, err := base64.RawURLEncoding.DecodeString(s)
-	if err != nil {
-		return c, fmt.Errorf("invalid cursor")
-	}
-	return c, json.Unmarshal(b, &c)
-}
-
-func (c cursor) encode() string {
-	b, _ := json.Marshal(c)
-	return base64.RawURLEncoding.EncodeToString(b)
-}
+func (c cursor) encode() string { return datastore.EncodeCursor(c) }
 
 type sideResult struct {
 	ids      []string
@@ -107,7 +91,7 @@ func (p *Postgres) Search(ctx context.Context, q Query) (*Page, error) {
 	if q.Limit <= 0 {
 		q.Limit = 25
 	}
-	cur, err := decodeCursor(q.Cursor)
+	cur, err := datastore.DecodeCursor[cursor](q.Cursor)
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +143,7 @@ func (p *Postgres) Search(ctx context.Context, q Query) (*Page, error) {
 			}
 		}
 	}
-	sort.Slice(page.Results, func(i, j int) bool { return page.Results[i].ID < page.Results[j].ID })
+	slices.SortFunc(page.Results, func(a, b Result) int { return cmp.Compare(a.ID, b.ID) })
 	if !page.Complete {
 		page.Cursor = next.encode()
 		page.Note = strings.Join(notes, "; ")

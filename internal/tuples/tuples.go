@@ -77,13 +77,22 @@ func (c Count) String() string {
 }
 
 // Source reads edges.
+// FilterMode is how a source matches an edge filter.
+type FilterMode string
+
+// Filter modes: the API matches anywhere in the peer, the datastore by prefix.
+const (
+	FilterContains FilterMode = "contains"
+	FilterPrefix   FilterMode = "prefix"
+)
+
 type Source interface {
 	// Name is "api" or "datastore".
 	Name() string
 	// Label describes the source and its filter semantics for the UI.
 	Label() string
-	// FilterMode is "contains" or "prefix".
-	FilterMode() string
+	// FilterMode is how the source matches an edge filter.
+	FilterMode() FilterMode
 	Edges(ctx context.Context, q Query) (*Page, error)
 	// Count counts edges, stopping at limit.
 	Count(ctx context.Context, q Query, limit int) (Count, error)

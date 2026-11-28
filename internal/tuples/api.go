@@ -18,9 +18,14 @@ type API struct {
 // NewAPI returns an API source.
 func NewAPI(c fga.API) *API { return &API{Client: c, ScanLimit: 1000} }
 
-func (a *API) Name() string       { return "api" }
-func (a *API) Label() string      { return "OpenFGA API · contains filter" }
-func (a *API) FilterMode() string { return "contains" }
+// Name is "api".
+func (a *API) Name() string { return "api" }
+
+// Label describes the source for the UI.
+func (a *API) Label() string { return "OpenFGA API · contains filter" }
+
+// FilterMode is FilterContains: the API filters by substring.
+func (a *API) FilterMode() FilterMode { return FilterContains }
 
 func (a *API) key(q Query) *openfgav1.ReadRequestTupleKey {
 	if q.Dir == In {
@@ -65,8 +70,9 @@ func (a *API) Edges(ctx context.Context, q Query) (*Page, error) {
 	return page, nil
 }
 
-// Count reads one page: the API cannot count beyond it.
-func (a *API) Count(ctx context.Context, q Query, limit int) (Count, error) {
+// Count reads one page: the API cannot count beyond it, so limit (honored by
+// the datastore) does not apply.
+func (a *API) Count(ctx context.Context, q Query, _ int) (Count, error) {
 	resp, err := fga.ReadPage(ctx, a.Client, q.Store, a.key(q), 100, "", openfgav1.ConsistencyPreference_UNSPECIFIED)
 	if err != nil {
 		return Count{}, err

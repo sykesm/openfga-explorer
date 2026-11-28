@@ -1,9 +1,8 @@
 package tuples
 
 import (
-	"context"
 	"os"
-	"sort"
+	"slices"
 	"strings"
 	"testing"
 
@@ -40,7 +39,7 @@ func drain(t *testing.T, s Source, q Query) []string {
 	t.Helper()
 	var out []string
 	for i := 0; ; i++ {
-		p, err := s.Edges(context.Background(), q)
+		p, err := s.Edges(t.Context(), q)
 		if err != nil {
 			t.Fatalf("%s %+v: %v", s.Name(), q, err)
 		}
@@ -55,7 +54,7 @@ func drain(t *testing.T, s Source, q Query) []string {
 			t.Fatal("did not converge")
 		}
 	}
-	sort.Strings(out)
+	slices.Sort(out)
 	return out
 }
 
@@ -66,7 +65,7 @@ func TestDatastoreMatchesAPI(t *testing.T) {
 	if apiURL == "" || store == "" || uri == "" {
 		t.Skip("FGA_TEST_API_URL, FGA_TEST_STORE, and FGA_TEST_DATASTORE_URI not set")
 	}
-	ctx := context.Background()
+	ctx := t.Context()
 	c, _ := fga.New(fga.Options{APIURL: apiURL})
 	db, err := datastore.Open(ctx, uri)
 	if err != nil {
@@ -124,7 +123,7 @@ func TestDatastoreMatchesAPI(t *testing.T) {
 			for _, k := range edges[rel] {
 				got = append(got, k.GetUser()+"|"+k.GetCondition().GetName())
 			}
-			sort.Strings(got)
+			slices.Sort(got)
 			if strings.Join(got, ",") != strings.Join(want, ",") {
 				t.Errorf("OutEdges %s#%s = %v, want %v", obj, rel, got, want)
 			}

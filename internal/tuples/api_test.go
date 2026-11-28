@@ -1,7 +1,6 @@
 package tuples
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -16,7 +15,7 @@ func TestAPISource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx := context.Background()
+	ctx := t.Context()
 	api := NewAPI(c)
 	q := Query{Store: st.ID, Dir: Out, Object: "group:platform", Relation: "member", Limit: 37}
 

@@ -2,10 +2,8 @@ package tuples
 
 import (
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -37,9 +35,14 @@ func NewDatastore(db *datastore.DB) *Datastore {
 	return &Datastore{db: db, MaxScan: 5000, Batch: 250, Slack: 25}
 }
 
-func (d *Datastore) Name() string       { return "datastore" }
-func (d *Datastore) Label() string      { return "Datastore · ID prefix search" }
-func (d *Datastore) FilterMode() string { return "prefix" }
+// Name is "datastore".
+func (d *Datastore) Name() string { return "datastore" }
+
+// Label describes the source for the UI.
+func (d *Datastore) Label() string { return "Datastore · ID prefix search" }
+
+// FilterMode is FilterPrefix: the datastore filters by indexed prefix.
+func (d *Datastore) FilterMode() FilterMode { return FilterPrefix }
 
 const (
 	outCols  = `_user, coalesce(condition_name, ''), condition_context`
@@ -54,22 +57,7 @@ type cursor struct {
 	After string `json:"a,omitempty"`
 }
 
-func decode(s string) (cursor, error) {
-	var c cursor
-	if s == "" {
-		return c, nil
-	}
-	b, err := base64.RawURLEncoding.DecodeString(s)
-	if err != nil {
-		return c, fmt.Errorf("invalid cursor")
-	}
-	return c, json.Unmarshal(b, &c)
-}
-
-func (c cursor) encode() string {
-	b, _ := json.Marshal(c)
-	return base64.RawURLEncoding.EncodeToString(b)
-}
+func (c cursor) encode() string { return datastore.EncodeCursor(c) }
 
 type row struct {
 	peer, cond string
@@ -134,7 +122,7 @@ func (d *Datastore) Edges(ctx context.Context, q Query) (*Page, error) {
 	if err != nil {
 		return nil, err
 	}
-	cur, err := decode(q.Cursor)
+	cur, err := datastore.DecodeCursor[cursor](q.Cursor)
 	if err != nil {
 		return nil, err
 	}
@@ -154,7 +142,7 @@ func (d *Datastore) unfiltered(ctx context.Context, q Query, args []any, cur cur
 		cols, where, order = inCols, inWhere, `object_id COLLATE "C"`
 	}
 	sql := fmt.Sprintf(`SELECT %s FROM tuple WHERE %s ORDER BY %s LIMIT $5`, cols, where, order)
-	a := append(args, q.Limit+1)
+	a := slices.Concat(args, []any{q.Limit + 1}) // not append: args belongs to the caller
 	if cur.After != "" {
 		sql = fmt.Sprintf(`SELECT %s FROM tuple WHERE %s AND %s > $6 ORDER BY %s LIMIT $5`, cols, where, order, order)
 		a = append(a, cur.After)
@@ -283,7 +271,7 @@ func (d *Datastore) Count(ctx context.Context, q Query, limit int) (Count, error
 	}
 	var n int
 	sql := fmt.Sprintf(`SELECT count(*) FROM (SELECT 1 FROM tuple WHERE %s LIMIT $5) s`, where)
-	if err := d.db.Pool.QueryRow(ctx, sql, append(args, limit+1)...).Scan(&n); err != nil {
+	if err := d.db.Pool.QueryRow(ctx, sql, slices.Concat(args, []any{limit + 1})...).Scan(&n); err != nil {
 		return Count{}, fmt.Errorf("datastore: %w", err)
 	}
 	if n > limit {
@@ -311,7 +299,7 @@ func upper(p string) (string, bool) {
 // edge twice. The result is deterministic, which cursors rely on.
 func minimalPrefixes(ps []string) []string {
 	sorted := append([]string(nil), ps...)
-	sort.Strings(sorted)
+	slices.Sort(sorted)
 	var out []string
 	for _, p := range sorted {
 		if len(out) > 0 && strings.HasPrefix(p, out[len(out)-1]) {
@@ -344,21 +332,14 @@ func (d *Datastore) OutCounts(ctx context.Context, store, object string, relatio
 	if err != nil {
 		return nil, fmt.Errorf("datastore: %w", err)
 	}
-	defer rows.Close()
 	out := map[string]Count{}
-	for rows.Next() {
-		var rel string
-		var n int
-		if err := rows.Scan(&rel, &n); err != nil {
-			return nil, err
-		}
-		if n > limit {
-			out[rel] = Count{N: limit}
-		} else {
-			out[rel] = Count{N: n, Exact: true}
-		}
-	}
-	return out, rows.Err()
+	var rel string
+	var n int
+	_, err = pgx.ForEachRow(rows, []any{&rel, &n}, func() error {
+		out[rel] = Count{N: min(n, limit), Exact: n <= limit}
+		return nil
+	})
+	return out, err
 }
 
 // OutEdges reads every edge of the given relations in one query. Callers pass
@@ -379,14 +360,12 @@ func (d *Datastore) OutEdges(ctx context.Context, store, object string, relation
 	if err != nil {
 		return nil, fmt.Errorf("datastore: %w", err)
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var rel string
-		var r row
-		if err := rows.Scan(&rel, &r.peer, &r.cond, &r.ctx); err != nil {
-			return nil, err
-		}
+	var rel string
+	var r row
+	_, err = pgx.ForEachRow(rows, []any{&rel, &r.peer, &r.cond, &r.ctx}, func() error {
 		out[rel] = append(out[rel], d.tuple(Query{Dir: Out, Object: object, Relation: rel}, r))
-	}
-	return out, rows.Err()
+		r.ctx = nil // each row scans into a fresh slice
+		return nil
+	})
+	return out, err
 }

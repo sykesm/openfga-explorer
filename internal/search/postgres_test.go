@@ -1,13 +1,13 @@
 package search
 
 import (
-	"context"
+	"slices"
 
-	"github.com/sykesm/openfga-explorer/internal/datastore"
 	"os"
-	"sort"
 	"strings"
 	"testing"
+
+	"github.com/sykesm/openfga-explorer/internal/datastore"
 )
 
 // TestPostgresMatchesBruteForce runs against the local stack (deploy/) and
@@ -20,7 +20,7 @@ func TestPostgresMatchesBruteForce(t *testing.T) {
 	if uri == "" || store == "" {
 		t.Skip("FGA_TEST_DATASTORE_URI and FGA_TEST_STORE not set")
 	}
-	ctx := context.Background()
+	ctx := t.Context()
 	db, err := datastore.Open(ctx, uri)
 	if err != nil {
 		t.Fatal(err)
@@ -43,7 +43,7 @@ func TestPostgresMatchesBruteForce(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		sort.Strings(ids)
+		slices.Sort(ids)
 		return ids
 	}
 
@@ -93,7 +93,7 @@ func TestPostgresMatchesBruteForce(t *testing.T) {
 					t.Fatalf("%v: did not converge", c)
 				}
 			}
-			sort.Strings(got)
+			slices.Sort(got)
 			if strings.Join(got, "\n") != strings.Join(want, "\n") {
 				t.Errorf("budget %d %v: got %d ids, want %d\n missing: %v", budget, c, len(got), len(want), diff(want, got))
 			}

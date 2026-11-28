@@ -10,6 +10,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -58,22 +59,13 @@ func Open(ctx context.Context, uri string) (*DB, error) {
 // Close releases the pool.
 func (db *DB) Close() { db.Pool.Close() }
 
-// Query runs a query and collects the first column of every row as strings.
+// Strings runs a query and collects the first column of every row as strings.
 func (db *DB) Strings(ctx context.Context, sql string, args ...any) ([]string, error) {
 	rows, err := db.Pool.Query(ctx, sql, args...)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	var out []string
-	for rows.Next() {
-		var s string
-		if err := rows.Scan(&s); err != nil {
-			return nil, err
-		}
-		out = append(out, s)
-	}
-	return out, rows.Err()
+	return pgx.CollectRows(rows, pgx.RowTo[string])
 }
 
 // Fold approximates the primary collation key used by glibc/ICU locales such
