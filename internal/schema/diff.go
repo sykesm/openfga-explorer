@@ -168,8 +168,7 @@ func (m *Model) Routes(typ, rel string) (routes, exclusions []string) {
 		if !ok {
 			return
 		}
-		var walk func(u *openfgav1.Userset, exclude bool)
-		walk = func(u *openfgav1.Userset, exclude bool) {
+		for u, exclude := range Leaves(rr.Rewrite) {
 			add := func(s string) {
 				if exclude {
 					e[s] = true
@@ -193,8 +192,7 @@ func (m *Model) Routes(typ, rel string) (routes, exclusions []string) {
 					add(s + " on " + key)
 				}
 			case *openfgav1.Userset_ComputedUserset:
-				target := typ + "#" + v.ComputedUserset.GetRelation()
-				add(target)
+				add(typ + "#" + v.ComputedUserset.GetRelation())
 				if !exclude {
 					visit(typ, v.ComputedUserset.GetRelation())
 				}
@@ -204,27 +202,15 @@ func (m *Model) Routes(typ, rel string) (routes, exclusions []string) {
 				if ts, ok := m.Relation(typ, via); ok {
 					for _, ref := range ts.DirectTypes {
 						if _, ok := m.Relation(ref.GetType(), cr); ok {
-							add(ref.GetType() + "#" + cr + " via " + key[:strings.IndexByte(key, '#')] + "#" + via)
+							add(ref.GetType() + "#" + cr + " via " + typ + "#" + via)
 							if !exclude {
 								visit(ref.GetType(), cr)
 							}
 						}
 					}
 				}
-			case *openfgav1.Userset_Union:
-				for _, c := range v.Union.GetChild() {
-					walk(c, exclude)
-				}
-			case *openfgav1.Userset_Intersection:
-				for _, c := range v.Intersection.GetChild() {
-					walk(c, exclude)
-				}
-			case *openfgav1.Userset_Difference:
-				walk(v.Difference.GetBase(), exclude)
-				walk(v.Difference.GetSubtract(), true)
 			}
 		}
-		walk(rr.Rewrite, false)
 	}
 	visit(typ, rel)
 	return sortedSet(r), sortedSet(e)

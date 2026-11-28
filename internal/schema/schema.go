@@ -5,6 +5,7 @@ package schema
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -65,6 +66,9 @@ type Model struct {
 	findings    []Finding
 	holdersOnce sync.Once
 	holderSets  map[string]map[string]bool
+	// subjects caches SubjectTypes per "type#relation" (the model never changes).
+	subjectsMu sync.Mutex
+	subjects   map[string][]string
 }
 
 // Type is an analyzed type definition.
@@ -259,23 +263,10 @@ func renderDerivedOnly(u *openfgav1.Userset, direct []*openfgav1.RelationReferen
 }
 
 func containsThis(u *openfgav1.Userset) bool {
-	switch v := u.GetUserset().(type) {
-	case *openfgav1.Userset_This:
-		return true
-	case *openfgav1.Userset_Union:
-		for _, c := range v.Union.GetChild() {
-			if containsThis(c) {
-				return true
-			}
+	for l := range Leaves(u) {
+		if _, ok := l.GetUserset().(*openfgav1.Userset_This); ok {
+			return true
 		}
-	case *openfgav1.Userset_Intersection:
-		for _, c := range v.Intersection.GetChild() {
-			if containsThis(c) {
-				return true
-			}
-		}
-	case *openfgav1.Userset_Difference:
-		return containsThis(v.Difference.GetBase()) || containsThis(v.Difference.GetSubtract())
 	}
 	return false
 }
@@ -294,8 +285,7 @@ type Dependency struct {
 // Dependencies lists the computed and tuple-to-userset references in a relation's rewrite.
 func (m *Model) Dependencies(r *Relation) []Dependency {
 	var out []Dependency
-	var walk func(u *openfgav1.Userset)
-	walk = func(u *openfgav1.Userset) {
+	for u := range Leaves(r.Rewrite) {
 		switch v := u.GetUserset().(type) {
 		case *openfgav1.Userset_ComputedUserset:
 			out = append(out, Dependency{Relation: v.ComputedUserset.GetRelation()})
@@ -311,20 +301,8 @@ func (m *Model) Dependencies(r *Relation) []Dependency {
 				}
 			}
 			out = append(out, d)
-		case *openfgav1.Userset_Union:
-			for _, c := range v.Union.GetChild() {
-				walk(c)
-			}
-		case *openfgav1.Userset_Intersection:
-			for _, c := range v.Intersection.GetChild() {
-				walk(c)
-			}
-		case *openfgav1.Userset_Difference:
-			walk(v.Difference.GetBase())
-			walk(v.Difference.GetSubtract())
 		}
 	}
-	walk(r.Rewrite)
 	return out
 }
 
@@ -547,7 +525,23 @@ func (m *Model) Explain(r *Relation) *Clause {
 // following computed relations, tuple-to-userset traversals, and usersets.
 // Plain types come first (types with no relations of their own, such as
 // "user", lead), then usersets like "group#member".
+// Computed once per relation and model; callers get their own copy.
 func (m *Model) SubjectTypes(r *Relation) []string {
+	key := r.Type + "#" + r.Name
+	m.subjectsMu.Lock()
+	defer m.subjectsMu.Unlock()
+	list, ok := m.subjects[key]
+	if !ok {
+		list = m.subjectTypes(r)
+		if m.subjects == nil {
+			m.subjects = map[string][]string{}
+		}
+		m.subjects[key] = list
+	}
+	return slices.Clone(list)
+}
+
+func (m *Model) subjectTypes(r *Relation) []string {
 	seen := map[string]bool{}
 	out := map[string]bool{}
 	var visit func(typ, rel string)
@@ -561,8 +555,10 @@ func (m *Model) SubjectTypes(r *Relation) []string {
 		if !ok {
 			return
 		}
-		var walk func(u *openfgav1.Userset)
-		walk = func(u *openfgav1.Userset) {
+		for u, subtracted := range Leaves(rr.Rewrite) {
+			if subtracted {
+				continue // only the base of a "but not" grants; the subtracted side never adds holders
+			}
 			switch v := u.GetUserset().(type) {
 			case *openfgav1.Userset_This:
 				for _, ref := range rr.DirectTypes {
@@ -582,20 +578,8 @@ func (m *Model) SubjectTypes(r *Relation) []string {
 						visit(ref.GetType(), cr)
 					}
 				}
-			case *openfgav1.Userset_Union:
-				for _, c := range v.Union.GetChild() {
-					walk(c)
-				}
-			case *openfgav1.Userset_Intersection:
-				for _, c := range v.Intersection.GetChild() {
-					walk(c)
-				}
-			case *openfgav1.Userset_Difference:
-				// Only the base grants; the subtracted side never adds holders.
-				walk(v.Difference.GetBase())
 			}
 		}
-		walk(rr.Rewrite)
 	}
 	visit(r.Type, r.Name)
 	var list []string

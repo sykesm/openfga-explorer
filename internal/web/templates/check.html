@@ -106,6 +106,7 @@
         The walk also made{{else}} from the store;{{end}}
         {{$t.CheckCalls}} Check call{{if ne $t.CheckCalls 1}}s{{end}} to the server (the shortest explanation uses them to choose branches and rule out groups; the other orders make none); and {{$t.ListCalls}} ListObjects call{{if ne $t.ListCalls 1}}s{{end}} (probes of large edge lists).
         Verification made {{$t.VerifyCalls}} more Check call{{if ne $t.VerifyCalls 1}}s{{end}}.
+        {{with $t.LookaheadUnused}}To save time, the walk also read {{.}} page{{if ne . 1}}s{{end}} ahead that it turned out not to need; they are not counted above.{{end}}
         Computed relations (like <code>viewer</code> from <code>editor</code>) read nothing themselves: they are steps in the walk, not tuples.
         The tuples OpenFGA reads inside its own Check and ListObjects calls are not reported by the server, so they are not counted here.</p>
       {{if $t.Mismatches}}<div class="alert err">{{$t.Mismatches}} step{{if gt $t.Mismatches 1}}s{{end}} disagree with the server (outlined in magenta). This usually means a tuple changed during the walk, a consistency difference, or a walker bug worth reporting.</div>{{end}}

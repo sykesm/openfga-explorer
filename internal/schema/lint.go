@@ -180,15 +180,15 @@ func (m *Model) checkTupleToUserset() []Finding {
 		for _, rn := range t.RelationNames {
 			r := t.Relations[rn]
 			seen := map[string]bool{}
-			walkRewrite(r.Rewrite, func(u *openfgav1.Userset) {
+			for u := range Leaves(r.Rewrite) {
 				ttu := u.GetTupleToUserset()
 				if ttu == nil {
-					return
+					continue
 				}
 				via, target := ttu.GetTupleset().GetRelation(), ttu.GetComputedUserset().GetRelation()
 				ts, ok := t.Relations[via]
 				if !ok {
-					return
+					continue
 				}
 				var missing []string
 				for _, ref := range ts.DirectTypes {
@@ -205,27 +205,10 @@ func (m *Model) checkTupleToUserset() []Finding {
 						Message: fmt.Sprintf("%s#%s uses “%s from %s”, but %s can be a %s, which has no %s: those never grant %s",
 							tn, rn, target, via, via, strings.Join(missing, " or "), target, rn)})
 				}
-			})
+			}
 		}
 	}
 	return out
-}
-
-func walkRewrite(u *openfgav1.Userset, fn func(*openfgav1.Userset)) {
-	if u == nil {
-		return
-	}
-	fn(u)
-	for _, c := range u.GetUnion().GetChild() {
-		walkRewrite(c, fn)
-	}
-	for _, c := range u.GetIntersection().GetChild() {
-		walkRewrite(c, fn)
-	}
-	if d := u.GetDifference(); d != nil {
-		walkRewrite(d.GetBase(), fn)
-		walkRewrite(d.GetSubtract(), fn)
-	}
 }
 
 // checkConditions: conditions no type restriction uses, and parameters a

@@ -297,6 +297,10 @@ type Trace struct {
 	// CachedReads of the ReadCalls, and TuplesCached of the TuplesRead, were
 	// answered by a read cache in front of the API rather than by OpenFGA.
 	CachedReads, TuplesCached int
+	// LookaheadUnused counts reads made ahead of the walk (to save time) that
+	// it turned out not to need. They reached the server (or its cache) but
+	// are not among the walk's calls.
+	LookaheadUnused int
 }
 
 // Decision is the overall answer: the server verdict when available, else the walker's.
@@ -329,8 +333,10 @@ type walker struct {
 	tuplesRead atomic.Int64
 	// Reads (and their tuples) answered by a read cache in front of the API
 	// (fga.Cache), not by OpenFGA.
-	cachedReads    atomic.Int64
-	tuplesCached   atomic.Int64
+	cachedReads  atomic.Int64
+	tuplesCached atomic.Int64
+	// lookahead counts reads issued ahead of the walk (see prefetch).
+	lookahead      atomic.Int64
 	guidedSkips    atomic.Int64
 	groupsRuledOut atomic.Int64
 	deadline       time.Time
@@ -414,6 +420,7 @@ func Explain(ctx context.Context, api fga.API, model *schema.Model, ev *cond.Eva
 	tr.TuplesRead = int(w.tuplesRead.Load())
 	tr.CachedReads, tr.TuplesCached = int(w.cachedReads.Load()), int(w.tuplesCached.Load())
 	tr.Exhausted = w.exhaust.Load()
+	tr.LookaheadUnused = w.lookaheadUnused()
 	tr.VerifyCalls = w.verify(ctx, root)
 	tr.Steps = w.steps
 	tr.Nodes = w.nextID
@@ -458,45 +465,64 @@ type readEntry struct {
 	tuples []*openfgav1.TupleKey
 	next   string
 	err    error
+	cached bool // answered by the read cache in front of the API
+	// charged is set (under walker.mu) once the walk uses the entry: only
+	// then does it count as one of the walk's calls.
+	charged bool
 }
 
 // fetch returns the Read result for k, issuing the call at most once per walk.
-// Concurrent callers (the walk and lookahead goroutines) share one call.
+// A read lookahead already issued (or finished) is shared, not repeated. The
+// walk is charged one call the first time it uses an entry, whoever issued
+// it, so its calls, budget and decisions are the same with or without
+// lookahead.
 func (w *walker) fetch(ctx context.Context, k readKey) *readEntry {
 	w.mu.Lock()
-	if e, ok := w.rcache[k]; ok {
-		w.mu.Unlock()
-		<-e.done
-		return e
+	e, ok := w.rcache[k]
+	charge := !ok || !e.charged
+	if charge {
+		if err := w.budget(); err != nil {
+			w.mu.Unlock() // budget failures are not cached: a later call may still be allowed
+			e := &readEntry{done: make(chan struct{}), err: err}
+			close(e.done)
+			return e
+		}
+		w.calls.Add(1)
+		w.readCalls.Add(1)
 	}
-	e := &readEntry{done: make(chan struct{})}
-	if err := w.budget(); err != nil {
-		e.err = err
-		close(e.done)
-		w.mu.Unlock() // budget failures are not cached: a later call may still be allowed
-		return e
+	if !ok {
+		e = &readEntry{done: make(chan struct{})}
+		w.rcache[k] = e
 	}
-	w.rcache[k] = e
+	e.charged = true
 	w.mu.Unlock()
-	w.calls.Add(1)
-	w.readCalls.Add(1)
+	if !ok {
+		w.issue(ctx, k, e)
+	}
+	<-e.done
+	if charge && e.err == nil {
+		w.tuplesRead.Add(int64(len(e.tuples)))
+		if e.cached {
+			w.cachedReads.Add(1)
+			w.tuplesCached.Add(int64(len(e.tuples)))
+		}
+	}
+	return e
+}
+
+// issue makes the Read call for k and completes e.
+func (w *walker) issue(ctx context.Context, k readKey, e *readEntry) {
+	defer close(e.done)
 	rctx, cached := fga.WithCacheReport(ctx)
 	resp, err := fga.ReadPage(rctx, w.api, w.req.Store, &openfgav1.ReadRequestTupleKey{Object: k.object, Relation: k.relation, User: k.user}, 100, k.token, w.req.Consistency)
 	if err != nil {
 		e.err = err
-	} else {
-		for _, t := range resp.GetTuples() {
-			e.tuples = append(e.tuples, t.GetKey())
-		}
-		w.tuplesRead.Add(int64(len(resp.GetTuples())))
-		if *cached {
-			w.cachedReads.Add(1)
-			w.tuplesCached.Add(int64(len(resp.GetTuples())))
-		}
-		e.next = resp.GetContinuationToken()
+		return
 	}
-	close(e.done)
-	return e
+	for _, t := range resp.GetTuples() {
+		e.tuples = append(e.tuples, t.GetKey())
+	}
+	e.next, e.cached = resp.GetContinuationToken(), *cached
 }
 
 // read reads one page of tuples matching the filter, merging contextual tuples on the first page.
@@ -520,29 +546,53 @@ func (w *walker) read(ctx context.Context, object, relation, user, token string)
 }
 
 // prefetch issues reads concurrently ahead of the (sequential) walk. The walk
-// later finds them in the cache, so its decisions and step order are the same
-// as without lookahead; only latency changes.
+// later finds them in the cache and is charged for them only then (see
+// fetch), so its decisions and step order are the same as without lookahead;
+// only latency changes. Lookahead has its own allowance (up to MaxCalls
+// reads, while the walk has budget left) and never marks the walk as out of
+// budget. Reads the walk never uses are reported as LookaheadUnused.
 func (w *walker) prefetch(ctx context.Context, keys []readKey) {
 	if w.opt.Parallel <= 1 {
 		return
 	}
 	for _, k := range keys {
-		w.mu.Lock()
-		_, seen := w.rcache[k]
-		w.mu.Unlock()
-		if seen || w.budget() != nil {
-			continue
-		}
 		select {
 		case w.sem <- struct{}{}:
-			go func(k readKey) {
-				defer func() { <-w.sem }()
-				w.fetch(ctx, k)
-			}(k)
 		default:
 			return // lookahead is saturated; the walk will read on demand
 		}
+		w.mu.Lock()
+		_, seen := w.rcache[k]
+		allowed := !seen && int(w.calls.Load()) < w.opt.MaxCalls && int(w.lookahead.Load()) < w.opt.MaxCalls && time.Now().Before(w.deadline)
+		var e *readEntry
+		if allowed {
+			e = &readEntry{done: make(chan struct{})}
+			w.rcache[k] = e
+			w.lookahead.Add(1)
+		}
+		w.mu.Unlock()
+		if !allowed {
+			<-w.sem
+			continue
+		}
+		go func() {
+			defer func() { <-w.sem }()
+			w.issue(ctx, k, e)
+		}()
 	}
+}
+
+// lookaheadUnused counts the lookahead reads the walk never used.
+func (w *walker) lookaheadUnused() int {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	n := 0
+	for _, e := range w.rcache {
+		if !e.charged {
+			n++
+		}
+	}
+	return n
 }
 
 // plannedReads lists the first-page reads evaluating object#relation will
@@ -561,8 +611,8 @@ func (w *walker) plannedReads(object, relation string) []readKey {
 		if !ok {
 			return
 		}
-		var walk func(u *openfgav1.Userset)
-		walk = func(u *openfgav1.Userset) {
+		// Both sides of a "but not" are evaluated, so both need their reads.
+		for u := range schema.Leaves(r.Rewrite) {
 			switch v := u.GetUserset().(type) {
 			case *openfgav1.Userset_This:
 				usersets := false
@@ -583,20 +633,8 @@ func (w *walker) plannedReads(object, relation string) []readKey {
 				visit(v.ComputedUserset.GetRelation())
 			case *openfgav1.Userset_TupleToUserset:
 				out = append(out, readKey{object, v.TupleToUserset.GetTupleset().GetRelation(), "", ""})
-			case *openfgav1.Userset_Union:
-				for _, c := range v.Union.GetChild() {
-					walk(c)
-				}
-			case *openfgav1.Userset_Intersection:
-				for _, c := range v.Intersection.GetChild() {
-					walk(c)
-				}
-			case *openfgav1.Userset_Difference:
-				walk(v.Difference.GetBase())
-				walk(v.Difference.GetSubtract())
 			}
 		}
-		walk(r.Rewrite)
 	}
 	visit(relation)
 	return out
