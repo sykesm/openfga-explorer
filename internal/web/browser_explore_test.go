@@ -864,3 +864,51 @@ func TestBrowserExploreNextInstanceTabMarked(t *testing.T) {
 	}
 	b.checkClean("next instance tab")
 }
+
+// TestBrowserTypeComboEnter: Enter in a picker's type box never submits the
+// check form (it is one field of several), even with its list closed; and
+// leaving the box and coming straight back keeps the list open (the delayed
+// close on blur used to shut it, so a quick Enter fell through to the form).
+func TestBrowserTypeComboEnter(t *testing.T) {
+	srv := fgatest.Start(t)
+	var dsl strings.Builder
+	dsl.WriteString("model\n  schema 1.1\ntype user\n")
+	for i := range 20 { // enough types for the type box (not a plain select)
+		fmt.Fprintf(&dsl, "type kind_%02d\n  relations\n    define owner: [user]\n", i)
+	}
+	st, err := srv.CreateStore(t.Context(), "many-types", dsl.String(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	x := explorerFor(t, st)
+	b := newBrowser(t, x)
+	b.open("~/check")
+	const q = `fga-picker[data-field="object"] .tcombo-q`
+	b.waitFor("combobox", `document.querySelector('`+q+`')`)
+	b.run(chromedp.Evaluate(`window.__submits = 0; document.body.addEventListener('htmx:beforeRequest', (e) => { if (/\/check\/run/.test(e.detail.pathInfo?.requestPath || '')) __submits++; });
+		document.querySelector('#check-form').addEventListener('submit', () => __submits++, true); void 0`, nil))
+	// Blur and refocus at once: after the old close delay, the list is still open.
+	b.run(chromedp.Click(q, chromedp.ByQuery))
+	b.waitFor("list open", `!document.querySelector('#tc-object').hidden`)
+	b.run(chromedp.Evaluate(`(() => { const i = document.querySelector('`+q+`'); i.blur(); i.focus(); })()`, nil), chromedp.Sleep(250*time.Millisecond))
+	if eval[bool](b, `document.querySelector('#tc-object').hidden`) {
+		t.Error("leaving the type box and coming straight back closed its list")
+	}
+	// With the list closed (Escape), Enter does not submit the form.
+	b.key(q, kb.Escape)
+	b.waitFor("closed", `document.querySelector('#tc-object').hidden`)
+	b.key(q, kb.Enter)
+	b.run(chromedp.Sleep(300 * time.Millisecond))
+	if n := eval[int](b, `__submits`); n != 0 {
+		t.Errorf("Enter in the type box submitted the check form %d time(s)", n)
+	}
+	// Choosing with ↓ and Enter moves on to the ID box without submitting.
+	b.run(chromedp.Evaluate(`document.querySelector('`+q+`').value = ''`, nil))
+	b.key(q, "kind_1"+kb.ArrowDown+kb.Enter)
+	b.waitFor("chosen", `/^kind_1\d$/.test(document.querySelector('fga-picker[data-field="object"] select[name="object_type"]').value)`)
+	b.run(chromedp.Sleep(300 * time.Millisecond))
+	if n := eval[int](b, `__submits`); n != 0 {
+		t.Errorf("choosing a type with Enter submitted the check form %d time(s)", n)
+	}
+	b.checkClean("type combo enter")
+}

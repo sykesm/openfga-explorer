@@ -161,7 +161,13 @@ class TypeCombo {
     this.input.addEventListener('click', () => { if (!this.list.open) this.open(''); });
     this.input.addEventListener('input', () => this.open(this.input.value));
     this.input.addEventListener('keydown', (e) => this.onKey(e));
-    this.input.addEventListener('blur', () => setTimeout(() => this.close(), 120));
+    // Enter's keypress is the form's implicit submit. Browsers skip it after
+    // the keydown is handled, but synthesized key events (automation, some
+    // assistive tools) may still send it: never submit from here.
+    this.input.addEventListener('keypress', (e) => { if (e.key === 'Enter') e.preventDefault(); });
+    // Closes a moment after the box loses focus (so a click on an option
+    // lands first), unless focus has come back by then.
+    this.input.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== this.input) this.close(); }, 120));
     this.select.addEventListener('change', () => this.sync());
   }
   get key() { return `recentPick:${this.picker.field}:${base()}`; }
@@ -194,6 +200,9 @@ class TypeCombo {
     const chosen = this.list.value;
     switch (e.key) {
       case 'ArrowDown': e.preventDefault(); this.open(''); break; // closed: open it
+      // The type is one field of several: Enter here never submits the form
+      // (with an active option, the list chose it above).
+      case 'Enter': e.preventDefault(); break;
       case 'Escape': if (this.list.open) { e.stopPropagation(); this.close(); } break;
       case 'Tab': // Tab accepts a typed match, then moves on
         if (this.list.open && this.input.value !== this.label() && chosen !== undefined) this.choose(chosen);
@@ -209,7 +218,9 @@ class TypeCombo {
     store.set(this.key, pushRecent(store.get(this.key, []), value));
     this.close();
     if (changed) this.select.dispatchEvent(new Event('change', { bubbles: true }));
-    this.picker.q?.focus();
+    // On to the ID box once this key event is over, so its keypress (above)
+    // lands here, not in the ID box, where Enter submits.
+    setTimeout(() => this.picker.q?.focus(), 0);
   }
   close() {
     this.list.hide();
