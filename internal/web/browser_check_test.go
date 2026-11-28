@@ -896,6 +896,11 @@ func TestBrowserCheckStepGraph(t *testing.T) {
 	if got != "true | true | true" {
 		t.Errorf("pinning: %q (pinned | top node selected | detail)", got)
 	}
+	// The button is a toggle: pressed while its step is pinned, and only it.
+	const pressed = `document.querySelectorAll('.facts .step-loc[aria-pressed="true"]')`
+	if got := eval[string](b, `[(`+li+`).querySelector('.step-loc').getAttribute('aria-pressed'), `+pressed+`.length].join(' ')`); got != "true 1" {
+		t.Errorf("pinned button (aria-pressed, pressed count): %q", got)
+	}
 	if got := eval[string](b, lit); got != want {
 		t.Errorf("pinned step lights %q, want %q", got, want)
 	}
@@ -907,6 +912,9 @@ func TestBrowserCheckStepGraph(t *testing.T) {
 	b.run(chromedp.Evaluate(`(() => { const c = `+cy+`; c.emit('tap'); })()`, nil))
 	if got := eval[string](b, lit+` + ' | ' + document.querySelectorAll('.facts li.step.pinned, .facts li.step.covers').length`); got != " | 0 | 0" {
 		t.Errorf("tapping the background leaves %q", got)
+	}
+	if n := eval[int](b, pressed+`.length`); n != 0 {
+		t.Errorf("%d step buttons still pressed after letting go", n)
 	}
 	b.checkClean("step graph")
 }

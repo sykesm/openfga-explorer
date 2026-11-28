@@ -236,6 +236,6 @@
   {{- if not .Repeat}}{{template "why-ev" .Evidence}}{{with .Under}}<ul class="steps-down">{{template "why-down" .}}</ul>{{end}}{{end}}</li>{{end}}{{end}}
 {{/* A step's graph nodes, and the button that shows them in the graph (trace.js). */}}
 {{define "step-nodes"}}{{with .Nodes}} data-nodes="{{.}}"{{end}}{{end}}
-{{define "step-loc"}}{{with .Nodes}}<button type="button" class="step-loc" data-act="step-graph" aria-label="Show this step in the graph" title="Show this step in the graph">◎</button>{{end}}{{end}}
+{{define "step-loc"}}{{with .Nodes}}<button type="button" class="step-loc" data-act="step-graph" aria-pressed="false" aria-label="Show this step in the graph" title="Show this step in the graph (press again to let go)">◎</button>{{end}}{{end}}
 {{/* One "Why" step in a flat reading (user up, or numbered top-down): the sentence, its graph link, then its evidence. */}}
 {{define "why-step"}}<li class="step{{if .Reason}} reason{{end}}"{{template "step-nodes" .}}><span class="ft">{{.Text}}</span>{{template "step-loc" .}}{{template "why-ev" .Evidence}}</li>{{end}}

@@ -254,9 +254,12 @@ function linkSteps(t) {
   /** @param {Element | null} li */
   const pin = (li) => {
     $$('li.step.pinned', facts).forEach((l) => l.classList.remove('pinned'));
+    // The button is a toggle: pressed while its step is pinned.
+    for (const b of $$('.step-loc[aria-pressed="true"]', facts)) b.setAttribute('aria-pressed', 'false');
     pinned = li;
     if (!li) { light(null); return; }
     li.classList.add('pinned');
+    $(':scope > .step-loc', li)?.setAttribute('aria-pressed', 'true');
     showView(t, 'graph'); // on phones, show the path where it is
     const ids = (/** @type {HTMLElement} */ (li).dataset.nodes || '').split(' ');
     let laid = false;
