@@ -4,9 +4,9 @@
 package schema
 
 import (
+	"cmp"
 	"fmt"
 	"slices"
-	"sort"
 	"strings"
 	"sync"
 
@@ -135,17 +135,14 @@ func Load(m *openfgav1.AuthorizationModel) (*Model, error) {
 		for name := range t.Relations {
 			t.RelationNames = append(t.RelationNames, name)
 		}
-		sort.Slice(t.RelationNames, func(i, j int) bool {
-			a, b := t.Relations[t.RelationNames[i]], t.Relations[t.RelationNames[j]]
-			if a.Kind != b.Kind {
-				return a.Kind < b.Kind
-			}
-			return a.Name < b.Name
+		slices.SortFunc(t.RelationNames, func(x, y string) int {
+			a, b := t.Relations[x], t.Relations[y]
+			return cmp.Or(cmp.Compare(a.Kind, b.Kind), cmp.Compare(a.Name, b.Name))
 		})
 		out.Types[t.Name] = t
 		out.TypeNames = append(out.TypeNames, t.Name)
 	}
-	sort.Strings(out.TypeNames)
+	slices.Sort(out.TypeNames)
 	out.loadSources()
 	return out, nil
 }
@@ -349,6 +346,9 @@ type GraphEdge struct {
 	Label    string
 	// Kind is "direct", "userset", "wildcard", or "ttu".
 	Kind string
+	// UsersetRelation is the user side's relation for a userset edge ("member"
+	// for group#member).
+	UsersetRelation string
 }
 
 // TypeGraph returns the type-level edges: user types that can be related to
@@ -373,7 +373,7 @@ func (m *Model) TypeGraph() []GraphEdge {
 					e.Kind = "wildcard"
 					e.Label = rn + " (*)"
 				} else if ref.GetRelation() != "" {
-					e.Kind = "userset"
+					e.Kind, e.UsersetRelation = "userset", ref.GetRelation()
 					e.Label = rn + " ← #" + ref.GetRelation()
 				}
 				add(e)
@@ -409,7 +409,7 @@ func (m *Model) HubTypes(n int) []string {
 		}
 	}
 	order := append([]string(nil), m.TypeNames...)
-	sort.SliceStable(order, func(i, j int) bool { return len(nb[order[i]]) > len(nb[order[j]]) })
+	slices.SortStableFunc(order, func(a, b string) int { return cmp.Compare(len(nb[b]), len(nb[a])) }) // most connected first
 	return order[:min(n, len(order))]
 }
 
@@ -593,12 +593,7 @@ func (m *Model) subjectTypes(r *Relation) []string {
 			return 1
 		}
 	}
-	sort.Slice(list, func(i, j int) bool {
-		if a, b := rank(list[i]), rank(list[j]); a != b {
-			return a < b
-		}
-		return list[i] < list[j]
-	})
+	slices.SortFunc(list, func(a, b string) int { return cmp.Or(cmp.Compare(rank(a), rank(b)), cmp.Compare(a, b)) })
 	return list
 }
 
@@ -643,12 +638,13 @@ func (m *Model) UserTypes() []string {
 			}
 		}
 	}
-	sort.Slice(out, func(i, j int) bool {
-		a, b := strings.Contains(out[i], "#"), strings.Contains(out[j], "#")
-		if a != b {
-			return !a
+	// Plain types first, then usersets.
+	userset := func(s string) int {
+		if strings.Contains(s, "#") {
+			return 1
 		}
-		return out[i] < out[j]
-	})
+		return 0
+	}
+	slices.SortFunc(out, func(a, b string) int { return cmp.Or(cmp.Compare(userset(a), userset(b)), cmp.Compare(a, b)) })
 	return out
 }

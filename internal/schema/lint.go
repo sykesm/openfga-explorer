@@ -1,9 +1,11 @@
 package schema
 
 import (
+	"cmp"
 	"fmt"
+	"maps"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 
 	openfgav1 "github.com/openfga/api/proto/openfga/v1"
@@ -49,18 +51,9 @@ func (m *Model) runChecks() []Finding {
 	out = append(out, m.checkConditions()...)
 	out = append(out, m.checkOrphanTypes()...)
 	rank := map[Severity]int{Warning: 0, Notice: 1}
-	sort.SliceStable(out, func(i, j int) bool {
-		a, b := out[i], out[j]
-		if rank[a.Severity] != rank[b.Severity] {
-			return rank[a.Severity] < rank[b.Severity]
-		}
-		if a.Type != b.Type {
-			return a.Type < b.Type
-		}
-		if a.Relation != b.Relation {
-			return a.Relation < b.Relation
-		}
-		return a.Condition < b.Condition
+	slices.SortStableFunc(out, func(a, b Finding) int {
+		return cmp.Or(cmp.Compare(rank[a.Severity], rank[b.Severity]), cmp.Compare(a.Type, b.Type),
+			cmp.Compare(a.Relation, b.Relation), cmp.Compare(a.Condition, b.Condition))
 	})
 	return out
 }
@@ -224,25 +217,15 @@ func (m *Model) checkConditions() []Finding {
 			}
 		}
 	}
-	names := make([]string, 0, len(m.Conditions))
-	for name := range m.Conditions {
-		names = append(names, name)
-	}
-	sort.Strings(names)
 	var out []Finding
-	for _, name := range names {
+	for _, name := range slices.Sorted(maps.Keys(m.Conditions)) {
 		c := m.Conditions[name]
 		src := m.ConditionSources[name]
 		if !used[name] {
 			out = append(out, Finding{Severity: Notice, Code: "unused-condition", Condition: name, Source: src,
 				Message: fmt.Sprintf("condition %s is not used by any type restriction (no tuple can carry it)", name)})
 		}
-		var params []string
-		for p := range c.GetParameters() {
-			params = append(params, p)
-		}
-		sort.Strings(params)
-		for _, p := range params {
+		for _, p := range slices.Sorted(maps.Keys(c.GetParameters())) {
 			if !regexp.MustCompile(`\b` + regexp.QuoteMeta(p) + `\b`).MatchString(c.GetExpression()) {
 				out = append(out, Finding{Severity: Notice, Code: "unused-parameter", Condition: name, Source: src,
 					Message: fmt.Sprintf("condition %s declares parameter %s but its expression never uses it", name, p)})

@@ -8,9 +8,10 @@ package cond
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"net/netip"
 	"reflect"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"cel.dev/cel-go/common/types"
 	"cel.dev/cel-go/common/types/ref"
 	openfgav1 "github.com/openfga/api/proto/openfga/v1"
+	"github.com/sykesm/openfga-explorer/internal/schema"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -69,6 +71,7 @@ type compiled struct {
 	def    *openfgav1.Condition
 	prg    cel.Program
 	params map[string]*openfgav1.ConditionParamTypeRef
+	names  []string // params' names, sorted (the order results list them in)
 	err    error
 }
 
@@ -82,7 +85,7 @@ type Evaluator struct {
 func New(defs map[string]*openfgav1.Condition) *Evaluator {
 	e := &Evaluator{conds: map[string]*compiled{}}
 	for name, def := range defs {
-		c := &compiled{def: def, params: def.GetParameters()}
+		c := &compiled{def: def, params: def.GetParameters(), names: slices.Sorted(maps.Keys(def.GetParameters()))}
 		c.prg, c.err = compile(def)
 		e.conds[name] = c
 	}
@@ -154,19 +157,6 @@ func celType(p *openfgav1.ConditionParamTypeRef) (*cel.Type, error) {
 	return nil, fmt.Errorf("unsupported parameter type %s", p.GetTypeName())
 }
 
-// TypeName renders a parameter type, e.g. "list<string>".
-func TypeName(p *openfgav1.ConditionParamTypeRef) string {
-	n := strings.ToLower(strings.TrimPrefix(p.GetTypeName().String(), "TYPE_NAME_"))
-	if len(p.GetGenericTypes()) > 0 {
-		var g []string
-		for _, t := range p.GetGenericTypes() {
-			g = append(g, TypeName(t))
-		}
-		n += "<" + strings.Join(g, ", ") + ">"
-	}
-	return n
-}
-
 // Evaluate evaluates a named condition. tupleCtx comes from the tuple and
 // takes precedence over reqCtx, matching OpenFGA.
 func (e *Evaluator) Evaluate(name string, tupleCtx, reqCtx *structpb.Struct) *Result {
@@ -180,12 +170,7 @@ func (e *Evaluator) Evaluate(name string, tupleCtx, reqCtx *structpb.Struct) *Re
 		return res
 	}
 	vars := map[string]any{}
-	names := make([]string, 0, len(c.params))
-	for n := range c.params {
-		names = append(names, n)
-	}
-	sort.Strings(names)
-	for _, n := range names {
+	for _, n := range c.names {
 		pt := c.params[n]
 		raw, src := tupleCtx.GetFields()[n], "tuple"
 		if raw == nil {
@@ -201,7 +186,7 @@ func (e *Evaluator) Evaluate(name string, tupleCtx, reqCtx *structpb.Struct) *Re
 			return res
 		}
 		vars[n] = v
-		res.Params = append(res.Params, Param{Name: n, Type: TypeName(pt), Value: display(raw), Source: src})
+		res.Params = append(res.Params, Param{Name: n, Type: schema.ParamType(pt), Value: display(raw), Source: src})
 	}
 	out, _, err := c.prg.Eval(vars)
 	if err != nil {

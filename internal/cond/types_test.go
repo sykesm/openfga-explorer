@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/openfga/language/pkg/go/transformer"
+	"github.com/sykesm/openfga-explorer/internal/schema"
 )
 
 // typed has one condition per parameter type, so conversions and CEL types
@@ -82,8 +83,8 @@ func TestTypeName(t *testing.T) {
 	}
 	want := map[string]string{"m": "map<int>", "ip": "ipaddress", "dur": "duration", "ts": "timestamp"}
 	for name, w := range want {
-		if got := TypeName(pm.GetConditions()[name].GetParameters()["x"]); got != w {
-			t.Errorf("TypeName(%s) = %q, want %q", name, got, w)
+		if got := schema.ParamType(pm.GetConditions()[name].GetParameters()["x"]); got != w {
+			t.Errorf("ParamType(%s) = %q, want %q", name, got, w)
 		}
 	}
 }

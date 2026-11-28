@@ -1,9 +1,10 @@
 package schema
 
 import (
+	"cmp"
 	"fmt"
+	"maps"
 	"slices"
-	"sort"
 	"strings"
 
 	openfgav1 "github.com/openfga/api/proto/openfga/v1"
@@ -118,7 +119,7 @@ func (m *Model) Modules() []Module {
 			}
 		}
 		for s, rels := range ext {
-			sort.Strings(rels)
+			slices.Sort(rels)
 			mod := get(s)
 			mod.Extends = append(mod.Extends, Extension{Type: tn, File: s.File, Relations: rels})
 		}
@@ -128,12 +129,12 @@ func (m *Model) Modules() []Module {
 	}
 	out := make([]Module, 0, len(byName))
 	for _, mod := range byName {
-		sort.Strings(mod.Files)
-		sort.Strings(mod.Conditions)
-		sort.Slice(mod.Extends, func(i, j int) bool { return mod.Extends[i].Type < mod.Extends[j].Type })
+		slices.Sort(mod.Files)
+		slices.Sort(mod.Conditions)
+		slices.SortFunc(mod.Extends, func(a, b Extension) int { return cmp.Compare(a.Type, b.Type) })
 		out = append(out, *mod)
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	slices.SortFunc(out, func(a, b Module) int { return cmp.Compare(a.Name, b.Name) })
 	return out
 }
 
@@ -202,14 +203,9 @@ func (m *Model) ModuleFiles() (files []ModuleFile, manifest string, err error) {
 		cc := &openfgav1.Condition{Name: c.GetName(), Expression: c.GetExpression(), Parameters: c.GetParameters()}
 		get(s).conds[name] = cc
 	}
-	names := make([]string, 0, len(parts))
-	for name := range parts {
-		names = append(names, name)
-	}
-	sort.Strings(names)
 	var mod strings.Builder
 	mod.WriteString("schema: '1.2'\ncontents:\n")
-	for _, name := range names {
+	for _, name := range slices.Sorted(maps.Keys(parts)) {
 		p := parts[name]
 		dsl, err := renderModule(p.module, p.owned, p.extended, p.conds)
 		if err != nil {
@@ -225,11 +221,11 @@ func (m *Model) ModuleFiles() (files []ModuleFile, manifest string, err error) {
 // file's own types, then its `extend type` blocks, then its conditions.
 func renderModule(module string, owned, extended []*openfgav1.TypeDefinition, conds map[string]*openfgav1.Condition) (string, error) {
 	sortTypes := func(ts []*openfgav1.TypeDefinition) {
-		sort.SliceStable(ts, func(i, j int) bool { return ts[i].GetType() < ts[j].GetType() })
+		slices.SortStableFunc(ts, func(a, b *openfgav1.TypeDefinition) int { return cmp.Compare(a.GetType(), b.GetType()) })
 	}
 	sortTypes(owned)
 	sortTypes(extended)
-	print := func(tds []*openfgav1.TypeDefinition, cs map[string]*openfgav1.Condition) (string, error) {
+	format := func(tds []*openfgav1.TypeDefinition, cs map[string]*openfgav1.Condition) (string, error) {
 		if len(tds) == 0 && len(cs) == 0 {
 			return "", nil
 		}
@@ -243,14 +239,14 @@ func renderModule(module string, owned, extended []*openfgav1.TypeDefinition, co
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "module %s\n", module)
-	ownedDSL, err := print(owned, nil)
+	ownedDSL, err := format(owned, nil)
 	if err != nil {
 		return "", err
 	}
 	if ownedDSL != "" {
 		b.WriteString("\n" + ownedDSL + "\n")
 	}
-	extDSL, err := print(extended, nil)
+	extDSL, err := format(extended, nil)
 	if err != nil {
 		return "", err
 	}
@@ -263,7 +259,7 @@ func renderModule(module string, owned, extended []*openfgav1.TypeDefinition, co
 		}
 		b.WriteString("\n" + strings.Join(lines, "\n") + "\n")
 	}
-	condDSL, err := print(nil, conds)
+	condDSL, err := format(nil, conds)
 	if err != nil {
 		return "", err
 	}

@@ -1,8 +1,8 @@
 package schema
 
 import (
+	"maps"
 	"slices"
-	"sort"
 	"strings"
 
 	openfgav1 "github.com/openfga/api/proto/openfga/v1"
@@ -71,21 +71,21 @@ func (d *ModelDiff) Empty() bool {
 }
 
 // Diff compares an older and a newer model.
-func Diff(old, new *Model) *ModelDiff {
+func Diff(before, after *Model) *ModelDiff {
 	d := &ModelDiff{}
-	for _, tn := range new.TypeNames {
-		if old.Types[tn] == nil {
+	for _, tn := range after.TypeNames {
+		if before.Types[tn] == nil {
 			d.TypesAdded = append(d.TypesAdded, tn)
 		}
 	}
-	for _, tn := range old.TypeNames {
-		if new.Types[tn] == nil {
+	for _, tn := range before.TypeNames {
+		if after.Types[tn] == nil {
 			d.TypesRemoved = append(d.TypesRemoved, tn)
 		}
 	}
-	types := unionNames(old.TypeNames, new.TypeNames)
+	types := unionNames(before.TypeNames, after.TypeNames)
 	for _, tn := range types {
-		ot, nt := old.Types[tn], new.Types[tn]
+		ot, nt := before.Types[tn], after.Types[tn]
 		var rels []string
 		if ot != nil {
 			rels = append(rels, ot.RelationNames...)
@@ -94,12 +94,12 @@ func Diff(old, new *Model) *ModelDiff {
 			rels = append(rels, nt.RelationNames...)
 		}
 		for _, rn := range unionNames(rels) {
-			or, oOK := old.Relation(tn, rn)
-			nr, nOK := new.Relation(tn, rn)
+			or, oOK := before.Relation(tn, rn)
+			nr, nOK := after.Relation(tn, rn)
 			switch {
 			case !oOK:
 				d.Relations = append(d.Relations, RelationChange{Type: tn, Relation: rn, Change: "added", New: nr.Expr, NewSource: nr.Source,
-					Holders: new.Holders(tn, rn)})
+					Holders: after.Holders(tn, rn)})
 			case !nOK:
 				d.Relations = append(d.Relations, RelationChange{Type: tn, Relation: rn, Change: "removed", Old: or.Expr, OldSource: or.Source})
 			default:
@@ -109,23 +109,23 @@ func Diff(old, new *Model) *ModelDiff {
 				} else if or.Source != nr.Source {
 					d.Relations = append(d.Relations, RelationChange{Type: tn, Relation: rn, Change: "moved", Old: or.Expr, New: nr.Expr, OldSource: or.Source, NewSource: nr.Source})
 				}
-				ob, oe := old.Routes(tn, rn)
-				nb, ne := new.Routes(tn, rn)
+				ob, oe := before.Routes(tn, rn)
+				nb, ne := after.Routes(tn, rn)
 				gainedR, lostR := setDiff(ob, nb)
 				exclAdded, exclRemoved := setDiff(oe, ne)
 				if len(gainedR)+len(lostR)+len(exclAdded)+len(exclRemoved) > 0 {
 					d.Routes = append(d.Routes, RouteChange{Type: tn, Relation: rn, Lost: lostR, Gained: gainedR,
 						ExclusionsAdded: exclAdded, ExclusionsRemoved: exclRemoved, Direct: changed})
 				}
-				gained, lost := setDiff(old.Holders(tn, rn), new.Holders(tn, rn))
+				gained, lost := setDiff(before.Holders(tn, rn), after.Holders(tn, rn))
 				if len(gained)+len(lost) > 0 {
 					d.Access = append(d.Access, AccessChange{Type: tn, Relation: rn, Gained: gained, Lost: lost, Direct: changed})
 				}
 			}
 		}
 	}
-	for _, name := range unionNames(mapKeys(old), mapKeys(new)) {
-		oc, nc := conditionText(old, name), conditionText(new, name)
+	for _, name := range unionNames(slices.Collect(maps.Keys(before.Conditions)), slices.Collect(maps.Keys(after.Conditions))) {
+		oc, nc := conditionText(before, name), conditionText(after, name)
 		switch {
 		case oc == "":
 			d.Conditions = append(d.Conditions, ConditionChange{Name: name, Change: "added", New: nc})
@@ -142,12 +142,7 @@ func Diff(old, new *Model) *ModelDiff {
 // given suitable tuples. Computed once per model.
 func (m *Model) Holders(typ, rel string) []string {
 	m.holdersOnce.Do(func() { m.holderSets = m.holders() })
-	var out []string
-	for k := range m.holderSets[typ+"#"+rel] {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
+	return slices.Sorted(maps.Keys(m.holderSets[typ+"#"+rel]))
 }
 
 // Routes lists the ways a relation can be granted, transitively: direct
@@ -180,17 +175,7 @@ func (m *Model) Routes(typ, rel string) (routes, exclusions []string) {
 			switch v := u.GetUserset().(type) {
 			case *openfgav1.Userset_This:
 				for _, ref := range rr.DirectTypes {
-					s := "direct " + ref.GetType()
-					switch {
-					case ref.GetWildcard() != nil:
-						s += ":*"
-					case ref.GetRelation() != "":
-						s += "#" + ref.GetRelation()
-					}
-					if c := ref.GetCondition(); c != "" {
-						s += " with " + c
-					}
-					add(s + " on " + key)
+					add("direct " + RenderRef(ref) + " on " + key)
 				}
 			case *openfgav1.Userset_ComputedUserset:
 				add(typ + "#" + v.ComputedUserset.GetRelation())
@@ -214,16 +199,7 @@ func (m *Model) Routes(typ, rel string) (routes, exclusions []string) {
 		}
 	}
 	visit(typ, rel)
-	return sortedSet(r), sortedSet(e)
-}
-
-func sortedSet(m map[string]bool) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
+	return slices.Sorted(maps.Keys(r)), slices.Sorted(maps.Keys(e))
 }
 
 func conditionText(m *Model, name string) string {
@@ -233,31 +209,24 @@ func conditionText(m *Model, name string) string {
 	}
 	var params []string
 	for p, t := range c.GetParameters() {
-		params = append(params, p+": "+paramType(t))
+		params = append(params, p+": "+ParamType(t))
 	}
-	sort.Strings(params)
+	slices.Sort(params)
 	return "(" + strings.Join(params, ", ") + ") " + strings.TrimSpace(c.GetExpression())
 }
 
-// paramType renders a condition parameter type, e.g. "list<string>".
-func paramType(t *openfgav1.ConditionParamTypeRef) string {
+// ParamType renders a condition parameter type as the model writes it, e.g.
+// "list<string>".
+func ParamType(t *openfgav1.ConditionParamTypeRef) string {
 	s := strings.ToLower(strings.TrimPrefix(t.GetTypeName().String(), "TYPE_NAME_"))
 	if g := t.GetGenericTypes(); len(g) > 0 {
 		var parts []string
 		for _, x := range g {
-			parts = append(parts, paramType(x))
+			parts = append(parts, ParamType(x))
 		}
 		s += "<" + strings.Join(parts, ", ") + ">"
 	}
 	return s
-}
-
-func mapKeys(m *Model) []string {
-	out := make([]string, 0, len(m.Conditions))
-	for k := range m.Conditions {
-		out = append(out, k)
-	}
-	return out
 }
 
 func unionNames(lists ...[]string) []string {
@@ -271,7 +240,7 @@ func unionNames(lists ...[]string) []string {
 			}
 		}
 	}
-	sort.Strings(out)
+	slices.Sort(out)
 	return out
 }
 
